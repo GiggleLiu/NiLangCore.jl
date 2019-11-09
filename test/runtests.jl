@@ -1,6 +1,6 @@
 using NiLangCore
 using Test
 
-@testset "NiLangCore.jl" begin
-    # Write your own tests here.
+@testset "invdsl.jl" begin
+    include("invdsl.jl")
 end
