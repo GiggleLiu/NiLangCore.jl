@@ -2,7 +2,7 @@ function dual_func(ex)
     @match ex begin
         :(function $(fname)($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
-            :(function $(dual_name(fname))($(args...));
+            :(function $(dual_fname(fname))($(args...));
                     $(dual_body(body)...);
                 end)
         end
@@ -10,7 +10,7 @@ function dual_func(ex)
     end
 end
 
-function dual_name(op)
+function dual_fname(op)
     @match op begin
         :($x::$tp) => :(_::Inv{$tp})
         _ => :(_::Inv{typeof($op)})
@@ -19,14 +19,8 @@ end
 
 function dual_ex(ex)
     @match ex begin
-        :($out ⊕ $f($(args...))) => :($out ⊖ $f($(args...)))
-        :($out ⊖ $f($(args...))) => :($out ⊕ $f($(args...)))
-        :($out .⊕ $f.($(args...))) => :($out .⊖ $f.($(args...)))
-        :($out .⊖ $f.($(args...))) => :($out .⊕ $f.($(args...)))
-        :($out .⊕ $f($(args...))) => :($out .⊖ $f($(args...)))
-        :($out .⊖ $f($(args...))) => :($out .⊕ $f($(args...)))
-        :($f($(args...))) => startwithdot(f) ? :((~$(removedot(f))).($(args...))) : :((~$f)($(args...)))
-        :($f.($(args...))) => :((~$f).($(args...)))
+        :($f($(args...))) => startwithdot(f) ? :($(dotdualname(f))($(args...))) : :($(dualname(f))($(args...)))
+        :($f.($(args...))) => :($(dualname(f)).($(args...)))
         :(if ($pre, $post); $(tbr...); else; $(fbr...); end) => begin
             :(if ($post, $pre); $(dual_body(tbr)...); else; $(dual_body(fbr)...); end)
         end
@@ -39,14 +33,20 @@ function dual_ex(ex)
         end
         :(@maybe $line $subex) => :(@maybe $(dual_ex(subex)))
         :(@anc $line $x::$tp) => begin
-            :(@deanc $line $x::$tp)
+            :(@deanc $x::$tp)
         end
         :(@deanc $line $x::$tp) => begin
-            :(@anc $line $x::$tp)
+            :(@anc $x::$tp)
         end
         _ => ex
     end
 end
+
+function dualname(f)
+    Meta.parse(repr(@eval ~$f))
+end
+
+dotdualname(f::Symbol) = Symbol(:., @eval ~$(removedot(f)))
 
 function dual_body(body)
     out = map(st->(dual_ex(st)), Iterators.reverse(body))

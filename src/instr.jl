@@ -1,41 +1,6 @@
-export isreversible, isreflexive
-export @dual, @selfdual, Inv
-export ⊕, ⊖, infer
-export conditioned_apply, @maybe
+export @dual, @selfdual, nargs
 
-isreversible(f) = false
-isreflexive(f) = false
-struct Inv{FT} <: Function
-    f::FT
-end
-Inv(f::Inv) = f.f
-isreversible(::Inv) = true
-(f::Inv)(args...) = f.f(args...)
-
-Base.:~(f::Function) = Inv(f)
-Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
-Base.display(bf::Inv) where f = print(bf)
-
-"""
-accumulate result into x.
-"""
-infer(f, out!::Reg, args...) = out![] += f(getindex.(args)...)
-inv_infer(f, out!::Reg, args...) = out![] -= f(getindex.(args)...)
-
-accum(x::Reg, val) = x[] -= val
-acumm(x::AbstractArray, val) = x .+= val
-decum(x::Reg, val) = x[] -= val
-decum(x::AbstractArray, val) = x .-= val
-
-const ⊕ = infer
-const ⊖ = inv_infer
-Base.:~(::typeof(⊕)) = ⊖
-Base.:~(::typeof(⊖)) = ⊕
-Base.display(::typeof(⊕)) = print("⊕")
-Base.show(io::IO, ::typeof(⊕)) = print(io, "⊕")
-Base.display(::typeof(⊖)) = print("⊖")
-Base.show(io::IO, ::typeof(⊖)) = print(io, "⊖")
-isreversible(::typeof(infer)) = true
+function nargs end
 
 """
 define dual instructions
@@ -54,6 +19,10 @@ macro dual(ex)
             function $(esc(invf))($(invargs...)) $(invbody...) end;
             $(esc(:(NiLangCore.isreversible)))(::typeof($(esc(f)))) = true;
             $(esc(:(NiLangCore.isreversible)))(::typeof($(esc(invf)))) = true;
+            $(esc(:(NiLangCore.isprimitive)))(::typeof($(esc(f)))) = true;
+            $(esc(:(NiLangCore.isprimitive)))(::typeof($(esc(invf)))) = true;
+            $(esc(:(NiLangCore.nargs)))(::typeof($(esc(f)))) = $(length(args));
+            $(esc(:(NiLangCore.nargs)))(::typeof($(esc(invf)))) = $(length(args));
             Base.:~(::typeof($(esc(f)))) = $(esc(invf));
             Base.:~(::typeof($(esc(invf)))) = $(esc(f))
             )
@@ -69,26 +38,9 @@ macro selfdual(ex)
             function $(esc(f))($(args...)) $(body...) end;
             $(esc(:(NiLangCore.isreversible)))(::typeof($(esc(f)))) = true;
             $(esc(:(NiLangCore.isreflexive)))(::typeof($(esc(f)))) = true;
+            $(esc(:(NiLangCore.isprimitive)))(::typeof($(esc(f)))) = true;
+            $(esc(:(NiLangCore.nargs)))(::typeof($(esc(f)))) = $(length(args));
             Base.:~(::typeof($(esc(f)))) = $(esc(f))
         )
-    end
-end
-
-"""excute if and only if arguments are not nothing"""
-macro maybe(ex)
-    res = @capture $fname($(args...)) ex
-    args = Expr(:tuple, esc.(res[:args])...)
-    quote
-        conditioned_apply($(res[:fname]), $args, $args)
-    end
-end
-
-@generated function conditioned_apply(f, args, cargs)
-    if any(x->x<:Nothing, cargs.parameters)
-        return :(nothing)
-    else
-        return quote
-            f(args...)
-        end
     end
 end

@@ -8,6 +8,10 @@ end
 
 get_ftype(fname::Symbol) = :(typeof($fname))
 function get_ftype(fname::Expr)
-    res = @capture $x::$tp fname
-    return res[:tp]
+    fname.head == :(::) && return fname.args[2]
+end
+
+get_argname(arg::Symbol) = arg
+function get_argname(fname::Expr)
+    fname.head == :(::) && return fname.args[1]
 end

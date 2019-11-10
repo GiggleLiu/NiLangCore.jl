@@ -11,13 +11,22 @@ end
 """translate to normal julia code."""
 function compile_ex(ex, info)
     @match ex begin
-        :($out ⊕ $f($(args...))) => :(infer($f, $out, $(args...)))
-        :($out ⊖ $f($(args...))) => :(inv_infer($f, $out, $(args...)))
-        :($out .⊕ $f.($(args...))) => :(infer.($f, $out, $(args...)))
-        :($out .⊖ $f.($(args...))) => :(inv_infer.($f, $out, $(args...)))
-        :($out .⊕ $f($(args...))) => :(infer.($(debcast(f)), $out, $(args...)))
-        :($out .⊖ $f($(args...))) => :(inv_infer.($(debcast(f)), $out, $(args...)))
-        :($f($(args...))) => ex
+        :($f($(args...))) => begin
+            if f in [:⊕, :⊖]
+                @match args[2] begin
+                    :($subf($(subargs...))) => :($f($subf, $(args[1]), $(subargs...)))
+                    _ => error("a function call should be followed after ⊕ and ⊖.")
+                end
+            elseif f in [:(.⊕), :(.⊖)]
+                @match args[2] begin
+                    :($subf.($(subargs...))) => :($(debcast(f)).($subf, $(args[1]), $(subargs...)))
+                    :($subf($(subargs...))) => :($(debcast(f)).($(debcast(subf)), $(args[1]), $(subargs...)))
+                    _ => error("a broadcasted function call should be followed after .⊕ and .⊖.")
+                end
+            else
+                ex
+            end
+        end
         :($f.($(args...))) => ex
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
@@ -31,9 +40,10 @@ function compile_ex(ex, info)
             forstatement(i, start, step, stop, compile_body(body, ()))
         end
         :(@maybe $line $subex) => :(@maybe $(compile_ex(subex, info)))
-        :(@anc $line $x::$tp) => ex
+        :(@anc $line $x::$tp) => :(@anc $x::$tp)
+        :(@deanc $line $x::$tp) => :(@deanc $x::$tp)
         ::LineNumberNode => ex
-        _ => error("`$ex` statement is not supported for invertible lang! got $ex")
+        _ => error("`$(ex.args)` statement is not supported for invertible lang! got $ex")
     end
 end
 
@@ -90,8 +100,7 @@ function compile_func(ex)
         :($fname($(args...)) = $(body...)) => begin
             info = ()
             ftype = get_ftype(fname)
-            @show ftype
-            @show :(function $(esc(fname))($(args...))
+            :(function $(esc(fname))($(args...))
                 $(compile_body(body, info)...)
             end;
             $(esc(:(NiLangCore.getdef)))(::$(esc(ftype))) = $(QuoteNode(ex));

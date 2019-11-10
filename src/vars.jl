@@ -1,4 +1,5 @@
-export @newvar, @push, @pop, @newreg
+export @newvar, @push, @pop, @newreg, @newfloats
+export @anc, @deanc
 export GRef, AbstractGArray, GRefArray, GArray, Reg
 export safe_readvar
 export getregs, getparams
@@ -33,6 +34,14 @@ macro newvar(sym)
     else
         :(error("not an array assignment."))
     end
+end
+
+macro newfloats(args...)
+    ex = :()
+    for arg in args
+        ex = :($ex; $(esc(arg)) = GRef(0.0))
+    end
+    return ex
 end
 
 macro R(ex)

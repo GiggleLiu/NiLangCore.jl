@@ -1,13 +1,17 @@
+using NiLangCore
+using Test
+
+@i function test1(a::GRef, b, out::GRef)
+    a + b
+    out ⊕ a * b
+end
+@eval $(gradexpr(test1))
+
 @testset "i" begin
     # compute (a+b)*b -> out
-    @i function test1(a::Ref, b, out::Ref)
-        a + b
-        out ⊕ a * b
-    end
-
-    x = Ref(3)
-    y = Ref(4)
-    out = Ref(0)
+    x = GRef(3)
+    y = GRef(4)
+    out = GRef(0)
     test1(x, y, out)
     @test out[]==28
     (~test1)(x, y, out)
@@ -18,13 +22,13 @@
     @test isreversible(~test1')
 
     # gradient
-    x = Ref(3)
-    y = Ref(4)
-    out = Ref(0)
+    x = GRef(3)
+    y = GRef(4)
+    out = GRef(0)
     test1(x, y, out)
-    xδ = Ref(1)
-    yδ = Ref(2)
-    outδ = Ref(2)
+    xδ = GRef(1)
+    yδ = GRef(2)
+    outδ = GRef(2)
     test1'(x, y, out, xδ, yδ, outδ)
     @test outδ[] == 2
     @test xδ[] == 9
@@ -35,18 +39,15 @@ end
     # compute (a+b)*b -> out
     @i function test1(a::GRef, b, out::GRef)
         a + b
-        iprintln("a=", a)
         if (a[] > 8, a[] > 8)
-            iprintln("a=", a)
             out ⊕ a[]*b[]
         else
-            iprintln("a=", a)
         end
     end
 
-    x = Ref(3)
-    y = Ref(4)
-    out = Ref(0)
+    x = GRef(3)
+    y = GRef(4)
+    out = GRef(0)
     test1(x, y, out)
     @test out[]==0
     @test x[]==7
@@ -234,7 +235,4 @@ end
     @test xδ[] == [1, 6.0]
     @test yδ[] == [1, 14.0]
     @test check_grad(test2, (x, y, out), loss=out[1])
-end
-
-@testset "abstraction" begin
 end
