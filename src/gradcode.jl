@@ -143,10 +143,10 @@ function grad_ex(ex, info)
         end
         :(@maybe $line $subex) => :(@maybe $(grad_ex(subex)))
         :(@anc $line $x::$tp) => begin
-            :(@deanc $line $x::$tp)
+            :(@deanc $x::$tp)
         end
         :(@deanc $line $x::$tp) => begin
-            :(@anc $line $x::$tp)
+            :(@anc $x::$tp)
         end
         _ => ex
     end
@@ -157,7 +157,7 @@ function gradname(f)
 end
 
 macro initgrad(f)
-    :(@eval (grad_func(NiLangCore.FUNCDEF[$f])))
+    compile_func(grad_func(NiLangCore.FUNCDEF[f]))
 end
 
 #=

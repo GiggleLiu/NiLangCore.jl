@@ -81,7 +81,7 @@ end
     @test compile_ex(:(f(x, y)), info) == :($(esc(:f))(x, y))
     @test compile_ex(:(out ⊕ (x + y)), info) == :(⊕(+, out, x, y))
     @test compile_ex(:(x .+ y), info) == :($(esc(:.+))(x, y))
-    @test compile_ex(:(f.(x, y)), info) == :(f.(x, y))
+    @test compile_ex(:(f.(x, y)), info) == :($(esc(:f)).(x, y))
     @test compile_ex(:(out .⊕ (x .+ y)), info) == :((⊕).(+, out, x, y))
     @test compile_ex(:(out .⊕ swap.(x, y)), info) == :((⊕).(swap, out, x, y))
 end

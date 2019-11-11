@@ -9,7 +9,7 @@ end
     a + b
     out ⊕ a * b
 end
-#@eval $(gradexpr(test1))
+@initgrad test1
 
 @i function tt(a, b)
     @anc out::Float64
@@ -17,6 +17,7 @@ end
     (~test1)(a, b, out)
     a + b
 end
+@initgrad tt
 
 @testset "i" begin
     # compute (a+b)*b -> out
