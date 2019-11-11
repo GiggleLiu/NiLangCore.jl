@@ -24,7 +24,7 @@ function compile_ex(ex, info)
                     _ => error("a broadcasted function call should be followed after .⊕ and .⊖.")
                 end
             else
-                ex
+                :($(esc(f))($(args...)))
             end
         end
         :($f.($(args...))) => ex

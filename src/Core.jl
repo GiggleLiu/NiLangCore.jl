@@ -30,10 +30,11 @@ export conditioned_apply, @maybe
 
 """excute if and only if arguments are not nothing"""
 macro maybe(ex)
-    res = @capture $fname($(args...)) ex
-    args = Expr(:tuple, esc.(res[:args])...)
-    quote
-        conditioned_apply($(res[:fname]), $args, $args)
+    @match ex begin
+        :($fname($(args...))) => begin
+            args = Expr(:tuple, esc.(args)...)
+            :(conditioned_apply($fname, $args, $args))
+        end
     end
 end
 

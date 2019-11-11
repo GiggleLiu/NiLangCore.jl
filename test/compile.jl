@@ -189,6 +189,7 @@ end
     (~test2)(x, y, out)
     @test out[]==[0, 1.0]
 
+    #=
     # gradients
     xδ = GArray([1,2.0])
     yδ = GArray([0,2.0])
@@ -198,6 +199,7 @@ end
     @test outδ[] == [0,2.0]
     @test xδ[] == [1, 6.0]
     @test yδ[] == [1, 14.0]
+    =#
 end
 
 @testset "broadcast 2" begin
@@ -225,6 +227,7 @@ end
     (~test2).(x, y, out)
     @test out[]==[0, 1.0]
 
+    #=
     # gradients
     xδ = GArray([1,2.0])
     yδ = GArray([0,2.0])
@@ -235,4 +238,5 @@ end
     @test xδ[] == [1, 6.0]
     @test yδ[] == [1, 14.0]
     @test check_grad(test2, (x, y, out), loss=out[1])
+    =#
 end

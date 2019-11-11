@@ -45,19 +45,23 @@ macro newfloats(args...)
 end
 
 macro R(ex)
-    @capture $a[$(inds...)] ex
-    :(GRefArray(a, inds))
+    @match ex begin
+        :($a[$(inds...)]) => :(GRefArray(a, inds))
+        _ => error("expected a[...] like expression, got $ex")
+    end
 end
 
 """
 push value to A STACK, with initialization.
 """
 macro push(ex::Expr)
-    res = @capture ($x = $val) ex
-    :(
-    $(esc(res[:x])) = $(GRef(res[:val]));
-    push!(A_STACK, $(esc(res[:x])))
-    )
+    @match ex begin
+        :($x = $val) =>
+        :(
+        $(esc(x)) = $(GRef(val));
+        push!(A_STACK, $(esc(x)))
+        )
+    end
 end
 
 """
@@ -84,11 +88,13 @@ end
 pop value to B STACK, with post check.
 """
 macro pop(ex::Expr)
-    res = @capture ($x = $val) ex
-    :(
-    push!(A_STACK, $(esc(res[:x])));
-    @invcheck $(esc(res[:x])[]) ≈ $(res[:val])
-    )
+    @match ex begin
+        :($x = $val) =>
+            :(
+            push!(A_STACK, $(esc(x)));
+            @invcheck $(esc(x)[]) ≈ $val
+            )
+    end
 end
 
 macro newreg(sym::Symbol...)

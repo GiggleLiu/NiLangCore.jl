@@ -159,6 +159,14 @@ macro initgrad(f)
     #grad_func(getdef(@eval $f))
 end
 
+export g
+function g(f)
+    mk_function(@match grad_func(getdef(f)) begin
+            :(function $f($(args...)) $(body...) end) =>
+                :(function ($(args...),) $(body...) end)
+    end)
+end
+
 export gradexpr
 function gradexpr(f)
     grad_func(getdef(f))
