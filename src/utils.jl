@@ -1,5 +1,6 @@
 # Compile utilities
 startwithdot(sym::Symbol) = string(sym)[1] == '.'
+startwithdot(sym::Expr) = false
 removedot(sym::Symbol) = startwithdot(sym) ? Symbol(string(sym)[2:end]) : sym
 function debcast(f)
     string(f)[1] == '.' || error("$f is not a broadcasting.")

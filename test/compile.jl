@@ -7,6 +7,13 @@ using Test
 end
 @eval $(gradexpr(test1))
 
+@i function tt(a, b)
+    @anc out::Float64
+    test1(a, b, out)
+    (~test1)(a, b, out)
+    a + b
+end
+
 @testset "i" begin
     # compute (a+b)*b -> out
     x = GRef(3)
@@ -20,6 +27,7 @@ end
     @test isreversible(test1')
     (~test1)' == ~(test1')
     @test isreversible(~test1')
+    check_inv(tt, (x, y))
 
     # gradient
     x = GRef(3)
@@ -157,7 +165,6 @@ end
         x + y
         z + 1
         z - 10
-        println(z)
     end
     x = Ref(0.0)
     y = 9

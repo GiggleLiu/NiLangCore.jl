@@ -4,16 +4,24 @@ export grad_func
 # NOTE: back and inv commute.
 macro adjoint(ex)
     @match ex begin
-        :(function $f'($(args...)) $(body...) end) => afn_grad_compile(f, args, body)
+        :(function $f'($(args...)) $(body...) end) => begin
+            NiLangCore.FUNCDEF[:($f')] = ex
+            afn_grad_compile(f, args, body)
+        end
     end
 end
 
 macro nograd(f)
     narg = NiLangCore.nargs(@eval $f)
     tp = get_ftype(f)
+    gfname = :($f')
     args = [gensym() for i=1:narg]
+    NiLangCore.FUNCDEF[gfname] =
+    :(function $gfname($(args...), $([gensym() for arg in args]...))
+        $(NiLangCore.INVFUNC[f])($(args...))
+    end)
     ex = :(function (g::Grad{$tp})($(args...), $([gensym() for arg in args]...))
-        (~g.f)($(args...))
+        $(NiLangCore.INVFUNC[f])($(args...))
     end)
     :(
     $ex;

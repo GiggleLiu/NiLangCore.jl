@@ -90,8 +90,32 @@ export compile_func, getdef
 
 macro i(ex)
     ex = precom(ex)
-    :($(compile_func(ex));
-    $(compile_func(dual_func(ex))))
+    @match ex begin
+        :(function $fname($(args...)) $(body...) end) ||
+        :($fname($(args...)) = $(body...)) => begin
+            info = ()
+            ifname = :(~$fname)
+            iex = dual_func(ex)
+            NiLangCore.INVFUNC[fname] = ifname
+            NiLangCore.INVFUNC[ifname] = fname
+            NiLangCore.FUNCDEF[fname] = ex
+            NiLangCore.FUNCDEF[ifname] = iex
+
+            # implementations
+            ftype = get_ftype(fname)
+            iftype = get_ftype(NiLangCore.dual_fname(fname))
+            :(function $(esc(fname))($(args...))
+                $(compile_body(body, info)...)
+            end;
+            function $(esc(NiLangCore.dual_fname(fname)))($(args...))
+                $(compile_body(dual_body(body), info)...)
+            end;
+            $(esc(:(NiLangCore.getdef)))(::$(esc(ftype))) = $(QuoteNode(ex));
+            $(esc(:(NiLangCore.getdef)))(::$(esc(iftype))) = $(QuoteNode(iex));
+            $(esc(:(NiLangCore.isreversible)))(::$(esc(ftype))) = true)
+        end
+        _=>error("$ex is not a function def")
+    end
 end
 
 function compile_func(ex)

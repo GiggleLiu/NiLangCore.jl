@@ -2,7 +2,7 @@ function dual_func(ex)
     @match ex begin
         :(function $(fname)($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
-            :(function $(dual_fname(fname))($(args...));
+            :(function $(:(~$fname))($(args...));
                     $(dual_body(body)...);
                 end)
         end
@@ -17,9 +17,29 @@ function dual_fname(op)
     end
 end
 
+function _infer_dual(sym::Symbol)
+    if sym == :⊕
+        :⊖
+    elseif sym == :⊖
+        :⊕
+    elseif sym == :.⊕
+        :.⊖
+    elseif sym == :.⊖
+        :.⊕
+    end
+end
+
 function dual_ex(ex)
     @match ex begin
-        :($f($(args...))) => startwithdot(f) ? :($(dotdualname(f))($(args...))) : :($(dualname(f))($(args...)))
+        :($f($(args...))) => begin
+            if f in [:⊕, :⊖, :.⊕, :.⊖]
+                :($(_infer_dual(f))($(args...)))
+            elseif startwithdot(f)
+                :($(dotdualname(f))($(args...)))
+            else
+                :($(dualname(f))($(args...)))
+            end
+        end
         :($f.($(args...))) => :($(dualname(f)).($(args...)))
         :(if ($pre, $post); $(tbr...); else; $(fbr...); end) => begin
             :(if ($post, $pre); $(dual_body(tbr)...); else; $(dual_body(fbr)...); end)
@@ -43,7 +63,7 @@ function dual_ex(ex)
 end
 
 function dualname(f)
-    Meta.parse(repr(@eval ~$f))
+    INVFUNC[f]
 end
 
 dotdualname(f::Symbol) = Symbol(:., @eval ~$(removedot(f)))

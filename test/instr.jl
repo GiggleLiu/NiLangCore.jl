@@ -2,14 +2,15 @@ using NiLangCore
 using NiLangCore: compile_ex, dual_ex, grad_ex
 
 using Test
+import Base: +, -, xor
 
 @dual begin
-    function Base.:+(a!::Reg, b)
+    function +(a!::Reg, b)
         # check address conflict, a, b should be different.
         a![] += b[]
     end
 
-    function Base.:-(a!::Reg, b)
+    function -(a!::Reg, b)
         a![] -= b[]
     end
 end
@@ -20,7 +21,7 @@ end
 end
 
 @selfdual begin
-    function Base.xor(a!::Reg, b)
+    function xor(a!::Reg, b)
         a![] = xor(a![], b[])
     end
 end

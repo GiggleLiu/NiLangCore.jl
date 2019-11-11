@@ -11,6 +11,8 @@ macro dual(ex)
     @match ex begin
         :($fline; function $f($(args...)) $(body...) end; $invfline;
             function $invf($(invargs...)) $(invbody...)end) => begin
+            NiLangCore.INVFUNC[f] = invf
+            NiLangCore.INVFUNC[invf] = f
             if length(args) != length(invargs)
                 return :(error("forward and reverse function arguments should be the same! got $args and $invargs"))
             end
@@ -33,14 +35,16 @@ end
 """define a self-dual instruction"""
 macro selfdual(ex)
     @match ex begin
-        :($fline; function $f($(args...)) $(body...) end) =>
-        :(
+        :($fline; function $f($(args...)) $(body...) end) => begin
+            NiLangCore.INVFUNC[f] = f
+            :(
             function $(esc(f))($(args...)) $(body...) end;
             $(esc(:(NiLangCore.isreversible)))(::typeof($(esc(f)))) = true;
             $(esc(:(NiLangCore.isreflexive)))(::typeof($(esc(f)))) = true;
             $(esc(:(NiLangCore.isprimitive)))(::typeof($(esc(f)))) = true;
             $(esc(:(NiLangCore.nargs)))(::typeof($(esc(f)))) = $(length(args));
             Base.:~(::typeof($(esc(f)))) = $(esc(f))
-        )
+            )
+        end
     end
 end
