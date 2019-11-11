@@ -5,7 +5,8 @@ export grad_func
 macro adjoint(ex)
     @match ex begin
         :(function $f'($(args...)) $(body...) end) => begin
-            NiLangCore.FUNCDEF[:($f')] = ex
+            NiLangCore.FUNCDEF[Symbol(f, "'")] = ex
+            NiLangCore.INVFUNC[Symbol(f, "'")] = Symbol(~, f, "'")
             afn_grad_compile(f, args, body)
         end
     end
@@ -14,10 +15,9 @@ end
 macro nograd(f)
     narg = NiLangCore.nargs(@eval $f)
     tp = get_ftype(f)
-    gfname = :($f')
     args = [gensym() for i=1:narg]
-    NiLangCore.FUNCDEF[gfname] =
-    :(function $gfname($(args...), $([gensym() for arg in args]...))
+    NiLangCore.FUNCDEF[Symbol(f, "'")] =
+    :(function ($f')($(args...), $([gensym() for arg in args]...))
         $(NiLangCore.INVFUNC[f])($(args...))
     end)
     ex = :(function (g::Grad{$tp})($(args...), $([gensym() for arg in args]...))
@@ -25,7 +25,6 @@ macro nograd(f)
     end)
     :(
     $ex;
-    NiLangCore.getdef(::Grad{$tp}) = $(QuoteNode(ex))
     )
 end
 
@@ -66,10 +65,9 @@ function g_fix(args, info)
     return [args..., gargs...]
 end
 
-#=
 @gg function (g::Grad{F})(args...) where F
     narg = length(args)
-    ex = getdef(F.instance)
+    ex = NiLangCore.FUNCDEF[Symbol(F.instance)]
     @match ex begin
         :(function $fname($(xs...)) $(body...) end) ||
         :($fname($(xs...)) = $(body...)) => begin
@@ -86,7 +84,6 @@ end
         end
     end
 end
-=#
 
 function grad_func(ex)
     @match ex begin
@@ -156,17 +153,14 @@ function grad_ex(ex, info)
 end
 
 function gradname(f)
-    Meta.parse(repr(@eval $f'))
-end
-function gradname(f::Symbol)
-    :(Grad{typeof($f)}($f))
+    :($f')
 end
 
 macro initgrad(f)
-    :(@eval (grad_func(getdef($f))))
-    #grad_func(getdef(@eval $f))
+    :(@eval (grad_func(NiLangCore.FUNCDEF[$f])))
 end
 
+#=
 export g
 function g(f)
     mk_function(@match grad_func(getdef(f)) begin
@@ -174,8 +168,9 @@ function g(f)
                 :(function ($(args...),) $(body...) end)
     end)
 end
+=#
 
 export gradexpr
 function gradexpr(f)
-    grad_func(getdef(f))
+    grad_func(NiLangCore.FUNCDEF[f])
 end

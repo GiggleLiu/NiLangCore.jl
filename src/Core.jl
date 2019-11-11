@@ -71,5 +71,5 @@ Base.show(io::IO, ::typeof(⊖)) = print(io, "⊖")
 isreversible(::typeof(⊕)) = true
 isreversible(::typeof(⊖)) = true
 
-const INVFUNC = Dict{Any, Any}()
-const FUNCDEF = Dict{Any, Any}()
+const INVFUNC = Dict{Symbol, Symbol}()
+const FUNCDEF = Dict{Symbol, Expr}()

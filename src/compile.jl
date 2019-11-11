@@ -1,4 +1,3 @@
-function getdef end
 function compile_body(body::AbstractVector, info)
     out = []
     for ex in body
@@ -27,7 +26,7 @@ function compile_ex(ex, info)
                 :($(esc(f))($(args...)))
             end
         end
-        :($f.($(args...))) => ex
+        :($f.($(args...))) => :($(esc(f)).($(args...)))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             ifstatement(pre, post, compile_body(truebranch, info), compile_body(falsebranch, info))
@@ -86,7 +85,7 @@ function forstatement(i, start, step, stop, body)
 end
 
 export @i
-export compile_func, getdef
+export compile_func
 
 macro i(ex)
     ex = precom(ex)
@@ -94,7 +93,7 @@ macro i(ex)
         :(function $fname($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
             info = ()
-            ifname = :(~$fname)
+            ifname = Symbol(~, fname)
             iex = dual_func(ex)
             NiLangCore.INVFUNC[fname] = ifname
             NiLangCore.INVFUNC[ifname] = fname
@@ -110,8 +109,6 @@ macro i(ex)
             function $(esc(NiLangCore.dual_fname(fname)))($(args...))
                 $(compile_body(dual_body(body), info)...)
             end;
-            $(esc(:(NiLangCore.getdef)))(::$(esc(ftype))) = $(QuoteNode(ex));
-            $(esc(:(NiLangCore.getdef)))(::$(esc(iftype))) = $(QuoteNode(iex));
             $(esc(:(NiLangCore.isreversible)))(::$(esc(ftype))) = true)
         end
         _=>error("$ex is not a function def")
@@ -127,7 +124,6 @@ function compile_func(ex)
             :(function $(esc(fname))($(args...))
                 $(compile_body(body, info)...)
             end;
-            $(esc(:(NiLangCore.getdef)))(::$(esc(ftype))) = $(QuoteNode(ex));
             $(esc(:(NiLangCore.isreversible)))(::$(esc(ftype))) = true)
         end
         _=>error("$ex is not a function def")

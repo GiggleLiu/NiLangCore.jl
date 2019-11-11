@@ -62,22 +62,29 @@ function dual_ex(ex)
     end
 end
 
-function dualname(f)
+function dualsym(f::Symbol)
     INVFUNC[f]
 end
+dualsym(f) = dualsym(Symbol(f))
 
-dotdualname(f::Symbol) = Symbol(:., @eval ~$(removedot(f)))
+dualname(f) = fsym2expr(dualsym(f))
+
+function fsym2expr(x::Symbol)
+    sx = string(x)
+    nprime = count(==('\''), sx)
+    if sx[1] == '~'
+        ex = Expr(:call, :~, Symbol(sx[2:end-nprime]))
+    else
+        ex = Symbol(sx[1:end-nprime])
+    end
+    for i=1:nprime
+        ex = :($ex')
+    end
+    return ex
+end
+
+dotdualname(f::Symbol) = Symbol(:., dualname(removedot(f)))
 
 function dual_body(body)
     out = map(st->(dual_ex(st)), Iterators.reverse(body))
 end
-
-@info dual_func(:(function f(x);
-        @anc x::Int;
-        x + 1;
-        if (x>3, x>5);
-            x-1;
-        else;
-            x+1;
-        end;
-    end))

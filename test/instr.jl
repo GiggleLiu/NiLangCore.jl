@@ -4,6 +4,10 @@ using NiLangCore: compile_ex, dual_ex, grad_ex
 using Test
 import Base: +, -, xor
 
+@testset "naming" begin
+    @test NiLangCore.fsym2expr(Symbol("~fa'''")) == :((((~fa)')')')
+end
+
 @dual begin
     function +(a!::Reg, b)
         # check address conflict, a, b should be different.
@@ -27,7 +31,7 @@ end
 end
 @nograd xor
 
-@i function (F::typeof((⊕)'))(f::typeof(*), out!::Reg, x, y, outδ, xδ!, yδ!)
+@adjoint function (⊕)'(f::typeof(*), out!::Reg, x, y, outδ, xδ!, yδ!)
     out! ⊖ x * y
     @maybe xδ! ⊕ outδ * y
     @maybe yδ! ⊕ x * outδ
@@ -92,10 +96,10 @@ end
 
 @testset "grad_ex" begin
     info = Dict(:x=>:gx, :y=>:gy, :out=>:gout)
-    @test grad_ex(:(out ⊕ (x + y)), info) == :(Grad{typeof(⊕)}(⊕)(+, out, x, y, gout, gx, gy))
-    @test grad_ex(:(x .+ y), info) == :(Grad{typeof(+)}(+).(x, y, gx, gy))
-    @test grad_ex(:(out .⊕ (x .+ y)), info) == :(Grad{typeof(⊕)}(⊕).(+, out, x, y, gout, gx, gy))
-    @test grad_ex(:(out .⊕ swap.(x, y)), info) == :(Grad{typeof(⊕)}(⊕).(swap, out, x, y, gout, gx, gy))
+    @test grad_ex(:(out ⊕ (x + y)), info) == :((⊕)'(+, out, x, y, gout, gx, gy))
+    @test grad_ex(:(x .+ y), info) == :((+)'.(x, y, gx, gy))
+    @test grad_ex(:(out .⊕ (x .+ y)), info) == :((⊕)'.(+, out, x, y, gout, gx, gy))
+    @test grad_ex(:(out .⊕ swap.(x, y)), info) == :((⊕)'.(swap, out, x, y, gout, gx, gy))
 end
 
 @testset "⊕" begin

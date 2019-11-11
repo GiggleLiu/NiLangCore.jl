@@ -1,11 +1,15 @@
 using NiLangCore
 using Test
 
+@i function test0(a::GRef, b)
+    a + b
+end
+
 @i function test1(a::GRef, b, out::GRef)
     a + b
     out ⊕ a * b
 end
-@eval $(gradexpr(test1))
+#@eval $(gradexpr(test1))
 
 @i function tt(a, b)
     @anc out::Float64
