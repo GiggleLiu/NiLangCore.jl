@@ -1,25 +1,21 @@
 using NiLangCore
 using Test
 
-@i function test0(a::GRef, b)
-    a + b
-end
-
-@i function test1(a::GRef, b, out::GRef)
-    a + b
-    out ⊕ a * b
-end
-@initgrad test1
-
-@i function tt(a, b)
-    @anc out::Float64
-    test1(a, b, out)
-    (~test1)(a, b, out)
-    a + b
-end
-@initgrad tt
-
 @testset "i" begin
+    @i function test1(a::GRef, b, out::GRef)
+        a + b
+        out ⊕ a * b
+    end
+    @initgrad test1
+
+    @i function tt(a, b)
+        @anc out::Float64
+        test1(a, b, out)
+        (~test1)(a, b, out)
+        a + b
+    end
+    @initgrad tt
+
     # compute (a+b)*b -> out
     x = GRef(3)
     y = GRef(4)
@@ -201,17 +197,16 @@ end
     (~test2)(x, y, out)
     @test out[]==[0, 1.0]
 
-    #=
     # gradients
     xδ = GArray([1,2.0])
     yδ = GArray([0,2.0])
     outδ = GArray([0,2.0])
     test2(x, y, out)
+    @initgrad test2
     test2'(x, y, out, xδ, yδ, outδ)
     @test outδ[] == [0,2.0]
     @test xδ[] == [1, 6.0]
     @test yδ[] == [1, 14.0]
-    =#
 end
 
 @testset "broadcast 2" begin
@@ -239,16 +234,38 @@ end
     (~test2).(x, y, out)
     @test out[]==[0, 1.0]
 
-    #=
     # gradients
     xδ = GArray([1,2.0])
     yδ = GArray([0,2.0])
     outδ = GArray([0,2.0])
     test2.(x, y, out)
+    @initgrad test2
     test2'.(x, y, out, xδ, yδ, outδ)
     @test outδ[] == [0,2.0]
     @test xδ[] == [1, 6.0]
     @test yδ[] == [1, 14.0]
-    @test check_grad(test2, (x, y, out), loss=out[1])
-    =#
+    @newvar a = 1.0
+    @newvar b = 1.3
+    @newvar c = 1.9
+    @test check_grad(test2, (a,b,c), loss=c)
+end
+
+@testset "function call function" begin
+    # compute (a+b)*b -> out
+    @i function test1(a, b)
+        a + b
+    end
+    @initgrad test1
+
+    @i function test2(a, b, out)
+        test1(a, out)
+        (~test1)(a, out)
+        out ⊕ (a * b)
+    end
+    @initgrad test2
+
+    @newvar a = 1.0
+    @newvar b = 1.3
+    @newvar c = 1.9
+    @test check_grad(test2, (a,b,c), loss=c)
 end

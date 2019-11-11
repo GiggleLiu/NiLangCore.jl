@@ -1,12 +1,8 @@
 using NiLangCore
-using NiLangCore: compile_ex, dual_ex, grad_ex
+using NiLangCore: compile_ex, dual_ex, grad_ex, precom_ex
 
 using Test
 import Base: +, -, xor
-
-@testset "naming" begin
-    @test NiLangCore.fsym2expr(Symbol("~fa'''")) == :((((~fa)')')')
-end
 
 @dual begin
     function +(a!::Reg, b)
@@ -31,7 +27,7 @@ end
 end
 @nograd xor
 
-@adjoint function (⊕)'(f::typeof(*), out!::Reg, x, y, outδ, xδ!, yδ!)
+@adjoint function (⊕(*))'(out!::Reg, x, y, outδ, xδ!, yδ!)
     out! ⊖ x * y
     @maybe xδ! ⊕ outδ * y
     @maybe yδ! ⊕ x * outδ
@@ -79,19 +75,19 @@ end
 @testset "compile_ex" begin
     info = ()
     @test compile_ex(:(f(x, y)), info) == :($(esc(:f))(x, y))
-    @test compile_ex(:(out ⊕ (x + y)), info) == :(⊕(+, out, x, y))
+    @test compile_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :($(esc(:(⊕(+))))(out, x, y))
     @test compile_ex(:(x .+ y), info) == :($(esc(:.+))(x, y))
     @test compile_ex(:(f.(x, y)), info) == :($(esc(:f)).(x, y))
-    @test compile_ex(:(out .⊕ (x .+ y)), info) == :((⊕).(+, out, x, y))
-    @test compile_ex(:(out .⊕ swap.(x, y)), info) == :((⊕).(swap, out, x, y))
+    @test compile_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :($(esc(:(⊕(+)))).(out, x, y))
+    @test compile_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :($(esc(:(⊕(swap)))).(out, x, y))
 end
 
 @testset "dual_ex" begin
-    @test dual_ex(:(out ⊕ (x + y))) == :(out ⊖ (x + y))
+    @test dual_ex(:(⊕(+)(out, x, y))) == :(⊖(+)(out, x, y))
     @test dual_ex(:(x .+ y)) == :((x .- y))
     @test dual_ex(:((+).(x, y))) == :((-).(x, y))
-    @test dual_ex(:(out .⊕ (x .+ y))) == :(out .⊖ (x .+ y))
-    @test dual_ex(:(out .⊕ xor.(x, y))) == :(out .⊖ xor.(x, y))
+    @test dual_ex(:(⊕(+).(out, x, y))) == :(⊖(+).(out, x, y))
+    @test dual_ex(:(⊕(xor).(out, x, y))) == :(⊖(xor).(out, x, y))
 end
 
 @testset "grad_ex" begin
@@ -105,10 +101,10 @@ end
 @testset "⊕" begin
     x = Ref(1.0)
     y = Ref(1.0)
-    ⊕(exp, y, x)
+    ⊕(exp)(y, x)
     @test x[] ≈ 1
     @test y[] ≈ 1+exp(1.0)
-    (~⊕)(exp, y, x)
+    (~⊕(exp))(y, x)
     @test x[] ≈ 1
     @test y[] ≈ 1
 end

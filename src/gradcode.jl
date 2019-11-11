@@ -3,10 +3,11 @@ export grad_func
 
 # NOTE: back and inv commute.
 macro adjoint(ex)
+    ex = precom(ex)
     @match ex begin
         :(function $f'($(args...)) $(body...) end) => begin
-            NiLangCore.FUNCDEF[Symbol(f, "'")] = ex
-            NiLangCore.INVFUNC[Symbol(f, "'")] = Symbol(~, f, "'")
+            NiLangCore.FUNCDEF[:($f')] = ex
+            NiLangCore.INVFUNC[:($f')] = :((~$f)')
             afn_grad_compile(f, args, body)
         end
     end
@@ -16,7 +17,7 @@ macro nograd(f)
     narg = NiLangCore.nargs(@eval $f)
     tp = get_ftype(f)
     args = [gensym() for i=1:narg]
-    NiLangCore.FUNCDEF[Symbol(f, "'")] =
+    NiLangCore.FUNCDEF[:($f')] =
     :(function ($f')($(args...), $([gensym() for arg in args]...))
         $(NiLangCore.INVFUNC[f])($(args...))
     end)
@@ -34,9 +35,9 @@ function afn_grad_compile(fname, args, body)
             $(compile_body(body, ())...);
         end
     )
-    if (@eval isreflexive($fname))
+    if getdual(fname) != fname
         gex = :($gex;
-            function (grad_name(inv_name(fname)))($(args...));
+            function $(grad_name(getdual(fname)))($(args...));
                 $(compile_body(dual_body(body), ())...);
             end
         )
@@ -65,9 +66,10 @@ function g_fix(args, info)
     return [args..., gargs...]
 end
 
+#=
 @gg function (g::Grad{F})(args...) where F
     narg = length(args)
-    ex = NiLangCore.FUNCDEF[Symbol(F.instance)]
+    ex = NiLangCore.FUNCDEF[:($(F.instance))]
     @match ex begin
         :(function $fname($(xs...)) $(body...) end) ||
         :($fname($(xs...)) = $(body...)) => begin
@@ -84,6 +86,7 @@ end
         end
     end
 end
+=#
 
 function grad_func(ex)
     @match ex begin
@@ -157,7 +160,8 @@ function gradname(f)
 end
 
 macro initgrad(f)
-    compile_func(grad_func(NiLangCore.FUNCDEF[f]))
+    :($(compile_func(grad_func(NiLangCore.FUNCDEF[f])));
+    $(compile_func(grad_func(NiLangCore.FUNCDEF[getdual(f)]))))
 end
 
 #=

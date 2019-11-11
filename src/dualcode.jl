@@ -32,15 +32,13 @@ end
 function dual_ex(ex)
     @match ex begin
         :($f($(args...))) => begin
-            if f in [:⊕, :⊖, :.⊕, :.⊖]
-                :($(_infer_dual(f))($(args...)))
-            elseif startwithdot(f)
-                :($(dotdualname(f))($(args...)))
+            if startwithdot(f)
+                :($(dotgetdual(f))($(args...)))
             else
-                :($(dualname(f))($(args...)))
+                :($(getdual(f))($(args...)))
             end
         end
-        :($f.($(args...))) => :($(dualname(f)).($(args...)))
+        :($f.($(args...))) => :($(getdual(f)).($(args...)))
         :(if ($pre, $post); $(tbr...); else; $(fbr...); end) => begin
             :(if ($post, $pre); $(dual_body(tbr)...); else; $(dual_body(fbr)...); end)
         end
@@ -62,28 +60,19 @@ function dual_ex(ex)
     end
 end
 
-function dualsym(f::Symbol)
-    INVFUNC[f]
-end
-dualsym(f) = dualsym(Symbol(f))
-
-dualname(f) = fsym2expr(dualsym(f))
-
-function fsym2expr(x::Symbol)
-    sx = string(x)
-    nprime = count(==('\''), sx)
-    if sx[1] == '~'
-        ex = Expr(:call, :~, Symbol(sx[2:end-nprime]))
-    else
-        ex = Symbol(sx[1:end-nprime])
-    end
-    for i=1:nprime
-        ex = :($ex')
-    end
-    return ex
+dualname(f) = @match f begin
+    :(⊕($f)) => :(⊖($f))
+    :(⊖($f)) => :(⊕($f))
+    :(~$fname) => fname
+    _ => :(~$f)
 end
 
-dotdualname(f::Symbol) = Symbol(:., dualname(removedot(f)))
+getdual(f) = @match f begin
+    :(⊕($f)) => :(⊖($f))
+    :(⊖($f)) => :(⊕($f))
+    _ => INVFUNC[f]
+end
+dotgetdual(f::Symbol) = Symbol(:., getdual(removedot(f)))
 
 function dual_body(body)
     out = map(st->(dual_ex(st)), Iterators.reverse(body))

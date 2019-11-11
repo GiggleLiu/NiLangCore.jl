@@ -50,26 +50,30 @@ end
 
 ######### Infer
 export ⊕, ⊖
+export OPlus, OMinus
+struct OPlus{FT} <: Function
+    f::FT
+end
+struct OMinus{FT} <: Function
+    f::FT
+end
+const OPM{FT} = Union{OPlus{FT}, OMinus{FT}}
 
 """
 accumulate result into x.
 """
-⊕(f, out!::Reg, args...) = out![] += f(getindex.(args)...)
-⊖(f, out!::Reg, args...) = out![] -= f(getindex.(args)...)
+(inf::OPlus)(out!::Reg, args...) = out![] += inf.f(getindex.(args)...)
+(inf::OMinus)(out!::Reg, args...) = out![] -= inf.f(getindex.(args)...)
+const ⊕ = OPlus
+const ⊖ = OMinus
 
-accum(x::Reg, val) = x[] -= val
-acumm(x::AbstractArray, val) = x .+= val
-decum(x::Reg, val) = x[] -= val
-decum(x::AbstractArray, val) = x .-= val
+Base.:~(op::OPlus) = OMinus(op.f)
+Base.:~(om::OMinus) = OPlus(om.f)
+_char(::OPlus) = '⊕'
+_char(::OMinus) = '⊖'
+Base.display(o::OPM) = print(_char(o), o.f)
+Base.show(io::IO, o::OPM) = print(io, _char(o), o.f)
+isreversible(::OPM) = true
 
-Base.:~(::typeof(⊕)) = ⊖
-Base.:~(::typeof(⊖)) = ⊕
-Base.display(::typeof(⊕)) = print("⊕")
-Base.show(io::IO, ::typeof(⊕)) = print(io, "⊕")
-Base.display(::typeof(⊖)) = print("⊖")
-Base.show(io::IO, ::typeof(⊖)) = print(io, "⊖")
-isreversible(::typeof(⊕)) = true
-isreversible(::typeof(⊖)) = true
-
-const INVFUNC = Dict{Symbol, Symbol}()
-const FUNCDEF = Dict{Symbol, Expr}()
+const INVFUNC = Dict{Any, Any}()
+const FUNCDEF = Dict{Any, Expr}()

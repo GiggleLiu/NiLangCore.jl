@@ -10,22 +10,7 @@ end
 """translate to normal julia code."""
 function compile_ex(ex, info)
     @match ex begin
-        :($f($(args...))) => begin
-            if f in [:⊕, :⊖]
-                @match args[2] begin
-                    :($subf($(subargs...))) => :($f($subf, $(args[1]), $(subargs...)))
-                    _ => error("a function call should be followed after ⊕ and ⊖.")
-                end
-            elseif f in [:(.⊕), :(.⊖)]
-                @match args[2] begin
-                    :($subf.($(subargs...))) => :($(debcast(f)).($subf, $(args[1]), $(subargs...)))
-                    :($subf($(subargs...))) => :($(debcast(f)).($(debcast(subf)), $(args[1]), $(subargs...)))
-                    _ => error("a broadcasted function call should be followed after .⊕ and .⊖.")
-                end
-            else
-                :($(esc(f))($(args...)))
-            end
-        end
+        :($f($(args...))) => :($(esc(f))($(args...)))
         :($f.($(args...))) => :($(esc(f)).($(args...)))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
@@ -93,7 +78,7 @@ macro i(ex)
         :(function $fname($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
             info = ()
-            ifname = Symbol(~, fname)
+            ifname = :(~$fname)
             iex = dual_func(ex)
             NiLangCore.INVFUNC[fname] = ifname
             NiLangCore.INVFUNC[ifname] = fname
