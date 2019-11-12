@@ -80,10 +80,7 @@ macro i(ex)
             info = ()
             ifname = :(~$fname)
             iex = dual_func(ex)
-            NiLangCore.INVFUNC[fname] = ifname
-            NiLangCore.INVFUNC[ifname] = fname
-            NiLangCore.FUNCDEF[fname] = ex
-            NiLangCore.FUNCDEF[ifname] = iex
+            NiLangCore.regdual(fname=>ex, ifname=>iex)
 
             # implementations
             ftype = get_ftype(fname)

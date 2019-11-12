@@ -269,3 +269,19 @@ end
     @newvar c = 1.9
     @test check_grad(test2, (a,b,c), loss=c)
 end
+
+@testset "second order gradient" begin
+    # compute (a+b)*b -> out
+    @i function test1(a, b)
+        a + b
+    end
+    @initgrad (+)'
+    @initgrad test1
+    @initgrad test1'
+
+    @newvar a = 1.1
+    @newvar b = 1.7
+    @newvar ga = 0.4
+    @newvar gb = 0.3
+    @test check_grad(test1', (a,b, ga, gb), loss=a)
+end

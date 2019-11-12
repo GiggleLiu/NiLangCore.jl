@@ -6,8 +6,6 @@ macro adjoint(ex)
     ex = precom(ex)
     @match ex begin
         :(function $f'($(args...)) $(body...) end) => begin
-            NiLangCore.FUNCDEF[:($f')] = ex
-            NiLangCore.INVFUNC[:($f')] = :((~$f)')
             afn_grad_compile(f, args, body)
         end
     end
@@ -32,17 +30,23 @@ end
 function afn_grad_compile(fname, args, body)
     gex = :(
         function $(grad_name(fname))($(args...));
-            $(compile_body(body, ())...);
+            $(body...);
         end
     )
+    fa = :($fname')
     if getdual(fname) != fname
-        gex = :($gex;
+        gex2 = :(
             function $(grad_name(getdual(fname)))($(args...));
-                $(compile_body(dual_body(body), ())...);
+                $(dual_body(body)...);
             end
         )
+        fb = :(~($fname'))
+        NiLangCore.regdual(fa=>gex, fb=>gex2)
+        return :($(compile_func(gex)); $(compile_func(gex2)))
+    else
+        NiLangCore.regselfdual(fa=>gex)
+        return compile_func(gex)
     end
-    return gex
 end
 
 """generate argument names for gradients"""
@@ -93,7 +97,7 @@ function grad_func(ex)
         :(function $(fname)($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
             gargdict = gen_gargs(args)
-            :(function $(grad_name(fname))($(g_fix(args, gargdict)...));
+            :(function $(grad_name(index_name(fname)))($(g_fix(args, gargdict)...));
                     $(grad_body(body, gargdict)...);
                 end)
         end
@@ -104,7 +108,25 @@ end
 function grad_name(op)
     @match op begin
         :($x::$tp) => :(_::Grad{$tp})
+        :(~$f) => :(_::Inv{typeof($f')})
         _ => :(_::Grad{typeof($op)})
+    end
+end
+
+function index_name(op)
+    @match op begin
+        :($x::$tp) => _index_tp(tp)
+        _ => op
+    end
+end
+
+function _index_tp(op)
+    @match op begin
+        :(Inv{typeof($f)}) => :(~$f)
+        :(Grad{typeof($f)}) => :($f')
+        :(Inv{$tp}) => :(~$(_index_tp(tp)))
+        :(Grad{$tp}) => :($(_index_tp(tp))')
+        _ => error("unknow type $op")
     end
 end
 
@@ -144,7 +166,7 @@ function grad_ex(ex, info)
         :(for $i=$start:$step:$stop; $(body...); end) => begin
             :(for $i=$stop:(-$step):$start; $(grad_body(body, info)...); end)
         end
-        :(@maybe $line $subex) => :(@maybe $(grad_ex(subex)))
+        :(@maybe $line $subex) => :(@maybe $(grad_ex(subex, info)))
         :(@anc $line $x::$tp) => begin
             :(@deanc $x::$tp)
         end
@@ -160,21 +182,9 @@ function gradname(f)
 end
 
 macro initgrad(f)
-    :($(compile_func(grad_func(NiLangCore.FUNCDEF[f])));
-    $(compile_func(grad_func(NiLangCore.FUNCDEF[getdual(f)]))))
-end
-
-#=
-export g
-function g(f)
-    mk_function(@match grad_func(getdef(f)) begin
-            :(function $f($(args...)) $(body...) end) =>
-                :(function ($(args...),) $(body...) end)
-    end)
-end
-=#
-
-export gradexpr
-function gradexpr(f)
-    grad_func(NiLangCore.FUNCDEF[f])
+    ex = grad_func(NiLangCore.FUNCDEF[f])
+    iex = grad_func(NiLangCore.FUNCDEF[NiLangCore.getdual(f)])
+    NiLangCore.regdual(:($f') => ex, :(~$f') => iex)
+    :($(compile_func(ex));
+    $(compile_func(iex)))
 end

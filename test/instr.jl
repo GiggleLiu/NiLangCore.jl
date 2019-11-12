@@ -4,6 +4,15 @@ using NiLangCore: compile_ex, dual_ex, grad_ex, precom_ex
 using Test
 import Base: +, -, xor
 
+@testset "naming" begin
+    @test NiLangCore.grad_name(:(~test1')) == :(_::Inv{typeof((test1')')})
+    @test NiLangCore.grad_name(:(~test1')) == :(_::Inv{typeof((test1')')})
+    @test NiLangCore.index_name(:(_::Grad{typeof(+)})) == :((+)')
+    @test NiLangCore.index_name(:(_::Grad{Inv{typeof(+)}})) == :((~+)')
+    @test NiLangCore.index_name(:(_::Grad{Grad{Inv{typeof(+)}}})) == :((~+)'')
+    @test NiLangCore.index_name(:(_::Inv{Grad{typeof(+)}})) == :((~(+)'))
+end
+
 @dual begin
     function +(a!::Reg, b)
         # check address conflict, a, b should be different.

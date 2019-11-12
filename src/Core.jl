@@ -24,6 +24,7 @@ isreversible(::Grad) = true
 Base.adjoint(f::Function) = Grad(f)
 Base.show(io::IO, b::Grad) = print(io, "$(b.f)'")
 Base.display(bf::Grad) where f = print(bf)
+Grad(f::Inv) = Inv(f.f')
 
 ######## Conditional apply
 export conditioned_apply, @maybe
@@ -77,3 +78,17 @@ isreversible(::OPM) = true
 
 const INVFUNC = Dict{Any, Any}()
 const FUNCDEF = Dict{Any, Expr}()
+function regdual(pa::Pair, pb::Pair)
+    fa, exa = pa
+    fb, exb = pb
+    FUNCDEF[fa] = exa
+    FUNCDEF[fb] = exb
+    INVFUNC[fa] = fb
+    INVFUNC[fb] = fa
+end
+
+function regselfdual(pa::Pair)
+    fa, exa = pa
+    FUNCDEF[fa] = exa
+    INVFUNC[fa] = fa
+end
