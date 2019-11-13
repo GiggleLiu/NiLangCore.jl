@@ -3,14 +3,14 @@ export ng, check_grad
 export ngradient, gradient
 
 isvar(x) = false
-isvar(x::Ref{T}) where T<:AbstractFloat = true
-isvar(x::AbstractGArray{T}) where T<:AbstractFloat = true
+isvar(x::Reg{T}) where T<:AbstractFloat = true
+isvar(x::AbstractVarArray{T}) where T<:AbstractFloat = true
 
-zerovar(::Ref{T}) where T = GRef(zero(T))
-zerovar(::T) where T = GRef(zero(T))
-zerovar(::GRefArray{T}) where T = nothing
-zerovar(x::AbstractGArray) = zero(x)
-zerovar(x::AbstractArray) = GRef(zero(x))
+zerovar(::Reg{T}) where T = Var(zero(T))
+zerovar(::T) where T = Var(zero(T))
+zerovar(::ArrayElem{T}) where T = nothing
+zerovar(x::AbstractVarArray) = zero(x)
+zerovar(x::AbstractArray) = Var(zero(x))
 
 function gradient(f, args, vars, loss)
     gargs = [isvar(x) ? zerovar(x) : nothing for x in args]
@@ -22,7 +22,7 @@ end
 
 function world_similar(a, b; atol::Real=1e-8, verbose::Bool=false)
     for (xa, xb) in zip(a, b)
-        if xa isa GRef
+        if xa isa Var
             if !isapprox(xa[], xb[]; atol=atol)
                 verbose && println("$xa does not match $xb")
                 return false
@@ -44,7 +44,7 @@ function check_inv(f, args; atol::Real=1e-8, verbose::Bool=false)
     world_similar(args0, args, atol=atol, verbose=verbose)
 end
 
-function ng(f, args, y, x::Ref; δ=1e-5)
+function ng(f, args, y, x::Reg; δ=1e-5)
     x[] += δ/2
     f(args...)
     pos = y[]
@@ -57,7 +57,7 @@ function ng(f, args, y, x::Ref; δ=1e-5)
     (pos-neg)/δ
 end
 
-function ng(f, args, y, x::AbstractGArray; δ=1e-5)
+function ng(f, args, y, x::AbstractVarArray; δ=1e-5)
     res = zero(x[])
     for i = 1:length(x)
         res[i] = ng(f, args, y, x[i]; δ=δ)

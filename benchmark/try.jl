@@ -1,0 +1,61 @@
+using Zygote
+
+f(x, y) = (x+exp(y), y)
+invf(x, y) = (x-exp(y), y)
+
+# ∂L/∂x2 = ∂L/∂x1*∂x1/∂x2 + ∂L/∂y1*∂y1/∂y2 = ∂L/∂x1*invf'(x2) + ∂L/∂y1*invf'(y2)
+x1, y1 = 1.4, 4.4
+x2, y2 = f(x,y)
+function gf(x, y, gx, gy)
+    x2, y2 = f(x, y)
+    invJ1 = gradient((x2, y2)->invf(x2, y2)[1], x2, y2)
+    invJ2 = gradient((x2, y2)->invf(x2, y2)[2], x2, y2)
+    return (x2, y2, gx, gy)
+end
+
+gradient((x, y)->invf(x, y)[1], x, y)
+
+mutable struct A{T}
+    x::T
+end
+
+Base.:*(x1::A, x2::A) = A(x1.x*x2.x)
+Base.:+(x1::A, x2::A) = A(x1.x+x2.x)
+Base.zero(::A{T}) where T = A(T(0))
+
+struct BG{T}
+    x::T
+    g::B{T}
+    BG(x::T) where T = new{T}(x)
+end
+
+struct BG{T}
+    x::T
+    g::BG{T}
+    BG(x::T) where T = new{T}(x)
+end
+
+mutable struct AG{T}
+    x::T
+    g::AG{T}
+    AG(x::T) where T = new{T}(x)
+    AG(x::T, g::TG) where {T,TG} = new{T}(x, T(g))
+end
+Base.:*(x1::AG, x2::AG) = AG(x1.x*x2.x)
+Base.:+(x1::AG, x2::AG) = AG(x1.x+x2.x)
+Base.zero(::AG{T}) where T = AG(T(0))
+init(ag::AG{T}) where T = (ag.g = AG(T(0)))
+
+using BenchmarkTools
+ma = fill(A(1.0), 100,100)
+@benchmark ma*ma
+ma = fill(AG(1.0), 100,100)
+@benchmark ma*ma
+
+a = A(0.4)
+ag = AG(0.4)
+using NiLangCore
+@benchmark isdefined($ag, :g)
+@benchmark $ag + $ag
+ag.g = AG(0.0)
+@benchmark $a + $a

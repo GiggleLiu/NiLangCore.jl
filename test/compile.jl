@@ -2,7 +2,7 @@ using NiLangCore
 using Test
 
 @testset "i" begin
-    @i function test1(a::GRef, b, out::GRef)
+    @i function test1(a::Var, b, out::Var)
         a + b
         out ⊕ a * b
     end
@@ -17,9 +17,9 @@ using Test
     @initgrad tt
 
     # compute (a+b)*b -> out
-    x = GRef(3)
-    y = GRef(4)
-    out = GRef(0)
+    x = Var(3)
+    y = Var(4)
+    out = Var(0)
     test1(x, y, out)
     @test out[]==28
     (~test1)(x, y, out)
@@ -31,13 +31,13 @@ using Test
     check_inv(tt, (x, y))
 
     # gradient
-    x = GRef(3)
-    y = GRef(4)
-    out = GRef(0)
+    x = Var(3)
+    y = Var(4)
+    out = Var(0)
     test1(x, y, out)
-    xδ = GRef(1)
-    yδ = GRef(2)
-    outδ = GRef(2)
+    xδ = Var(1)
+    yδ = Var(2)
+    outδ = Var(2)
     test1'(x, y, out, xδ, yδ, outδ)
     @test outδ[] == 2
     @test xδ[] == 9
@@ -46,7 +46,7 @@ end
 
 @testset "if statement 1" begin
     # compute (a+b)*b -> out
-    @i function test1(a::GRef, b, out::GRef)
+    @i function test1(a::Reg, b, out::Reg)
         a + b
         if (a[] > 8, a[] > 8)
             out ⊕ a[]*b[]
@@ -54,9 +54,9 @@ end
         end
     end
 
-    x = GRef(3)
-    y = GRef(4)
-    out = GRef(0)
+    x = Var(3)
+    y = Var(4)
+    out = Var(0)
     test1(x, y, out)
     @test out[]==0
     @test x[]==7
@@ -66,12 +66,12 @@ end
 end
 
 @testset "if statement error" begin
-    x = Ref(3)
-    y = Ref(4)
-    out = Ref(0)
+    x = Var(3)
+    y = Var(4)
+    out = Var(0)
 
     # compute (a+b)*b -> out
-    @i function test1(a::Ref, b, out::Ref)
+    @i function test1(a::Reg, b, out::Reg)
         a + b
         if (out[] < 4,  out[] < 4)
             out ⊕ a[]*b[]
@@ -83,10 +83,10 @@ end
 end
 
 @testset "if statement 3" begin
-    x = Ref(3)
-    y = Ref(4)
-    out = Ref(0)
-    @i function test1(a::Ref, b, out::Ref)
+    x = Var(3)
+    y = Var(4)
+    out = Var(0)
+    @i function test1(a::Reg, b, out::Reg)
         a + b
         if (a[] > 2, a[] > 2)
             out ⊕ a[]*b[]
@@ -94,9 +94,9 @@ end
         end
     end
 
-    x = Ref(3)
-    y = Ref(4)
-    out = Ref(0)
+    x = Var(3)
+    y = Var(4)
+    out = Var(0)
     test1(x, y, out)
     @test out[]==28
     (~test1)(x, y, out)
@@ -109,9 +109,9 @@ end
             x + y
         end
     end
-    x = Ref(0.0)
+    x = Var(0.0)
     y = 1.0
-    k = Ref(3)
+    k = Var(3)
     looper(x, y, k)
     @test x[] == 3
     (~looper)(x, y, k)
@@ -132,7 +132,7 @@ end
             x + y
         end
     end
-    x = Ref(0.0)
+    x = Var(0.0)
     y = 9
     looper(x, y)
     @test x[] == 108
@@ -154,7 +154,7 @@ end
         z + 1
         z - 1
     end
-    x = Ref(0.0)
+    x = Var(0.0)
     y = 9
     looper(x, y)
     @test x[] == 9
@@ -167,7 +167,7 @@ end
         z + 1
         z - 10
     end
-    x = Ref(0.0)
+    x = Var(0.0)
     y = 9
     @test_throws InvertibilityError looper(x, y)
 end
@@ -177,8 +177,8 @@ end
     @i function test1(a, b)
         a .+ b
     end
-    x = GArray([3, 1.0])
-    y = GArray([4, 2.0])
+    x = VarArray([3, 1.0])
+    y = VarArray([4, 2.0])
     test1(x, y)
     @test x[] == [7, 3.0]
     (~test1)(x, y)
@@ -189,18 +189,18 @@ end
         out .⊕ (a .* b)
     end
 
-    x = GArray([3, 1.0])
+    x = VarArray([3, 1.0])
     y = [4, 2.0]
-    out = GArray([0.0, 1.0])
+    out = VarArray([0.0, 1.0])
     test2(x, y, out)
     @test out[]==[28, 7]
     (~test2)(x, y, out)
     @test out[]==[0, 1.0]
 
     # gradients
-    xδ = GArray([1,2.0])
-    yδ = GArray([0,2.0])
-    outδ = GArray([0,2.0])
+    xδ = VarArray([1,2.0])
+    yδ = VarArray([0,2.0])
+    outδ = VarArray([0,2.0])
     test2(x, y, out)
     @initgrad test2
     test2'(x, y, out, xδ, yδ, outδ)
@@ -214,8 +214,8 @@ end
     @i function test1(a, b)
         a + b
     end
-    x = GArray([3, 1.0])
-    y = GArray([4, 2.0])
+    x = VarArray([3, 1.0])
+    y = VarArray([4, 2.0])
     test1.(x, y)
     @test x[] == [7, 3.0]
     (~test1).(x, y)
@@ -226,18 +226,18 @@ end
         out ⊕ (a * b)
     end
 
-    x = GArray([3, 1.0])
+    x = VarArray([3, 1.0])
     y = [4, 2.0]
-    out = GArray([0.0, 1.0])
+    out = VarArray([0.0, 1.0])
     test2.(x, y, out)
     @test out[]==[28, 7]
     (~test2).(x, y, out)
     @test out[]==[0, 1.0]
 
     # gradients
-    xδ = GArray([1,2.0])
-    yδ = GArray([0,2.0])
-    outδ = GArray([0,2.0])
+    xδ = VarArray([1,2.0])
+    yδ = VarArray([0,2.0])
+    outδ = VarArray([0,2.0])
     test2.(x, y, out)
     @initgrad test2
     test2'.(x, y, out, xδ, yδ, outδ)

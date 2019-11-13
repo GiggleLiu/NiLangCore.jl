@@ -42,10 +42,10 @@ function afn_grad_compile(fname, args, body)
         )
         fb = :(~($fname'))
         NiLangCore.regdual(fa=>gex, fb=>gex2)
-        return :($(compile_func(gex)); $(compile_func(gex2)))
+        return :($(interpret_func(gex)); $(interpret_func(gex2)))
     else
         NiLangCore.regselfdual(fa=>gex)
-        return compile_func(gex)
+        return interpret_func(gex)
     end
 end
 
@@ -185,6 +185,6 @@ macro initgrad(f)
     ex = grad_func(NiLangCore.FUNCDEF[f])
     iex = grad_func(NiLangCore.FUNCDEF[NiLangCore.getdual(f)])
     NiLangCore.regdual(:($f') => ex, :(~$f') => iex)
-    :($(compile_func(ex));
-    $(compile_func(iex)))
+    :($(interpret_func(ex));
+    $(interpret_func(iex)))
 end

@@ -1,29 +1,29 @@
-function compile_body(body::AbstractVector, info)
+function interpret_body(body::AbstractVector, info)
     out = []
     for ex in body
-        push!(out, compile_ex(ex, info))
+        push!(out, interpret_ex(ex, info))
     end
     return out
 end
 
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
-function compile_ex(ex, info)
+function interpret_ex(ex, info)
     @match ex begin
         :($f($(args...))) => :($(esc(f))($(args...)))
         :($f.($(args...))) => :($(esc(f)).($(args...)))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
-            ifstatement(pre, post, compile_body(truebranch, info), compile_body(falsebranch, info))
+            ifstatement(pre, post, interpret_body(truebranch, info), interpret_body(falsebranch, info))
         end
         :(while ($pre, $post); $(body...); end) => begin
-            whilestatement(pre, post, compile_body(body, ()))
+            whilestatement(pre, post, interpret_body(body, ()))
         end
         # TODO: allow ommit step.
         :(for $i=$start:$step:$stop; $(body...); end) => begin
-            forstatement(i, start, step, stop, compile_body(body, ()))
+            forstatement(i, start, step, stop, interpret_body(body, ()))
         end
-        :(@maybe $line $subex) => :(@maybe $(compile_ex(subex, info)))
+        :(@maybe $line $subex) => :(@maybe $(interpret_ex(subex, info)))
         :(@anc $line $x::$tp) => :(@anc $x::$tp)
         :(@deanc $line $x::$tp) => :(@deanc $x::$tp)
         ::LineNumberNode => ex
@@ -70,7 +70,7 @@ function forstatement(i, start, step, stop, body)
 end
 
 export @i
-export compile_func
+export interpret_func
 
 macro i(ex)
     ex = precom(ex)
@@ -86,10 +86,10 @@ macro i(ex)
             ftype = get_ftype(fname)
             iftype = get_ftype(NiLangCore.dual_fname(fname))
             :(function $(esc(fname))($(args...))
-                $(compile_body(body, info)...)
+                $(interpret_body(body, info)...)
             end;
             function $(esc(NiLangCore.dual_fname(fname)))($(args...))
-                $(compile_body(dual_body(body), info)...)
+                $(interpret_body(dual_body(body), info)...)
             end;
             $(esc(:(NiLangCore.isreversible)))(::$(esc(ftype))) = true)
         end
@@ -97,14 +97,14 @@ macro i(ex)
     end
 end
 
-function compile_func(ex)
+function interpret_func(ex)
     @match ex begin
         :(function $fname($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
             info = ()
             ftype = get_ftype(fname)
             :(function $(esc(fname))($(args...))
-                $(compile_body(body, info)...)
+                $(interpret_body(body, info)...)
             end;
             $(esc(:(NiLangCore.isreversible)))(::$(esc(ftype))) = true)
         end

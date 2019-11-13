@@ -4,6 +4,11 @@ isreversible(f) = false
 isreflexive(f) = false
 isprimitive(f) = false
 
+export AbstractVar, Reg
+abstract type AbstractVar{T} end
+const Reg{T} = Union{AbstractVar{T}}
+
+
 ######## Inv
 export Inv
 struct Inv{FT} <: Function

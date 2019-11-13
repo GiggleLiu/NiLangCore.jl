@@ -13,8 +13,8 @@ Core package for reversible language.
 end
 
 # forward and backward excution
-x = GRef(1.0)
-y = GRef(1.0)
+x = Var(1.0)
+y = Var(1.0)
 f(x, y)  # x= 2.0
 (~f)(x, y)  # x= 1.0
 

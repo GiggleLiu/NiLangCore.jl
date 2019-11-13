@@ -1,5 +1,5 @@
 using NiLangCore
-using NiLangCore: compile_ex, dual_ex, grad_ex, precom_ex
+using NiLangCore: interpret_ex, dual_ex, grad_ex, precom_ex
 
 using Test
 import Base: +, -, xor
@@ -81,14 +81,14 @@ end
     @test bδ[] == 1
 end
 
-@testset "compile_ex" begin
+@testset "interpret_ex" begin
     info = ()
-    @test compile_ex(:(f(x, y)), info) == :($(esc(:f))(x, y))
-    @test compile_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :($(esc(:(⊕(+))))(out, x, y))
-    @test compile_ex(:(x .+ y), info) == :($(esc(:.+))(x, y))
-    @test compile_ex(:(f.(x, y)), info) == :($(esc(:f)).(x, y))
-    @test compile_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :($(esc(:(⊕(+)))).(out, x, y))
-    @test compile_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :($(esc(:(⊕(swap)))).(out, x, y))
+    @test interpret_ex(:(f(x, y)), info) == :($(esc(:f))(x, y))
+    @test interpret_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :($(esc(:(⊕(+))))(out, x, y))
+    @test interpret_ex(:(x .+ y), info) == :($(esc(:.+))(x, y))
+    @test interpret_ex(:(f.(x, y)), info) == :($(esc(:f)).(x, y))
+    @test interpret_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :($(esc(:(⊕(+)))).(out, x, y))
+    @test interpret_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :($(esc(:(⊕(swap)))).(out, x, y))
 end
 
 @testset "dual_ex" begin
@@ -108,8 +108,8 @@ end
 end
 
 @testset "⊕" begin
-    x = Ref(1.0)
-    y = Ref(1.0)
+    x = Var(1.0)
+    y = Var(1.0)
     ⊕(exp)(y, x)
     @test x[] ≈ 1
     @test y[] ≈ 1+exp(1.0)
