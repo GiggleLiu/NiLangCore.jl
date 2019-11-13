@@ -59,3 +59,27 @@ using NiLangCore
 @benchmark $ag + $ag
 ag.g = AG(0.0)
 @benchmark $a + $a
+
+struct SG{T}
+    x::T
+    g::Ref{T}
+    SG(x::T) where T = new{T}(x)
+end
+Base.:*(x1::SG, x2::SG) = SG(x1.x*x2.x)
+Base.:+(x1::SG, x2::SG) = SG(x1.x+x2.x)
+Base.zero(::SG{T}) where T = SG(T(0))
+init(ag::AG{T}) where T = (ag.g = AG(T(0)))
+
+using BenchmarkTools
+ma = fill(A(1.0), 100,100)
+@benchmark ma*ma
+ma = fill(AG(1.0), 100,100)
+@benchmark ma*ma
+
+a = A(0.4)
+ag = AG(0.4)
+using NiLangCore
+@benchmark isdefined($ag, :g)
+@benchmark $ag + $ag
+ag.g = AG(0.0)
+@benchmark $a + $a

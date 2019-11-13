@@ -2,6 +2,8 @@ module NiLangCore
 using GeneralizedGenerated
 using MLStyle
 
+include("ngg/ngg.jl")
+
 include("utils.jl")
 include("Core.jl")
 include("vars.jl")
@@ -14,7 +16,5 @@ include("interpretor.jl")
 #include("gradcode.jl")
 include("autodiff/autodiff.jl")
 include("checks.jl")
-
-include("ngg/ngg.jl")
 
 end # module

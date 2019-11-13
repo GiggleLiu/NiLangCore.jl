@@ -15,9 +15,9 @@ struct InvertibilityError <: Exception
 end
 
 macro invcheck(ex)
-    :(if invcheckon();
+    esc(:(if invcheckon();
         $ex || throw(InvertibilityError($(QuoteNode(ex))));
-    end)
+    end))
 end
 
 # variables

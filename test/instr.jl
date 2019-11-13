@@ -70,12 +70,12 @@ end
 
 @testset "interpret_ex" begin
     info = ()
-    @test interpret_ex(:(f(x, y)), info) == :($(esc(:f))(x, y))
-    @test interpret_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :($(esc(:(⊕(+))))(out, x, y))
-    @test interpret_ex(:(x .+ y), info) == :($(esc(:.+))(x, y))
-    @test interpret_ex(:(f.(x, y)), info) == :($(esc(:f)).(x, y))
-    @test interpret_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :($(esc(:(⊕(+)))).(out, x, y))
-    @test interpret_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :($(esc(:(⊕(swap)))).(out, x, y))
+    @test interpret_ex(:(f(x, y)), info) == :(f(x, y))
+    @test interpret_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :(⊕(+)(out, x, y))
+    @test interpret_ex(:(x .+ y), info) == :(x .+ y)
+    @test interpret_ex(:(f.(x, y)), info) == :(f.(x, y))
+    @test interpret_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :(⊕(+).(out, x, y))
+    @test interpret_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :(⊕(swap).(out, x, y))
 end
 
 @testset "dual_ex" begin

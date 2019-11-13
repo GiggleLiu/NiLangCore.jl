@@ -6,7 +6,6 @@ using Test
         a + b
         out ⊕ a * b
     end
-    @initgrad test1
 
     @i function tt(a, b)
         @anc out::Float64
@@ -14,7 +13,6 @@ using Test
         (~test1)(a, b, out)
         a + b
     end
-    @initgrad tt
 
     # compute (a+b)*b -> out
     x = Var(3)
@@ -38,10 +36,10 @@ using Test
     xδ = Var(1)
     yδ = Var(2)
     outδ = Var(2)
-    test1'(x, y, out, xδ, yδ, outδ)
-    @test outδ[] == 2
-    @test xδ[] == 9
-    @test yδ[] == 14+2+9
+    (x, y, out), _ = test1'((x, y, out), out)
+    @test grad(out)[] == 2
+    @test grad(x)[] == 9
+    @test grad(y)[] == 14+2+9
 end
 
 @testset "if statement 1" begin
@@ -203,7 +201,7 @@ end
     outδ = VarArray([0,2.0])
     test2(x, y, out)
     @initgrad test2
-    test2'(x, y, out, xδ, yδ, outδ)
+    test2'(x, y, out)
     @test outδ[] == [0,2.0]
     @test xδ[] == [1, 6.0]
     @test yδ[] == [1, 14.0]
@@ -239,8 +237,7 @@ end
     yδ = VarArray([0,2.0])
     outδ = VarArray([0,2.0])
     test2.(x, y, out)
-    @initgrad test2
-    test2'.(x, y, out, xδ, yδ, outδ)
+    (x, y, out), _ = test2'.((x, y, out), out)
     @test outδ[] == [0,2.0]
     @test xδ[] == [1, 6.0]
     @test yδ[] == [1, 14.0]
@@ -255,14 +252,12 @@ end
     @i function test1(a, b)
         a + b
     end
-    @initgrad test1
 
     @i function test2(a, b, out)
         test1(a, out)
         (~test1)(a, out)
         out ⊕ (a * b)
     end
-    @initgrad test2
 
     @newvar a = 1.0
     @newvar b = 1.3

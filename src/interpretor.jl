@@ -1,3 +1,4 @@
+using .NGG: rmlines
 function interpret_body(body::AbstractVector, info)
     out = []
     for ex in body
@@ -28,6 +29,7 @@ function interpret_ex(ex, info)
         :(@deanc $line $x::$tp) => :(@deanc $x::$tp)
         :(@gradalloc $line $(args...)) => :(@gradalloc $(args...))
         :(@graddealloc $line $(args...)) => :(@graddealloc $(args...))
+        :(return $(args...)) => LineNumberNode(0)
         ::LineNumberNode => ex
         _ => error("`$(ex.args)` statement is not supported for invertible lang! got $ex")
     end
@@ -87,15 +89,17 @@ macro i(ex)
             # implementations
             ftype = get_ftype(fname)
             iftype = get_ftype(NiLangCore.dual_fname(fname))
-            esc(:(
+            @show esc(:(
             function $fname($(args...))
                 $(interpret_body(body, info)...)
+                return ($(args...),)
             end;
             function $(NiLangCore.dual_fname(fname))($(args...))
                 $(interpret_body(dual_body(body), info)...)
+                return ($(args...),)
             end;
             NiLangCore.isreversible(::$ftype) = true
-            ))
+            )) |> rmlines
         end
         _=>error("$ex is not a function def")
     end
@@ -110,9 +114,10 @@ function interpret_func(ex)
             esc(:(
             function $fname($(args...))
                 $(interpret_body(body, info)...)
+                return ($(args...),)
             end;
             NiLangCore.isreversible(::$ftype) = true
-            ))
+            )) |> rmlines
         end
         _=>error("$ex is not a function def")
     end

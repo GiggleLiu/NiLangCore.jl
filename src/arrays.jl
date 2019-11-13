@@ -98,7 +98,7 @@ Base.getindex(x::String) = x
 
 macro deanc(ex)
     @match ex begin
-        :($x::$tp) => :(@invcheck $(esc(esc(x))) ≈ Var(zero($tp)))
+        :($x::$tp) => :(@invcheck $(esc(x)) ≈ Var(zero($tp)))
         _ => error("please use like `@deanc x::T`")
     end
 end
