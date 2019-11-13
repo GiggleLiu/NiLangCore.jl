@@ -11,8 +11,8 @@ end
 """translate to normal julia code."""
 function interpret_ex(ex, info)
     @match ex begin
-        :($f($(args...))) => :($f($(args...)))
-        :($f.($(args...))) => :($f.($(args...)))
+        :($f($(args...))) => :($(args...) = $f($(args...)))
+        :($f.($(args...))) => :($(args...) = $f.($(args...)))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             ifstatement(pre, post, interpret_body(truebranch, info), interpret_body(falsebranch, info))

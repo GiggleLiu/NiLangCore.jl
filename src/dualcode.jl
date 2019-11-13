@@ -68,7 +68,7 @@ end
 getdual(f) = @match f begin
     :(⊕($f)) => :(⊖($f))
     :(⊖($f)) => :(⊕($f))
-    _ => get(INVFUNC, f, :(~$f))
+    _ => :(~$f)
 end
 dotgetdual(f::Symbol) = Symbol(:., getdual(removedot(f)))
 

@@ -5,24 +5,22 @@ using Test
 import Base: +, -, xor
 
 @dual begin
-    function +(a!::Reg, b)
-        # check address conflict, a, b should be different.
-        a![] += b[]
+    function ⊕(a!, b)
+        a! + b, b
     end
-
-    function -(a!::Reg, b)
-        a![] -= b[]
+    function ⊖(a!, b)
+        a! - b, b
     end
 end
 
-@i function -(a!::GVar, b)
+@i function ⊖(a!::GVar, b)
     -(val(a!), val(b))
     @maybe grad(b) + grad(a!)
 end
 
 @selfdual begin
-    function xor(a!::Reg, b)
-        a![] = xor(a![], b[])
+    function xor(a!, b)
+        xor(a!, b), b
     end
 end
 #@nograd xor
