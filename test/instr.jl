@@ -1,17 +1,8 @@
 using NiLangCore
-using NiLangCore: interpret_ex, dual_ex, grad_ex, precom_ex
+using NiLangCore: interpret_ex, dual_ex, precom_ex
 
 using Test
 import Base: +, -, xor
-
-@testset "naming" begin
-    @test NiLangCore.grad_name(:(~test1')) == :(_::Inv{typeof((test1')')})
-    @test NiLangCore.grad_name(:(~test1')) == :(_::Inv{typeof((test1')')})
-    @test NiLangCore.index_name(:(_::Grad{typeof(+)})) == :((+)')
-    @test NiLangCore.index_name(:(_::Grad{Inv{typeof(+)}})) == :((~+)')
-    @test NiLangCore.index_name(:(_::Grad{Grad{Inv{typeof(+)}}})) == :((~+)'')
-    @test NiLangCore.index_name(:(_::Inv{Grad{typeof(+)}})) == :((~(+)'))
-end
 
 @dual begin
     function +(a!::Reg, b)
@@ -24,9 +15,9 @@ end
     end
 end
 
-@adjoint function (+)'(a!::Reg, b, aδ, bδ!)
-    -(a!, b)
-    @maybe bδ! + aδ
+@i function -(a!::GVar, b)
+    -(val(a!), val(b))
+    @maybe grad(b) + grad(a!)
 end
 
 @selfdual begin
@@ -34,12 +25,12 @@ end
         a![] = xor(a![], b[])
     end
 end
-@nograd xor
+#@nograd xor
 
-@adjoint function (⊕(*))'(out!::Reg, x, y, outδ, xδ!, yδ!)
+@i function (_::typeof(⊕(*)))(out!::GVar, x, y)
     out! ⊖ x * y
-    @maybe xδ! ⊕ outδ * y
-    @maybe yδ! ⊕ x * outδ
+    @maybe grad(x) ⊕ grad(out!) * grad(y)
+    @maybe grad(y) ⊕ grad(x) * grad(out!)
 end
 
 @testset "@dual" begin
@@ -75,10 +66,6 @@ end
     @test a[] == 2
     @newvar aδ = 1.0
     @newvar bδ = 1.0
-    (⊻)'(a, b, aδ, bδ)
-    @test a[] == 3
-    @test aδ[] == 1
-    @test bδ[] == 1
 end
 
 @testset "interpret_ex" begin
@@ -99,14 +86,6 @@ end
     @test dual_ex(:(⊕(xor).(out, x, y))) == :(⊖(xor).(out, x, y))
 end
 
-@testset "grad_ex" begin
-    info = Dict(:x=>:gx, :y=>:gy, :out=>:gout)
-    @test grad_ex(:(out ⊕ (x + y)), info) == :((⊕)'(+, out, x, y, gout, gx, gy))
-    @test grad_ex(:(x .+ y), info) == :((+)'.(x, y, gx, gy))
-    @test grad_ex(:(out .⊕ (x .+ y)), info) == :((⊕)'.(+, out, x, y, gout, gx, gy))
-    @test grad_ex(:(out .⊕ swap.(x, y)), info) == :((⊕)'.(swap, out, x, y, gout, gx, gy))
-end
-
 @testset "⊕" begin
     x = Var(1.0)
     y = Var(1.0)
@@ -125,4 +104,7 @@ end
     @test (@maybe x + y) == 3
     x = nothing
     @test (@maybe x + y) == nothing
+
+    a = Var(0.3)
+    @test check_grad(+, (a, 1.0), loss=a)
 end

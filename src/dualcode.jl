@@ -50,12 +50,10 @@ function dual_ex(ex)
             :(for $i=$stop:(-$step):$start; $(dual_body(body)...); end)
         end
         :(@maybe $line $subex) => :(@maybe $(dual_ex(subex)))
-        :(@anc $line $x::$tp) => begin
-            :(@deanc $x::$tp)
-        end
-        :(@deanc $line $x::$tp) => begin
-            :(@anc $x::$tp)
-        end
+        :(@anc $line $x::$tp) => :(@deanc $x::$tp)
+        :(@deanc $line $x::$tp) => :(@anc $x::$tp)
+        :(@gradalloc $line $(args...)) => :(@graddealloc $(args...))
+        :(@graddealloc $line $(args...)) => :(@gradalloc $(args...))
         _ => ex
     end
 end
@@ -70,7 +68,7 @@ end
 getdual(f) = @match f begin
     :(⊕($f)) => :(⊖($f))
     :(⊖($f)) => :(⊕($f))
-    _ => INVFUNC[f]
+    _ => get(INVFUNC, f, :(~$f))
 end
 dotgetdual(f::Symbol) = Symbol(:., getdual(removedot(f)))
 

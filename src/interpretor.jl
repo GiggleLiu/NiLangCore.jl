@@ -10,8 +10,8 @@ end
 """translate to normal julia code."""
 function interpret_ex(ex, info)
     @match ex begin
-        :($f($(args...))) => :($(esc(f))($(args...)))
-        :($f.($(args...))) => :($(esc(f)).($(args...)))
+        :($f($(args...))) => :($f($(args...)))
+        :($f.($(args...))) => :($f.($(args...)))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             ifstatement(pre, post, interpret_body(truebranch, info), interpret_body(falsebranch, info))
@@ -26,6 +26,8 @@ function interpret_ex(ex, info)
         :(@maybe $line $subex) => :(@maybe $(interpret_ex(subex, info)))
         :(@anc $line $x::$tp) => :(@anc $x::$tp)
         :(@deanc $line $x::$tp) => :(@deanc $x::$tp)
+        :(@gradalloc $line $(args...)) => :(@gradalloc $(args...))
+        :(@graddealloc $line $(args...)) => :(@graddealloc $(args...))
         ::LineNumberNode => ex
         _ => error("`$(ex.args)` statement is not supported for invertible lang! got $ex")
     end
@@ -57,15 +59,15 @@ end
 function forstatement(i, start, step, stop, body)
     start_, step_, stop_ = gensym(), gensym(), gensym()
     ex = :(
-        $start_ = $(start)[];
-        $step_ = $(step)[];
-        $stop_ = $(stop)[];
+        $start_ = $start[];
+        $step_ = $step[];
+        $stop_ = $stop[];
         for $i=$start_:$step_:$stop_
             $(body...);
         end;
-        @invcheck $start_ == $(start)[];
-        @invcheck $step_ == $(step)[];
-        @invcheck $stop_ == $(stop)[]
+        @invcheck $start_ == $start[];
+        @invcheck $step_ == $step[];
+        @invcheck $stop_ == $stop[]
         )
 end
 
@@ -85,13 +87,15 @@ macro i(ex)
             # implementations
             ftype = get_ftype(fname)
             iftype = get_ftype(NiLangCore.dual_fname(fname))
-            :(function $(esc(fname))($(args...))
+            esc(:(
+            function $fname($(args...))
                 $(interpret_body(body, info)...)
             end;
-            function $(esc(NiLangCore.dual_fname(fname)))($(args...))
+            function $(NiLangCore.dual_fname(fname))($(args...))
                 $(interpret_body(dual_body(body), info)...)
             end;
-            $(esc(:(NiLangCore.isreversible)))(::$(esc(ftype))) = true)
+            NiLangCore.isreversible(::$ftype) = true
+            ))
         end
         _=>error("$ex is not a function def")
     end
@@ -103,10 +107,12 @@ function interpret_func(ex)
         :($fname($(args...)) = $(body...)) => begin
             info = ()
             ftype = get_ftype(fname)
-            :(function $(esc(fname))($(args...))
+            esc(:(
+            function $fname($(args...))
                 $(interpret_body(body, info)...)
             end;
-            $(esc(:(NiLangCore.isreversible)))(::$(esc(ftype))) = true)
+            NiLangCore.isreversible(::$ftype) = true
+            ))
         end
         _=>error("$ex is not a function def")
     end

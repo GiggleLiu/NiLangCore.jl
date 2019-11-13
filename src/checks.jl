@@ -13,11 +13,13 @@ zerovar(x::AbstractVarArray) = zero(x)
 zerovar(x::AbstractArray) = Var(zero(x))
 
 function gradient(f, args, vars, loss)
-    gargs = [isvar(x) ? zerovar(x) : nothing for x in args]
     f(args...)
-    gargs[findfirst(x->x===(loss), args)][] = 1
-    (f')(args..., gargs...)
-    return [x[] for x in gargs if x!==nothing]
+    gargs = GVar.(args)
+    iarg = findfirst(x->x===(loss), args)
+    iarg === nothing && throw(ArgumentError("loss ($loss) not in args ($args)"))
+    grad(gargs[iarg])[] = 1
+    (~f)(gargs...)
+    return [x[] for x in grad.(gargs) if x!==nothing]
 end
 
 function world_similar(a, b; atol::Real=1e-8, verbose::Bool=false)
@@ -75,6 +77,8 @@ function check_grad(f, args; loss, atol::Real=1e-8, verbose::Bool=false)
     gs = gradient(f, args, vars, loss)
     verbose && @show ngs
     verbose && @show gs
+    @show ngs
+    @show gs
     if !isapprox(ngs, gs, atol=atol)
         verbose && println("gradient not match.")
         return false

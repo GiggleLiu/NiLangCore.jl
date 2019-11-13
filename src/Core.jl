@@ -4,6 +4,23 @@ isreversible(f) = false
 isreflexive(f) = false
 isprimitive(f) = false
 
+# inv check
+export invcheckon, InvertibilityError, @invcheck
+const _invcheckon = Ref(true)
+invcheckon(val::Bool) = _invcheckon(val)
+invcheckon() = _invcheckon[]
+
+struct InvertibilityError <: Exception
+    ex
+end
+
+macro invcheck(ex)
+    :(if invcheckon();
+        $ex || throw(InvertibilityError($(QuoteNode(ex))));
+    end)
+end
+
+# variables
 export AbstractVar, Reg
 abstract type AbstractVar{T} end
 const Reg{T} = Union{AbstractVar{T}}
@@ -19,17 +36,6 @@ isreversible(::Inv) = true
 Base.:~(f::Function) = Inv(f)
 Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
 Base.display(bf::Inv) where f = print(bf)
-
-######## Grad
-export Grad
-struct Grad{FT} <: Function
-    f::FT
-end
-isreversible(::Grad) = true
-Base.adjoint(f::Function) = Grad(f)
-Base.show(io::IO, b::Grad) = print(io, "$(b.f)'")
-Base.display(bf::Grad) where f = print(bf)
-Grad(f::Inv) = Inv(f.f')
 
 ######## Conditional apply
 export conditioned_apply, @maybe
