@@ -9,6 +9,6 @@ end
     include("vars.jl")
 end
 
-@testset "compile.jl" begin
-    include("compile.jl")
+@testset "interpreter.jl" begin
+    include("interpreter.jl")
 end

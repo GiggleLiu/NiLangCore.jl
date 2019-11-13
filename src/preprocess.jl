@@ -30,13 +30,13 @@ function precom_ex(ex, ancs)
             if f in [:⊕, :⊖]
                 @match args[2] begin
                     :($subf($(subargs...))) => :($f($subf)($(args[1]), $(subargs...)))
-                    _ => error("a function call should be followed after ⊕ and ⊖.")
+                    _ => ex
                 end
             elseif f in [:(.⊕), :(.⊖)]
                 @match args[2] begin
                     :($subf.($(subargs...))) => :($(debcast(f))($subf).($(args[1]), $(subargs...)))
                     :($subf($(subargs...))) => :($(debcast(f))($(debcast(subf))).($(args[1]), $(subargs...)))
-                    _ => error("a broadcasted function call should be followed after .⊕ and .⊖.")
+                    _ => ex
                 end
             else
                 ex

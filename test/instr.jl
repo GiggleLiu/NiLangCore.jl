@@ -2,7 +2,8 @@ using NiLangCore
 using NiLangCore: interpret_ex, dual_ex, precom_ex
 
 using Test
-import Base: +, -, xor
+import Base: +, -
+import NiLangCore: ⊕, ⊖
 
 @dual begin
     function ⊕(a!, b)
@@ -14,56 +15,54 @@ import Base: +, -, xor
 end
 
 @i function ⊖(a!::GVar, b)
-    -(val(a!), val(b))
-    @maybe grad(b) + grad(a!)
+    val(a!) ⊖ val(b)
+    @maybe grad(b) ⊕ grad(a!)
 end
 
 @selfdual begin
-    function xor(a!, b)
+    function XOR(a!, b)
         xor(a!, b), b
     end
 end
-#@nograd xor
+#@nograd XOR
 
-@i function (_::typeof(⊕(*)))(out!::GVar, x, y)
+@i function (_::OMinus{typeof(*)})(out!::GVar, x, y)
     out! ⊖ x * y
     @maybe grad(x) ⊕ grad(out!) * grad(y)
     @maybe grad(y) ⊕ grad(x) * grad(out!)
 end
 
 @testset "@dual" begin
-    @test isreversible(+)
-    @test isreversible(-)
-    @test !isreflexive(+)
-    @test ~(+) == -
-    @newvar a=2.0
-    @newvar b=1.0
-    a + b
-    @test a[] == 3.0
-    a - b
-    @test a[] == 2.0
-    check_inv(+, (a, b))
-    check_grad(+, (a, b), loss=a)
-    @test isprimitive(+)
-    @test isprimitive(-)
-    @test nargs(+) == 2
-    @test nargs(-) == 2
+    @test isreversible(⊕)
+    @test isreversible(⊖)
+    @test !isreflexive(⊕)
+    @test ~(⊕) == ⊖
+    a=2.0
+    b=1.0
+    @instr a ⊕ b
+    @test a == 3.0
+    @instr a ⊖ b
+    @test a == 2.0
+    check_inv(⊕, (a, b))
+    check_grad(⊕, (a, b), loss=a)
+    @test isprimitive(⊕)
+    @test isprimitive(⊖)
+    @test nargs(⊕) == 2
+    @test nargs(⊖) == 2
 end
 
 @testset "@selfdual" begin
-    @test isreversible(xor)
-    @test isreflexive(xor)
-    @test isprimitive(xor)
-    @test nargs(xor) == 2
-    @test ~(xor) == xor
-    @newvar a=2
-    @newvar b=1
-    a ⊻ b
-    @test a[] == 3
-    a ⊻ b
-    @test a[] == 2
-    @newvar aδ = 1.0
-    @newvar bδ = 1.0
+    @test isreversible(XOR)
+    @test isreflexive(XOR)
+    @test isprimitive(XOR)
+    @test nargs(XOR) == 2
+    @test ~(XOR) == XOR
+    a=2
+    b=1
+    @instr XOR(a, b)
+    @test a == 3
+    @instr XOR(a, b)
+    @test a == 2
 end
 
 @testset "interpret_ex" begin
@@ -78,19 +77,19 @@ end
 
 @testset "dual_ex" begin
     @test dual_ex(:(⊕(+)(out, x, y))) == :(⊖(+)(out, x, y))
-    @test dual_ex(:(x .+ y)) == :((x .- y))
-    @test dual_ex(:((+).(x, y))) == :((-).(x, y))
+    #@test dual_ex(:(x .⊕ y)) == :((x .(~(⊕)) y))
+    @test dual_ex(:((+).(x, y))) == :((~(+)).(x, y))
     @test dual_ex(:(⊕(+).(out, x, y))) == :(⊖(+).(out, x, y))
-    @test dual_ex(:(⊕(xor).(out, x, y))) == :(⊖(xor).(out, x, y))
+    @test dual_ex(:(⊕(XOR).(out, x, y))) == :(⊖(XOR).(out, x, y))
 end
 
 @testset "⊕" begin
-    x = Var(1.0)
-    y = Var(1.0)
-    ⊕(exp)(y, x)
-    @test x[] ≈ 1
-    @test y[] ≈ 1+exp(1.0)
-    (~⊕(exp))(y, x)
+    x = 1.0
+    y = 1.0
+    @instr ⊕(exp)(y, x)
+    @test x ≈ 1
+    @test y ≈ 1+exp(1.0)
+    @instr (~⊕(exp))(y, x)
     @test x[] ≈ 1
     @test y[] ≈ 1
 end
@@ -98,10 +97,10 @@ end
 @testset "maybe" begin
     x = 1
     y = 2
-    @test conditioned_apply(+, (x, y), (x, y)) == 3
-    @test (@maybe x + y) == 3
+    @test conditioned_apply(⊕, (x, y), (x, y)) == 3
+    @test (@maybe (x, y) = ⊕(x, y))[1] == 3
     x = nothing
-    @test (@maybe x + y) == nothing
+    @test (@maybe (x, y) = x ⊕ y) == nothing
 
     a = Var(0.3)
     @test check_grad(+, (a, 1.0), loss=a)

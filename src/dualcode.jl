@@ -33,7 +33,7 @@ function dual_ex(ex)
     @match ex begin
         :($f($(args...))) => begin
             if startwithdot(f)
-                :($(dotgetdual(f))($(args...)))
+                :($(dotgetdual(f)).($(args...)))
             else
                 :($(getdual(f))($(args...)))
             end
@@ -70,7 +70,7 @@ getdual(f) = @match f begin
     :(⊖($f)) => :(⊕($f))
     _ => :(~$f)
 end
-dotgetdual(f::Symbol) = Symbol(:., getdual(removedot(f)))
+dotgetdual(f::Symbol) = getdual(removedot(f))
 
 function dual_body(body)
     out = map(st->(dual_ex(st)), Iterators.reverse(body))

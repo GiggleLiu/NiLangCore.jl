@@ -95,17 +95,3 @@ Base.iszero(x::Var) = iszero(x[])
 Base.zero(x::Var) = Var(zero(x[]))
 Base.zero(::Type{Var{T}}) where T = Var(zero(T))
 Base.getindex(x::String) = x
-
-macro deanc(ex)
-    @match ex begin
-        :($x::$tp) => :(@invcheck $(esc(x)) ≈ Var(zero($tp)))
-        _ => error("please use like `@deanc x::T`")
-    end
-end
-
-macro anc(ex)
-    @match ex begin
-        :($x::$tp) => :($(esc(x)) = Var(zero($tp)))
-        _ => error("please use like `@anc x::T`")
-    end
-end

@@ -43,10 +43,12 @@ export conditioned_apply, @maybe
 """excute if and only if arguments are not nothing"""
 macro maybe(ex)
     @match ex begin
-        :($fname($(args...))) => begin
+        :($(_...) = $fname($(args...))) ||
+        :($(_...) = begin $fname($(args...)) end) => begin
             args = Expr(:tuple, esc.(args)...)
             :(conditioned_apply($fname, $args, $args))
         end
+        _ => error("got $ex")
     end
 end
 
@@ -74,10 +76,11 @@ const OPM{FT} = Union{OPlus{FT}, OMinus{FT}}
 """
 accumulate result into x.
 """
-(inf::OPlus)(out!::Reg, args...) = out![] += inf.f(getindex.(args)...)
-(inf::OMinus)(out!::Reg, args...) = out![] -= inf.f(getindex.(args)...)
-const ⊕ = OPlus
-const ⊖ = OMinus
+(inf::OPlus)(out!, args...) = (out! += inf.f(getindex.(args)...), args...)
+(inf::OMinus)(out!, args...) = (out! -= inf.f(getindex.(args)...), args...)
+⊕(f) = OPlus(f)
+⊖(f) = OMinus(f)
+
 
 Base.:~(op::OPlus) = OMinus(op.f)
 Base.:~(om::OMinus) = OPlus(om.f)
@@ -86,20 +89,3 @@ _char(::OMinus) = '⊖'
 Base.display(o::OPM) = print(_char(o), o.f)
 Base.show(io::IO, o::OPM) = print(io, _char(o), o.f)
 isreversible(::OPM) = true
-
-const INVFUNC = Dict{Any, Any}()
-const FUNCDEF = Dict{Any, Expr}()
-function regdual(pa::Pair, pb::Pair)
-    fa, exa = pa
-    fb, exb = pb
-    FUNCDEF[fa] = exa
-    FUNCDEF[fb] = exb
-    INVFUNC[fa] = fb
-    INVFUNC[fb] = fa
-end
-
-function regselfdual(pa::Pair)
-    fa, exa = pa
-    FUNCDEF[fa] = exa
-    INVFUNC[fa] = fa
-end

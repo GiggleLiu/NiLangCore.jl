@@ -11,8 +11,8 @@ end
 """translate to normal julia code."""
 function interpret_ex(ex, info)
     @match ex begin
-        :($f($(args...))) => :($(args...) = $f($(args...)))
-        :($f.($(args...))) => :($(args...) = $f.($(args...)))
+        :($f($(args...))) => :($(Expr(:tuple, args...)) = $f($(args...)))
+        :($f.($(args...))) => :($(Expr(:tuple, args...)) = $f.($(args...)))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             ifstatement(pre, post, interpret_body(truebranch, info), interpret_body(falsebranch, info))
@@ -25,6 +25,7 @@ function interpret_ex(ex, info)
             forstatement(i, start, step, stop, interpret_body(body, ()))
         end
         :(@maybe $line $subex) => :(@maybe $(interpret_ex(subex, info)))
+        :(@safe $line $subex) => subex
         :(@anc $line $x::$tp) => :(@anc $x::$tp)
         :(@deanc $line $x::$tp) => :(@deanc $x::$tp)
         :(@gradalloc $line $(args...)) => :(@gradalloc $(args...))
@@ -84,12 +85,11 @@ macro i(ex)
             info = ()
             ifname = :(~$fname)
             iex = dual_func(ex)
-            NiLangCore.regdual(fname=>ex, ifname=>iex)
 
             # implementations
             ftype = get_ftype(fname)
             iftype = get_ftype(NiLangCore.dual_fname(fname))
-            @show esc(:(
+            esc(:(
             function $fname($(args...))
                 $(interpret_body(body, info)...)
                 return ($(args...),)
@@ -99,7 +99,7 @@ macro i(ex)
                 return ($(args...),)
             end;
             NiLangCore.isreversible(::$ftype) = true
-            )) |> rmlines
+            ))
         end
         _=>error("$ex is not a function def")
     end
