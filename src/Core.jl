@@ -21,10 +21,9 @@ macro invcheck(ex)
 end
 
 # variables
-export AbstractVar, Reg
-abstract type AbstractVar{T} end
-const Reg{T} = Union{AbstractVar{T}}
-
+export Reg
+abstract type AbstractVar{T} <: Number end
+const Reg{T} = Union{T, AbstractVar{T}}
 
 ######## Inv
 export Inv
@@ -78,6 +77,7 @@ accumulate result into x.
 """
 (inf::OPlus)(out!, args...) = (out! += inf.f(getindex.(args)...), args...)
 (inf::OMinus)(out!, args...) = (out! -= inf.f(getindex.(args)...), args...)
+# TODO: support "<="
 ⊕(f) = OPlus(f)
 ⊖(f) = OMinus(f)
 

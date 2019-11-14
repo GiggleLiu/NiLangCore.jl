@@ -36,10 +36,10 @@ using Test
     xδ = Var(1)
     yδ = Var(2)
     outδ = Var(2)
-    (x, y, out), _ = test1'((x, y, out), out)
-    @test grad(out)[] == 2
-    @test grad(x)[] == 9
-    @test grad(y)[] == 14+2+9
+    @instr test1'((x, y, out), out)
+    @test grad(out) == 2
+    @test grad(x) == 9
+    @test grad(y) == 14+2+9
 end
 
 @testset "if statement 1" begin

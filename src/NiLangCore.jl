@@ -7,7 +7,6 @@ include("ngg/ngg.jl")
 include("utils.jl")
 include("Core.jl")
 include("vars.jl")
-include("arrays.jl")
 
 include("instr.jl")
 include("dualcode.jl")

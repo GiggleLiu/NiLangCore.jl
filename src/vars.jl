@@ -1,32 +1,9 @@
-export @newvar, @push, @pop, @newreg, @newfloats
+export @push, @pop
 export @anc, @deanc
-export Var
 
 const A_STACK = []
 const B_STACK = []
 const GLOBAL_INFO = Dict{Any,Any}()
-
-macro newvar(ex)
-    @match ex begin
-        :($a = $b) => :($(esc(a)) = Var($(esc(b))); $(esc(a)))
-        _ => error("not an array assignment.")
-    end
-end
-
-macro newfloats(args...)
-    ex = :()
-    for arg in args
-        ex = :($ex; $(esc(arg)) = Var(0.0))
-    end
-    return ex
-end
-
-macro R(ex)
-    @match ex begin
-        :($a[$(inds...)]) => :(ArrayElem(a, inds))
-        _ => error("expected a[...] like expression, got $ex")
-    end
-end
 
 """
 push value to A STACK, with initialization.
@@ -74,24 +51,7 @@ macro pop(ex::Expr)
     end
 end
 
-macro newreg(sym::Symbol...)
-    ex = :()
-    for s in sym
-        ex = :($ex; $(esc(s)) = Var(0))
-    end
-    ex
-end
-
-############# Var ################
-mutable struct Var{T} <: AbstractVar{T}
-    x::T
-    Var(x::T) where T = new{T}(x)
-end
-
-Base.getindex(r::Var) = r.x
-Base.setindex!(r::Var, val) = r.x = val
-Base.copy(b::Var) = Var(b.x)
-
+############# ancillas ################
 macro deanc(ex)
     @match ex begin
         :($x::$tp) => :(@invcheck $(esc(x)) ≈ zero($tp))
