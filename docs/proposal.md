@@ -13,17 +13,20 @@ end
 # 1. forward and backward excution
 x = 1.0
 y = 1.0
-f(x, y)  # x == 2.0
-(~f)(x, y)  # x == 1.0
+@instr f(x, y)  # x == 2.0
+@instr (~f)(x, y)  # x == 1.0
 
 
 # 2. obtain gradients
-(x, y) = f'((x, y); loss=x)
+(x, y) = f'(x, y; loss=x)
 gx = x.g
 gy = y.g
 
-# 2. obtain higher order gradients
-(x, y) = f''((x, y); loss=x)
+# 3. broadcasting
+@instr f'.(x, y)
+
+# 4. obtain higher order gradients
+@instr f''(x, y; loss=x)
 ggx = x.g.g
 ggy = y.g.g
 
@@ -78,3 +81,10 @@ The gradient function is implemented as
     ~g.f(args...)
 end
 ```
+
+### Difficulties
+* Current design does not use mutable variables to obtain better performance, as a result, we have to interpret function calls as `(args...) = f(args...)`, as a result, expressions like `f(grad(x), y)` and `f(x, 2)` is not supported anymore, making the programs very ugly.
+
+A possible solution is requiring user to define `fsetproperty(grad, x, xg)` functions, meanwhile handling constants manually.
+
+* To obtain gradients, I wrapped the variable with a gradient field, this behavior is a bit strange. Because in princile, input and output represents the same space in memory.
