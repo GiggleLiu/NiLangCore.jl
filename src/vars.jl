@@ -65,3 +65,6 @@ macro anc(ex)
         _ => error("please use like `@anc x::T`")
     end
 end
+
+export chvar
+function chvar end

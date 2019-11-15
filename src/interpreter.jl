@@ -11,8 +11,8 @@ end
 """translate to normal julia code."""
 function interpret_ex(ex, info)
     @match ex begin
-        :($f($(args...))) => :($(Expr(:tuple, args...)) = $f($(args...)))
-        :($f.($(args...))) => :($(Expr(:tuple, args...)) = $f.($(args...)))
+        :($f($(args...))) => :(@instr $f($(args...)))
+        :($f.($(args...))) => :(@instr $f.($(args...)))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             ifstatement(pre, post, interpret_body(truebranch, info), interpret_body(falsebranch, info))
@@ -117,7 +117,7 @@ function interpret_func(ex)
                 return ($(args...),)
             end;
             NiLangCore.isreversible(::$ftype) = true
-            )) |> rmlines
+            ))
         end
         _=>error("$ex is not a function def")
     end

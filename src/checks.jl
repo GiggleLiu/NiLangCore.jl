@@ -3,37 +3,29 @@ export ng, check_grad
 export ngradient, gradient
 
 isvar(x) = false
-isvar(x::Reg{T}) where T<:AbstractFloat = true
-isvar(x::AbstractVarArray{T}) where T<:AbstractFloat = true
+isvar(x::AbstractFloat) = true
+isvar(x::AbstractArray{T}) where T<:AbstractFloat = true
 
-zerovar(::Reg{T}) where T = Var(zero(T))
-zerovar(::T) where T = Var(zero(T))
-zerovar(::ArrayElem{T}) where T = nothing
-zerovar(x::AbstractVarArray) = zero(x)
-zerovar(x::AbstractArray) = Var(zero(x))
+function tset(vfunc::Function, tp::Tuple, iloss)
+    map(i->i===iloss ? vfunc(tp[i]) : tp[i], 1:length(tp))
+end
+function tset(val, tp::Tuple, iloss)
+    map(i->i===iloss ? val : tp[i], 1:length(tp))
+end
 
-function gradient(f, args, vars, loss)
-    f(args...)
+function gradient(f, args, vars, iloss)
+    args = f(args...)
     gargs = GVar.(args)
-    iarg = findfirst(x->x===(loss), args)
-    iarg === nothing && throw(ArgumentError("loss ($loss) not in args ($args)"))
-    grad(gargs[iarg])[] = 1
-    (~f)(gargs...)
+    gargs = tset(x->chvar(x, grad, 1.0), gargs, iloss)
+    gargs = (~f)(gargs...)
     return [x[] for x in grad.(gargs) if x!==nothing]
 end
 
 function world_similar(a, b; atol::Real=1e-8, verbose::Bool=false)
     for (xa, xb) in zip(a, b)
-        if xa isa Var
-            if !isapprox(xa[], xb[]; atol=atol)
-                verbose && println("$xa does not match $xb")
-                return false
-            end
-        else
-            if !isapprox(xa, xb; atol=atol)
-                verbose && println("$xa does not match $xb")
-                return false
-            end
+        if !isapprox(xa, xb; atol=atol)
+            verbose && println("$xa does not match $xb")
+            return false
         end
     end
     return true
@@ -41,40 +33,40 @@ end
 
 function check_inv(f, args; atol::Real=1e-8, verbose::Bool=false)
     args0 = deepcopy(args)
-    f(args...)
-    (~f)(args...)
+    args = f(args...)
+    args = (~f)(args...)
     world_similar(args0, args, atol=atol, verbose=verbose)
 end
 
-function ng(f, args, y, x::Reg; δ=1e-5)
-    x[] += δ/2
-    f(args...)
-    pos = y[]
-    (~f)(args...)
-    x[] -= δ
-    f(args...)
-    neg = y[]
-    (~f)(args...)
-    x[] += δ/2
+function ng(f, args, iloss, x::Reg; δ=1e-5)
+    args = tset(x->x+δ/2, args, iloss)
+    args = f(args...)
+    pos = args[iloss]
+    args = (~f)(args...)
+    args = tset(x->x-δ, args, iloss)
+    args = f(args...)
+    neg = args[iloss]
+    args = (~f)(args...)
+    args = tset(x->x+δ/2, args, iloss)
     (pos-neg)/δ
 end
 
-function ng(f, args, y, x::AbstractVarArray; δ=1e-5)
-    res = zero(x[])
+function ng(f, args, y, x::AbstractArray; δ=1e-5)
+    res = zero(x)
     for i = 1:length(x)
-        res[i] = ng(f, args, y, x[i]; δ=δ)
+        res[i] = ng(f, args, iloss, x[i]; δ=δ)
     end
 end
 
-function ngradient(f, args, vars, loss)
-    map(x-> ng(f, args, loss, x), vars)
+function ngradient(f, args, vars, iloss)
+    map(x-> ng(f, args, iloss, x), vars)
 end
 
-function check_grad(f, args; loss, atol::Real=1e-8, verbose::Bool=false)
+function check_grad(f, args; iloss, atol::Real=1e-8, verbose::Bool=false)
     vars = filter(isvar, [args...])
     initial_vars = deepcopy(vars)
-    ngs = ngradient(f, args, vars, loss)
-    gs = gradient(f, args, vars, loss)
+    ngs = ngradient(f, args, vars, iloss)
+    gs = gradient(f, args, vars, iloss)
     verbose && @show ngs
     verbose && @show gs
     @show ngs

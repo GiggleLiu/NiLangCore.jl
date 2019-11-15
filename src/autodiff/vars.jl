@@ -1,7 +1,7 @@
 ######## GVar, a variable that records gradient
 export GVar, grad, val
 # mutable to support `x.g = ...` expression.
-mutable struct GVar{T,GT<:Reg{T}} <: AbstractVar{T}
+struct GVar{T,GT<:Reg{T}} <: AbstractVar{T}
     x::T
     g::GT
 end
@@ -37,3 +37,8 @@ macro graddealloc(args::Symbol...)
     end
     ex
 end
+
+chvar(x::GVar, ::Val{:g}, g) = GVar(x.x, g)
+chvar(x::GVar, ::Val{:x}, v) = GVar(v, x.g)
+chvar(x::GVar, ::typeof(grad), g) = GVar(x.x, g)
+chvar(x::GVar, ::typeof(val), v) = GVar(v, x.g)

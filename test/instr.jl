@@ -14,9 +14,9 @@ import NiLangCore: ⊕, ⊖
     end
 end
 
-@i function ⊖(a!::GVar, b)
-    val(a!) ⊖ val(b)
-    @maybe grad(b) ⊕ grad(a!)
+@i function ⊖(a!::GVar, b::GVar)
+    a!.x ⊖ b.x
+    b.g ⊕ a!.g
 end
 
 @selfdual begin
@@ -28,8 +28,8 @@ end
 
 @i function (_::OMinus{typeof(*)})(out!::GVar, x, y)
     out! ⊖ x * y
-    @maybe grad(x) ⊕ grad(out!) * grad(y)
-    @maybe grad(y) ⊕ grad(x) * grad(out!)
+    x.g ⊕ grad(out!) * grad(y)
+    grad(y) ⊕ grad(x) * grad(out!)
 end
 
 @testset "@dual" begin
@@ -41,10 +41,13 @@ end
     b=1.0
     @instr a ⊕ b
     @test a == 3.0
+    args = (1,2)
+    @instr ⊕(args...)
+    @test args == (3,2)
     @instr a ⊖ b
     @test a == 2.0
-    check_inv(⊕, (a, b))
-    check_grad(⊕, (a, b), loss=a)
+    @test check_inv(⊕, (a, b))
+    @test check_grad(⊕, (a, b), iloss=1)
     @test isprimitive(⊕)
     @test isprimitive(⊖)
     @test nargs(⊕) == 2
@@ -90,18 +93,6 @@ end
     @test x ≈ 1
     @test y ≈ 1+exp(1.0)
     @instr (~⊕(exp))(y, x)
-    @test x[] ≈ 1
-    @test y[] ≈ 1
-end
-
-@testset "maybe" begin
-    x = 1
-    y = 2
-    @test conditioned_apply(⊕, (x, y), (x, y)) == 3
-    @test (@maybe (x, y) = ⊕(x, y))[1] == 3
-    x = nothing
-    @test (@maybe (x, y) = x ⊕ y) == nothing
-
-    a = Var(0.3)
-    @test check_grad(+, (a, 1.0), loss=a)
+    @test x ≈ 1
+    @test y ≈ 1
 end

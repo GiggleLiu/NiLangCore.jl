@@ -9,14 +9,14 @@ Base.display(bf::Grad) where f = print(bf)
 Inv(f::Grad) = Grad(~f.f)
 #Grad(f::Inv) = Inv(f.f')
 
-#=
-@i function (g::Grad)(args, loss_index::Int)
+# TODO: make `iloss` kwargs
+@i function (g::Grad)(iloss::Int, args...)
     g.f(args...)
-    @gradalloc args
-    @safe println(g.f, args)
-    grad(args[loss_index]) + 1
+    @safe println(args)
+    GVar.(args)
+    @safe println(args)
+    grad(args[iloss]) ⊕ 1.0
     @safe println(~g.f, args...)
     (~g.f)(args...)
     @safe println(g.f, args...)
 end
-=#

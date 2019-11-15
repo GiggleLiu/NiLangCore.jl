@@ -36,7 +36,7 @@ using Test
     xδ = Var(1)
     yδ = Var(2)
     outδ = Var(2)
-    @instr test1'((x, y, out), out)
+    @instr test1'(3, x, y, out)
     @test grad(out) == 2
     @test grad(x) == 9
     @test grad(y) == 14+2+9
