@@ -13,7 +13,8 @@ end
 function dual_fname(op)
     @match op begin
         :($x::$tp) => :(_::Inv{$tp})
-        _ => :(_::Inv{typeof($op)})
+        #_ => :(_::Inv{typeof($op)})
+        _ => :(_::typeof(~$op))
     end
 end
 

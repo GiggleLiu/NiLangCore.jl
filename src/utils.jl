@@ -17,4 +17,5 @@ end
 get_argname(arg::Symbol) = arg
 function get_argname(fname::Expr)
     fname.head == :(::) && return fname.args[1]
+    return fname
 end

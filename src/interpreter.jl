@@ -92,11 +92,11 @@ macro i(ex)
             esc(:(
             function $fname($(args...))
                 $(interpret_body(body, info)...)
-                return ($(args...),)
+                return ($(get_argname.(args)...),)
             end;
             function $(NiLangCore.dual_fname(fname))($(args...))
                 $(interpret_body(dual_body(body), info)...)
-                return ($(args...),)
+                return ($(get_argname.(args)...),)
             end;
             NiLangCore.isreversible(::$ftype) = true
             ))

@@ -19,6 +19,14 @@ end
     b.g ⊕ a!.g
 end
 
+@i function ⊖(a!, b::GVar)
+    a! ⊖ b.x
+end
+
+@i function ⊖(a!::GVar, b)
+    a!.x ⊖ b
+end
+
 @selfdual begin
     function XOR(a!, b)
         xor(a!, b), b
