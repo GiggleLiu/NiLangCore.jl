@@ -13,11 +13,8 @@ function tset(val, tp::Tuple, iloss)
     map(i->i===iloss ? val : tp[i], 1:length(tp))
 end
 
-function gradient(f, args, vars, iloss)
-    args = f(args...)
-    gargs = GVar.(args)
-    gargs = tset(x->chvar(x, grad, 1.0), gargs, iloss)
-    gargs = (~f)(gargs...)
+function gradient(f, args, vars)
+    gargs = f'(args...)
     return [x[] for x in grad.(gargs) if x!==nothing]
 end
 
@@ -51,27 +48,28 @@ function ng(f, args, iloss, x::Reg; δ=1e-5)
     (pos-neg)/δ
 end
 
-function ng(f, args, y, x::AbstractArray; δ=1e-5)
+function ng(f, args, iloss, x::AbstractArray; δ=1e-5)
     res = zero(x)
     for i = 1:length(x)
         res[i] = ng(f, args, iloss, x[i]; δ=δ)
     end
 end
 
-function ngradient(f, args, vars, iloss)
+function ngradient(f, args, vars)
+    iloss = findfirst(x->x isa Loss, [args...])
     map(x-> ng(f, args, iloss, x), vars)
 end
 
-function check_grad(f, args; iloss, atol::Real=1e-8, verbose::Bool=false)
+function check_grad(f, args; atol::Real=1e-8, verbose::Bool=false)
     vars = filter(isvar, [args...])
     initial_vars = deepcopy(vars)
-    ngs = ngradient(f, args, vars, iloss)
-    gs = gradient(f, args, vars, iloss)
+    ngs = ngradient(f, args, vars)
+    gs = gradient(f, args, vars)
     verbose && @show ngs
     verbose && @show gs
     @show ngs
     @show gs
-    if !isapprox(ngs, gs, atol=atol)
+    if !all(isapprox.(ngs, gs, atol=atol))
         verbose && println("gradient not match.")
         return false
     end

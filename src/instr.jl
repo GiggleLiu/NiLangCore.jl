@@ -96,7 +96,7 @@ assign_ex(arg::Expr, res) = @match arg begin
     :($f($x)) => :($(assign_ex(x, :(chvar($x, $f, $res)))))
     :($a[$(x...)]) => :(
         if ($a isa Tuple)
-            $a = TupleTools.insertat($a, $(x[]), ($res,))
+            $a = NiLangCore.TupleTools.insertat($a, $(x[]), ($res,))
         else
             $a[$(x...)] = $res
         end

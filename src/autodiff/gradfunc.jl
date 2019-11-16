@@ -9,13 +9,13 @@ Inv(f::Grad) = Grad(~f.f)
 #Grad(f::Inv) = Inv(f.f')
 
 # TODO: make `iloss` kwargs
-@i function (g::Grad)(iloss::Int, args...)
+@i function (g::Grad)(args...)
     g.f(args...)
-    @safe println(args)
     GVar.(args)
-    @safe println(args)
-    grad(args[iloss]) ⊕ 1.0
-    @safe println(~g.f, args...)
+    for i=1:length(args)
+        if (args[i] isa GVar{<:Loss}, ~)
+            grad(args[i]) ⊕ 1.0
+        end
+    end
     (~g.f)(args...)
-    @safe println(g.f, args...)
 end

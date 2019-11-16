@@ -44,14 +44,25 @@ function precom_ex(ex, ancs)
         end
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
+            post = post == :~ ? pre : post
             :(if($pre, $post); $(precom_body(truebranch, ancs)...); else; $(precom_body(falsebranch, ancs)...); end)
         end
+        :(if ($pre, $post); $(truebranch...); end) => begin
+            precom_ex(:(if ($pre, $post); $(truebranch...); else; end), ancs)
+        end
         :(while ($pre, $post); $(body...); end) => begin
+            post = post == :~ ? pre : post
             :(while ($pre, $post); $(precom_body(body, Dict{Symbol, Symbol}())...); end)
         end
         # TODO: allow ommit step.
-        :(for $i=$start:$step:$stop; $(body...); end) => begin
-            :(for i=$start:$step:$stop; $(precom_body(body, Dict{Symbol, Symbol}())...); end)
+        :(for $i=$range; $(body...); end) ||
+        :(for $i in $range; $(body...); end) => begin
+            rg = @match range begin
+                :($start:$step:$stop) => range
+                :($start:$stop) => :($start:1:$stop)
+                _ => error("not supported for loop style $ex.")
+            end
+            :(for $i=$rg; $(precom_body(body, Dict{Symbol, Symbol}())...); end)
         end
         :(@anc $line $x::$tp) => begin
             ancs[x] = tp

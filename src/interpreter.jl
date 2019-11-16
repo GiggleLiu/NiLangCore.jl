@@ -32,7 +32,7 @@ function interpret_ex(ex, info)
         :(@graddealloc $line $(args...)) => :(@graddealloc $(args...))
         :(return $(args...)) => LineNumberNode(0)
         ::LineNumberNode => ex
-        _ => error("`$(ex.args)` statement is not supported for invertible lang! got $ex")
+        _ => error("statement is not supported for invertible lang! got $ex")
     end
 end
 

@@ -11,35 +11,22 @@ using Test
         @anc out::Float64
         test1(a, b, out)
         (~test1)(a, b, out)
-        a + b
+        a ⊕ b
     end
 
     # compute (a+b)*b -> out
-    x = 3
-    y = 4
-    out = 0
-    @instr test1(x, y, out)
-    @test out==28
-    @instr (~test1)(x, y, out)
-    @test out==0
+    x = 3.0
+    y = 4.0
+    out = 0.0
     @test isreversible(test1)
     @test isreversible(test1')
-    (~test1)' == ~(test1')
     @test isreversible(~test1')
-    check_inv(tt, (x, y))
-
-    # gradient
-    x = Var(3)
-    y = Var(4)
-    out = Var(0)
-    @instr test1(x, y, out)
-    xδ = Var(1)
-    yδ = Var(2)
-    outδ = Var(2)
-    @instr test1'(3, x, y, out)
-    @test grad(out) == 2
-    @test grad(x) == 9
-    @test grad(y) == 14+2+9
+    @test (~test1)' == ~(test1')
+    @test check_inv(test1, (x, y, out))
+    @test check_inv(tt, (x, y, out))
+    @test check_grad(test1, (x, y, Loss(out)))
+    @test check_inv(tt, (x, y))
+    @test check_grad(tt, (Loss(x), y))
 end
 
 @testset "if statement 1" begin
@@ -194,18 +181,10 @@ end
     out = Array([0.0, 1.0])
     @instr test2(x, y, out)
     @test out==[28, 7]
-    @instr (~test2)(x, y, out)
-    @test out==[0, 1.0]
+    @test check_inv(test2, (x, y, ouy))
 
     # gradients
-    xδ = Array([1,2.0])
-    yδ = Array([0,2.0])
-    outδ = Array([0,2.0])
-    test2(x, y, out)
-    test2'(x, y, out)
-    @test outδ[] == [0,2.0]
-    @test xδ[] == [1, 6.0]
-    @test yδ[] == [1, 14.0]
+    check_grad(test2, (x, y, Loss(out)))
 end
 
 @testset "broadcast 2" begin
