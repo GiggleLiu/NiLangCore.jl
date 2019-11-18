@@ -1,5 +1,4 @@
 module NiLangCore
-using GeneralizedGenerated
 using MLStyle
 
 include("ngg/ngg.jl")

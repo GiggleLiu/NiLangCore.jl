@@ -35,6 +35,7 @@ end
 #@nograd XOR
 
 @i function (_::OMinus{typeof(*)})(out!::GVar, x::GVar, y::GVar)
+    @safe println(out!)
     out!.x ⊖ x.x * y.x
     x.g ⊕ out!.g * y.g
     y.g ⊕ x.g * out!.g
@@ -105,4 +106,10 @@ end
     @instr (~⊕(exp))(y, x)
     @test x ≈ 1
     @test y ≈ 1
+end
+
+@testset "assign" begin
+    arg = (1,2,GVar(3.0))
+    @assign arg[3].g 4.0
+    @test arg[3].g == 4.0
 end

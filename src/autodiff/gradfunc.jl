@@ -14,7 +14,7 @@ Inv(f::Grad) = Grad(~f.f)
     GVar.(args)
     for i=1:length(args)
         if (args[i] isa GVar{<:Loss}, ~)
-            grad(args[i]) ⊕ 1.0
+            args[i].g ⊕ 1.0
         end
     end
     (~g.f)(args...)

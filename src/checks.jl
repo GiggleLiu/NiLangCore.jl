@@ -56,12 +56,13 @@ function ng(f, args, iloss, x::AbstractArray; δ=1e-5)
 end
 
 function ngradient(f, args, vars)
-    iloss = findfirst(x->x isa Loss, [args...])
+    iloss = findfirst(x->x<:Loss, typeof.(args))
+    @show args, iloss
     map(x-> ng(f, args, iloss, x), vars)
 end
 
 function check_grad(f, args; atol::Real=1e-8, verbose::Bool=false)
-    vars = filter(isvar, [args...])
+    vars = ((x for x in args if isvar(x))...,)
     initial_vars = deepcopy(vars)
     ngs = ngradient(f, args, vars)
     gs = gradient(f, args, vars)

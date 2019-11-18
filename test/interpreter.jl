@@ -23,9 +23,9 @@ using Test
     @test isreversible(~test1')
     @test (~test1)' == ~(test1')
     @test check_inv(test1, (x, y, out))
-    @test check_inv(tt, (x, y, out))
-    @test check_grad(test1, (x, y, Loss(out)))
     @test check_inv(tt, (x, y))
+    @test check_inv(tt, (x, y))
+    @test check_grad(test1, (x, y, Loss(out)))
     @test check_grad(tt, (Loss(x), y))
 end
 
@@ -213,18 +213,15 @@ end
     @test out[]==[0, 1.0]
 
     # gradients
-    xδ = VarArray([1,2.0])
-    yδ = VarArray([0,2.0])
-    outδ = VarArray([0,2.0])
+    a = 1.0
+    b = 1.3
+    c = 1.9
+    @test check_grad(test2, (a,b,Loss(c))
     test2.(x, y, out)
-    (x, y, out), _ = test2'.((x, y, out), out)
-    @test outδ[] == [0,2.0]
-    @test xδ[] == [1, 6.0]
-    @test yδ[] == [1, 14.0]
-    @newvar a = 1.0
-    @newvar b = 1.3
-    @newvar c = 1.9
-    @test check_grad(test2, (a,b,c), loss=c)
+    (x, y, out), _ = test2'.(x, y, Loss(out))
+    @test grad.(out) == [0,2.0]
+    @test grad.(x) == [1, 6.0]
+    @test grad.(y) == [1, 14.0]
 end
 
 @testset "function call function" begin
@@ -239,10 +236,10 @@ end
         out ⊕ (a * b)
     end
 
-    @newvar a = 1.0
-    @newvar b = 1.3
-    @newvar c = 1.9
-    @test check_grad(test2, (a,b,c), loss=c)
+    a = 1.0
+    b = 1.3
+    c = 1.9
+    @test check_grad(test2, (a,b,Loss(c)))
 end
 
 @testset "second order gradient" begin
@@ -250,13 +247,10 @@ end
     @i function test1(a, b)
         a + b
     end
-    @initgrad (+)'
-    @initgrad test1
-    @initgrad test1'
 
-    @newvar a = 1.1
-    @newvar b = 1.7
-    @newvar ga = 0.4
-    @newvar gb = 0.3
-    @test check_grad(test1', (a,b, ga, gb), loss=a)
+    a = 1.1
+    b = 1.7
+    ga = 0.4
+    gb = 0.3
+    @test check_grad(test1', (Loss(a),b))
 end
