@@ -25,8 +25,6 @@ using Test
     @test check_inv(test1, (x, y, out))
     @test check_inv(tt, (x, y))
     @test check_inv(tt, (x, y))
-    @test check_grad(test1, (x, y, Loss(out)))
-    @test check_grad(tt, (Loss(x), y))
 end
 
 @testset "if statement 1" begin
@@ -164,8 +162,8 @@ end
     @i function test1(a, b)
         a .⊕ b
     end
-    x = Array([3, 1.0])
-    y = Array([4, 2.0])
+    x = [3, 1.0]
+    y = [4, 2.0]
     @instr test1(x, y)
     @test x == [7, 3.0]
     @instr (~test1)(x, y)
@@ -181,10 +179,7 @@ end
     out = Array([0.0, 1.0])
     @instr test2(x, y, out)
     @test out==[28, 7]
-    @test check_inv(test2, (x, y, ouy))
-
-    # gradients
-    check_grad(test2, (x, y, Loss(out)))
+    @test check_inv(test2, (x, y, out))
 end
 
 @testset "broadcast 2" begin
@@ -192,65 +187,23 @@ end
     @i function test1(a, b)
         a ⊕ b
     end
-    x = VarArray([3, 1.0])
-    y = VarArray([4, 2.0])
-    @instr test1.(x, y)
-    @test x[] == [7, 3.0]
-    @instr (~test1).(x, y)
-    @test x[] == [3, 1.0]
-
-    @i function test2(a, b, out)
-        a + b
-        out ⊕ (a * b)
-    end
-
-    x = VarArray([3, 1.0])
+    x = [3, 1.0]
     y = [4, 2.0]
-    out = VarArray([0.0, 1.0])
-    test2.(x, y, out)
-    @test out[]==[28, 7]
-    (~test2).(x, y, out)
-    @test out[]==[0, 1.0]
-
-    # gradients
-    a = 1.0
-    b = 1.3
-    c = 1.9
-    @test check_grad(test2, (a,b,Loss(c))
-    test2.(x, y, out)
-    (x, y, out), _ = test2'.(x, y, Loss(out))
-    @test grad.(out) == [0,2.0]
-    @test grad.(x) == [1, 6.0]
-    @test grad.(y) == [1, 14.0]
-end
-
-@testset "function call function" begin
-    # compute (a+b)*b -> out
-    @i function test1(a, b)
-        a + b
-    end
+    @instr test1.(x, y)
+    @test x == [7, 3.0]
+    @instr (~test1).(x, y)
+    @test x == [3, 1.0]
 
     @i function test2(a, b, out)
-        test1(a, out)
-        (~test1)(a, out)
+        a ⊕ b
         out ⊕ (a * b)
     end
 
-    a = 1.0
-    b = 1.3
-    c = 1.9
-    @test check_grad(test2, (a,b,Loss(c)))
-end
-
-@testset "second order gradient" begin
-    # compute (a+b)*b -> out
-    @i function test1(a, b)
-        a + b
-    end
-
-    a = 1.1
-    b = 1.7
-    ga = 0.4
-    gb = 0.3
-    @test check_grad(test1', (Loss(a),b))
+    x = [3, 1.0]
+    y = [4, 2.0]
+    out = [0.0, 1.0]
+    @instr test2.(x, y, out)
+    @test out==[28, 7]
+    @instr (~test2).(x, y, out)
+    @test out==[0, 1.0]
 end

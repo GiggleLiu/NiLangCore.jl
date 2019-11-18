@@ -7,24 +7,25 @@ struct GVar{T,GT<:Reg{T}} <: AbstractVar{T}
 end
 GVar{T1,T2}(x) where {T1,T2} = GVar(T1(x), zero(T2))
 Base.getindex(gv::GVar) = gv.x
-Base.convert(::Type{T}, gv::GVar) where T = T(gv.x)
-Base.convert(::Type{T}, gv::T) where T<:GVar = gv
 Base.copy(b::GVar) = GVar(b.x, copy(b.g))
+Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
 val(gv) = gv
 val(gv::GVar) = gv.x
 grad(gv::GVar) = gv.g
 grad(gv) = nothing
 
 # constructors and deconstructors
+## identity mapping
 GVar(x::Integer) = x
+(_::Type{Inv{GVar}})(x::Integer) = x
+
+## identity mapping
 GVar(x) = GVar(x, zero(x))
 GVar(x::GVar) = GVar(x, zero(x))
-GVar(x::Tuple) = GVar.(x)
-Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
+(_::Type{Inv{GVar}})(x::GVar) = (@invcheck x.g ≈ zero(x); x.x)
 
-(_::Type{Inv{GVar}})(x) = (@invcheck x.g ≈ zero(x); x.x)
-(_::Type{Inv{GVar}})(x::Integer) = x
-(_::Type{Inv{GVar}})(x::Tuple) = x
+GVar(x::Tuple) = GVar.(x)
+(_::Type{Inv{GVar}})(x::Tuple) = (~GVar).(x)
 
 using Base.Cartesian
 export @gradalloc, @graddealloc

@@ -1,7 +1,7 @@
 module NiLangCore
 using MLStyle
 
-include("ngg/ngg.jl")
+#include("ngg/ngg.jl")
 
 include("utils.jl")
 include("Core.jl")

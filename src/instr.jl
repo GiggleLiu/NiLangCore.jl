@@ -57,30 +57,40 @@ macro instr(ex)
         :($f($(args...))) => begin
             symres = gensym()
             ex = :($symres = $f($(args...)))
-            esc(assign_vars(ex, args, symres))
+            if startwithdot(f)
+                esc(:($ex; $(bcast_assign_vars(args, symres))))
+            else
+                esc(:($ex; $(assign_vars(args, symres))))
+            end
         end
         # TODO: support multiple input
-        :($f.($(args))) => begin
-            symres = gensym()
-            ex = :($symres = $f.($(args)))
-            esc(:($ex; $(assign_ex(args, symres))))
-        end
         :($f.($(args...))) => begin
-            i = gensym()
-            esc(:(
-            for $i=1:1:length($(args[1]))
-                $(macroexpand(NiLangCore, :(@instr $(Expr(:call, f, [:($arg[$i]) for arg in args]...)))))
-            end))
+            symres = gensym()
+            ex = :($symres = $f.($(args...)))
+            esc(:($ex; $(bcast_assign_vars(args, symres))))
         end
         _ => error("got $ex")
     end
 end
 
-function assign_vars(ex, args, symres)
+function assign_vars(args, symres)
+    ex = :()
     for (i,arg) in enumerate(args)
         exi = @match arg begin
             :($args...) => :($args = NiLangCore.tailn($symres, Val($i-1)))
             _ => assign_ex(arg, :($symres[$i]))
+        end
+        exi !== nothing && (ex = :($ex; $exi))
+    end
+    return ex
+end
+
+function bcast_assign_vars(args, symres)
+    ex = :()
+    for (i,arg) in enumerate(args)
+        exi = @match arg begin
+            :($args...) => :($args = ([getindex.($symres, j) for j=i:length(symres[1])]...,))
+            _ => assign_ex(arg, :(getindex.($symres, $i)))
         end
         exi !== nothing && (ex = :($ex; $exi))
     end
@@ -102,6 +112,11 @@ assign_ex(arg::Expr, res) = @match arg begin
         end
     )
     _ => error("input expression illegal, got $arg.")
+end
+
+function bcast_assign_ex(arg::Expr, res)
+    @match assign_ex(arg, res) begin
+    end
 end
 
 iter_assign(a::AbstractArray, val, indices...) = (a[indices...] = val; a)

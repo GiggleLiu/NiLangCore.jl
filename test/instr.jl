@@ -14,32 +14,12 @@ import NiLangCore: ⊕, ⊖
     end
 end
 
-@i function ⊖(a!::GVar, b::GVar)
-    a!.x ⊖ b.x
-    b.g ⊕ a!.g
-end
-
-@i function ⊖(a!, b::GVar)
-    a! ⊖ b.x
-end
-
-@i function ⊖(a!::GVar, b)
-    a!.x ⊖ b
-end
-
 @selfdual begin
     function XOR(a!, b)
         xor(a!, b), b
     end
 end
 #@nograd XOR
-
-@i function (_::OMinus{typeof(*)})(out!::GVar, x::GVar, y::GVar)
-    @safe println(out!)
-    out!.x ⊖ x.x * y.x
-    x.g ⊕ out!.g * y.g
-    y.g ⊕ x.g * out!.g
-end
 
 @testset "@dual" begin
     @test isreversible(⊕)
@@ -56,7 +36,6 @@ end
     @instr a ⊖ b
     @test a == 2.0
     @test check_inv(⊕, (a, b))
-    @test check_grad(⊕, (Loss(a), b))
     @test isprimitive(⊕)
     @test isprimitive(⊖)
     @test nargs(⊕) == 2
@@ -106,10 +85,4 @@ end
     @instr (~⊕(exp))(y, x)
     @test x ≈ 1
     @test y ≈ 1
-end
-
-@testset "assign" begin
-    arg = (1,2,GVar(3.0))
-    @assign arg[3].g 4.0
-    @test arg[3].g == 4.0
 end
