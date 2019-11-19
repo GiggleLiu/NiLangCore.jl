@@ -31,6 +31,7 @@ macro dual(ex)
             Base.:~(::typeof($invf)) = $f
             ))
         end
+        _ => error("get unrecognized function $ex")
     end
 end
 
@@ -47,6 +48,7 @@ macro selfdual(ex)
             Base.:~(::typeof($f)) = $f
             ))
         end
+        _ => error("get unrecognized function $ex")
     end
 end
 
@@ -89,7 +91,7 @@ function bcast_assign_vars(args, symres)
     ex = :()
     for (i,arg) in enumerate(args)
         exi = @match arg begin
-            :($args...) => :($args = ([getindex.($symres, j) for j=i:length(symres[1])]...,))
+            :($args...) => :($args = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
             _ => assign_ex(arg, :(getindex.($symres, $i)))
         end
         exi !== nothing && (ex = :($ex; $exi))

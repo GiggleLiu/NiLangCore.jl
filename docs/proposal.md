@@ -59,7 +59,7 @@ Gradients are now Implemented in a multiple dispatch way!
 ```julia
 @i function ⊖(a!::GVar, b)
     a!.x ⊖ b.x  # normal run
-    @maybe b.g ⊕ a!.g  # operation to gradient space
+    b.g ⊕ a!.g  # operation to gradient space
 end
 ```
 

@@ -1,7 +1,9 @@
-######## GVar, a variable that records gradient
-export GVar, grad, val
+######## GVar, a bundle that records gradient
+export GVar, grad
+const Reg{T} = Union{T, Bundle{T}} where T<:Number
+
 # mutable to support `x.g = ...` expression.
-struct GVar{T,GT<:Reg{T}} <: AbstractVar{T}
+struct GVar{T,GT<:Reg{T}} <: Bundle{T}
     x::T
     g::GT
 end
@@ -9,8 +11,6 @@ GVar{T1,T2}(x) where {T1,T2} = GVar(T1(x), zero(T2))
 Base.getindex(gv::GVar) = gv.x
 Base.copy(b::GVar) = GVar(b.x, copy(b.g))
 Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
-val(gv) = gv
-val(gv::GVar) = gv.x
 grad(gv::GVar) = gv.g
 grad(gv) = nothing
 
@@ -47,10 +47,10 @@ end
 Base.show(io::IO, gv::GVar) = print(io, "GVar($(gv.x), $(gv.g))")
 Base.show(io::IO, ::MIME"plain/text", gv::GVar) = Base.show(io, gv)
 
-chvar(x::GVar{T1,T2}, ::Val{:g}, g) where {T1,T2} = GVar{T1,T2}(x.x, g)
-chvar(x::GVar{T1,T2}, ::Val{:x}, v) where {T1,T2} = GVar{T1,T2}(T1(v), x.g)
-chvar(x::GVar{T1,T2}, ::typeof(grad), g) where {T1,T2} = GVar{T1,T2}(x.x, g)
-chvar(x::GVar{T1,T2}, ::typeof(val), v) where {T1,T2} = GVar{T1,T2}(T1(v), x.g)
+chfield(x::GVar{T1,T2}, ::Val{:g}, g) where {T1,T2} = GVar{T1,T2}(x.x, g)
+chfield(x::GVar{T1,T2}, ::Val{:x}, v) where {T1,T2} = GVar{T1,T2}(T1(v), x.g)
+chfield(x::GVar{T1,T2}, ::typeof(grad), g) where {T1,T2} = GVar{T1,T2}(x.x, g)
+chfield(x::GVar{T1,T2}, ::typeof(val), v) where {T1,T2} = GVar{T1,T2}(T1(v), x.g)
 
 #function Base.promote_rule(::Type{GVar{T,T2}}, ::Type{T}) where {T,T2}
 #    GVar{T, T2}
@@ -75,3 +75,28 @@ end
 Base.eps(::Type{<:Loss{T}}) where T = Base.eps(T)
 Base.show(io::IO, gv::Loss) = print(io, "Loss($(gv.x))")
 Base.show(io::IO, ::MIME"plain/text", gv::Loss) = Base.show(io, gv)
+
+######## Conditional apply
+export conditioned_apply, @maybe
+
+"""excute if and only if arguments are not nothing"""
+macro maybe(ex)
+    @match ex begin
+        :($fname($(args...))) ||
+        :(begin $fname($(args...)) end) => begin
+            args = Expr(:tuple, esc.(args)...)
+            esc(:(conditioned_apply($fname, $args, $args)))
+        end
+        _ => error("got $ex")
+    end
+end
+
+@generated function conditioned_apply(f, args, cargs)
+    if any(x->x<:Nothing, cargs.parameters)
+        return :(nothing)
+    else
+        return quote
+            f(args...)
+        end
+    end
+end

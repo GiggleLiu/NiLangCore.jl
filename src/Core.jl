@@ -20,11 +20,6 @@ macro invcheck(ex)
     end))
 end
 
-# variables
-export Reg
-abstract type AbstractVar{T} <: Number end
-const Reg{T} = Union{T, AbstractVar{T}}
-
 ######## Inv
 export Inv
 struct Inv{FT} <: Function
@@ -36,31 +31,6 @@ Base.:~(f::Function) = Inv(f)
 Base.:~(::Type{T}) where T = Inv{T}  # for type, it is a destructor
 Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
 Base.display(bf::Inv) where f = print(bf)
-
-######## Conditional apply
-export conditioned_apply, @maybe
-
-"""excute if and only if arguments are not nothing"""
-macro maybe(ex)
-    @match ex begin
-        :($fname($(args...))) ||
-        :(begin $fname($(args...)) end) => begin
-            args = Expr(:tuple, esc.(args)...)
-            esc(:(conditioned_apply($fname, $args, $args)))
-        end
-        _ => error("got $ex")
-    end
-end
-
-@generated function conditioned_apply(f, args, cargs)
-    if any(x->x<:Nothing, cargs.parameters)
-        return :(nothing)
-    else
-        return quote
-            f(args...)
-        end
-    end
-end
 
 ######### Infer
 export ⊕, ⊖

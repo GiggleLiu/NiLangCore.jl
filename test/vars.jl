@@ -5,4 +5,6 @@ using Test
     @test (@deanc x::Float64)
     x += 1
     @test_throws InvertibilityError (@deanc x::Float64)
+    @assign val(x) 0.1
+    @test x == 0.1
 end

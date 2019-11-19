@@ -69,7 +69,7 @@ end
     x = 3
     y = 4
     out = 0
-    @i function test1(a::Reg, b, out::Reg)
+    @i function test1(a, b, out)
         a ⊕ b
         if (a > 2, a > 2)
             out ⊕ a*b
@@ -206,4 +206,7 @@ end
     @test out==[28, 7]
     @instr (~test2).(x, y, out)
     @test out==[0, 1.0]
+    args = (x, y, out)
+    @instr test2.(args...)
+    @test args[3]==[28, 7]
 end

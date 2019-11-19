@@ -1,5 +1,6 @@
 export @push, @pop
 export @anc, @deanc
+export chfield
 
 const A_STACK = []
 const B_STACK = []
@@ -66,5 +67,20 @@ macro anc(ex)
     end
 end
 
-export chvar
-function chvar end
+function chfield end
+
+export Bundle, val
+export chfield, chval
+# variables
+# Bundle is a wrapper of data type
+# instructions on Bundle will not change the original behavior of wrapped data type.
+# but, will extract information.
+# Bundle type is always callable as a data converter.
+abstract type Bundle{T} <: Number end
+"""get the data in a bundle"""
+val(x) = x
+val(b::Bundle) = b.x
+
+function chfield end
+chfield(x::T, val, y::T) where T = y
+chval(a, x) = chfield(a, val, x)

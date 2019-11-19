@@ -7,16 +7,19 @@ import NiLangCore: ⊕, ⊖
 
 @dual begin
     function ⊕(a!, b)
-        a! + b, b
+        @assign val(a!) val(a!) + val(b)
+        a!, b
     end
     function ⊖(a!, b)
-        a! - b, b
+        @assign val(a!) val(a!) - val(b)
+        a!, b
     end
 end
 
 @selfdual begin
     function XOR(a!, b)
-        xor(a!, b), b
+        @assign a! xor(a!, b)
+        a!, b
     end
 end
 #@nograd XOR
