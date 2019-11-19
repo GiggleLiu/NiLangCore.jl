@@ -53,8 +53,6 @@ function dual_ex(ex)
         :(@maybe $line $subex) => :(@maybe $(dual_ex(subex)))
         :(@anc $line $x::$tp) => :(@deanc $x::$tp)
         :(@deanc $line $x::$tp) => :(@anc $x::$tp)
-        :(@gradalloc $line $(args...)) => :(@graddealloc $(args...))
-        :(@graddealloc $line $(args...)) => :(@gradalloc $(args...))
         _ => ex
     end
 end

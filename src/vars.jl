@@ -1,6 +1,5 @@
 export @push, @pop
 export @anc, @deanc
-export chfield
 
 const A_STACK = []
 const B_STACK = []
@@ -69,7 +68,7 @@ end
 
 function chfield end
 
-export Bundle, val
+export Bundle, Reg, val
 export chfield, chval
 # variables
 # Bundle is a wrapper of data type
@@ -78,9 +77,12 @@ export chfield, chval
 # Bundle type is always callable as a data converter.
 abstract type Bundle{T} <: Number end
 """get the data in a bundle"""
+
+# NOTE: the reason for not using x[], x[] is designed for mutable types!
 val(x) = x
 val(b::Bundle) = b.x
 
 function chfield end
 chfield(x::T, val, y::T) where T = y
 chval(a, x) = chfield(a, val, x)
+const Reg{T} = Union{T, Bundle{T}} where T<:Number

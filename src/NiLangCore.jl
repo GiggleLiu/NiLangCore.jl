@@ -1,5 +1,6 @@
 module NiLangCore
 using MLStyle
+using TupleTools
 
 #include("ngg/ngg.jl")
 
@@ -11,8 +12,9 @@ include("instr.jl")
 include("dualcode.jl")
 include("preprocess.jl")
 include("interpreter.jl")
-#include("gradcode.jl")
-include("autodiff/autodiff.jl")
 include("checks.jl")
+
+include("autodiff/autodiff.jl")
+export AD
 
 end # module

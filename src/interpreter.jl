@@ -28,8 +28,6 @@ function interpret_ex(ex, info)
         :(@safe $line $subex) => subex
         :(@anc $line $x::$tp) => :(@anc $x::$tp)
         :(@deanc $line $x::$tp) => :(@deanc $x::$tp)
-        :(@gradalloc $line $(args...)) => :(@gradalloc $(args...))
-        :(@graddealloc $line $(args...)) => :(@graddealloc $(args...))
         :(return $(args...)) => LineNumberNode(0)
         ::LineNumberNode => ex
         _ => error("statement is not supported for invertible lang! got $ex")

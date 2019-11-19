@@ -36,4 +36,7 @@ end
     args = (GVar(0.0, 1.0),)
     @assign grad(args[1]) 0.0
     @test args[1].g == 0.0
+    arr = [1.0]
+    @assign arr[] 0.0
+    @test arr[] == 0.0
 end

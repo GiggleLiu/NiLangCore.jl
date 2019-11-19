@@ -1,5 +1,4 @@
 export @dual, @selfdual, nargs, nouts
-using TupleTools
 
 function nargs end
 function nouts end
@@ -104,15 +103,19 @@ function assign_ex(arg::Symbol, res)
 end
 assign_ex(arg::Union{Number,String}, res) = :(@invcheck $arg ≈ $res)
 assign_ex(arg::Expr, res) = @match arg begin
-    :($x.$k) => :($(assign_ex(x, :(chvar($x, $(Val(k)), $res)))))
-    :($f($x)) => :($(assign_ex(x, :(chvar($x, $f, $res)))))
-    :($a[$(x...)]) => :(
-        if ($a isa Tuple)
-            $a = NiLangCore.TupleTools.insertat($a, $(x[]), ($res,))
+    :($x.$k) => :($(assign_ex(x, :(chfield($x, $(Val(k)), $res)))))
+    :($f($x)) => :($(assign_ex(x, :(chfield($x, $f, $res)))))
+    :($a[$(x...)]) => begin
+        if length(x) == 0
+            :($a[] = $res)
         else
-            $a[$(x...)] = $res
+            :(if ($a isa Tuple)
+                $a = NiLangCore.TupleTools.insertat($a, $(x[]), ($res,))
+            else
+                $a[$(x...)] = $res
+            end)
         end
-    )
+    end
     _ => error("input expression illegal, got $arg.")
 end
 
