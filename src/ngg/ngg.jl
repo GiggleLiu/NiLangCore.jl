@@ -8,6 +8,7 @@ List = LinkedList
 
 rmlines(ex::Expr) = begin
     hd = ex.head
+    hd == :macrocall && return ex
     tl = map(rmlines, filter(!islinenumbernode, ex.args))
     Expr(hd, tl...)
 end

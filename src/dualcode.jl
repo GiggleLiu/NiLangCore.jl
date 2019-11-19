@@ -13,19 +13,24 @@ end
 function dual_fname(op)
     @match op begin
         :($x::$tp) => :(_::Inv{$tp})
-        _ => :(_::Inv{typeof($op)})
+        #_ => :(_::Inv{typeof($op)})
+        _ => :(_::typeof(~$op))
     end
 end
 
 function _infer_dual(sym::Symbol)
-    if sym == :⊕
-        :⊖
-    elseif sym == :⊖
-        :⊕
-    elseif sym == :.⊕
-        :.⊖
-    elseif sym == :.⊖
-        :.⊕
+    if sym == :+=
+        :-=
+    elseif sym == :-=
+        :+=
+    elseif sym == :.+=
+        :.-=
+    elseif sym == :.-=
+        :.+=
+    elseif sym == :⊻=
+        :⊻=
+    elseif sym == :.⊻=
+        :.⊻=
     end
 end
 
@@ -33,12 +38,21 @@ function dual_ex(ex)
     @match ex begin
         :($f($(args...))) => begin
             if startwithdot(f)
-                :($(dotgetdual(f))($(args...)))
+                :($(dotgetdual(f)).($(args...)))
             else
                 :($(getdual(f))($(args...)))
             end
         end
         :($f.($(args...))) => :($(getdual(f)).($(args...)))
+        :($a += $f($(args...))) => :($a -= $f($(args...)))
+        :($a .+= $f($(args...))) => :($a .-= $f($(args...)))
+        :($a .+= $f.($(args...))) => :($a .-= $f.($(args...)))
+        :($a -= $f($(args...))) => :($a += $f($(args...)))
+        :($a .-= $f($(args...))) => :($a .+= $f($(args...)))
+        :($a .-= $f.($(args...))) => :($a .+= $f.($(args...)))
+        :($a ⊻= $f($(args...))) => :($a ⊻= $f($(args...)))
+        :($a .⊻= $f($(args...))) => :($a .⊻= $f($(args...)))
+        :($a .⊻= $f.($(args...))) => :($a .⊻= $f.($(args...)))
         :(if ($pre, $post); $(tbr...); else; $(fbr...); end) => begin
             :(if ($post, $pre); $(dual_body(tbr)...); else; $(dual_body(fbr)...); end)
         end
@@ -50,12 +64,8 @@ function dual_ex(ex)
             :(for $i=$stop:(-$step):$start; $(dual_body(body)...); end)
         end
         :(@maybe $line $subex) => :(@maybe $(dual_ex(subex)))
-        :(@anc $line $x::$tp) => begin
-            :(@deanc $x::$tp)
-        end
-        :(@deanc $line $x::$tp) => begin
-            :(@anc $x::$tp)
-        end
+        :(@anc $line $x::$tp) => :(@deanc $x::$tp)
+        :(@deanc $line $x::$tp) => :(@anc $x::$tp)
         _ => ex
     end
 end
@@ -70,9 +80,9 @@ end
 getdual(f) = @match f begin
     :(⊕($f)) => :(⊖($f))
     :(⊖($f)) => :(⊕($f))
-    _ => INVFUNC[f]
+    _ => :(~$f)
 end
-dotgetdual(f::Symbol) = Symbol(:., getdual(removedot(f)))
+dotgetdual(f::Symbol) = getdual(removedot(f))
 
 function dual_body(body)
     out = map(st->(dual_ex(st)), Iterators.reverse(body))

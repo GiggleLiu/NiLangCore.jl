@@ -1,3 +1,4 @@
+#using .NGG: rmlines
 function interpret_body(body::AbstractVector, info)
     out = []
     for ex in body
@@ -10,8 +11,17 @@ end
 """translate to normal julia code."""
 function interpret_ex(ex, info)
     @match ex begin
-        :($f($(args...))) => :($(esc(f))($(args...)))
-        :($f.($(args...))) => :($(esc(f)).($(args...)))
+        :($f($(args...))) => :(@instr $f($(args...)))
+        :($f.($(args...))) => :(@instr $f.($(args...)))
+        :($a += $f($(args...))) => :(@instr $a += $f($(args...)))
+        :($a .+= $f($(args...))) => :(@instr $a .+= $f($(args...)))
+        :($a .+= $f.($(args...))) => :(@instr $a .+= $f.($(args...)))
+        :($a -= $f($(args...))) => :(@instr $a -= $f($(args...)))
+        :($a .-= $f($(args...))) => :(@instr $a .-= $f($(args...)))
+        :($a .-= $f.($(args...))) => :(@instr $a .-= $f.($(args...)))
+        :($a ⊻= $f($(args...))) => :(@instr $a ⊻= $f($(args...)))
+        :($a .⊻= $f($(args...))) => :(@instr $a .⊻= $f($(args...)))
+        :($a .⊻= $f.($(args...))) => :(@instr $a .⊻= $f.($(args...)))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             ifstatement(pre, post, interpret_body(truebranch, info), interpret_body(falsebranch, info))
@@ -24,10 +34,12 @@ function interpret_ex(ex, info)
             forstatement(i, start, step, stop, interpret_body(body, ()))
         end
         :(@maybe $line $subex) => :(@maybe $(interpret_ex(subex, info)))
+        :(@safe $line $subex) => subex
         :(@anc $line $x::$tp) => :(@anc $x::$tp)
         :(@deanc $line $x::$tp) => :(@deanc $x::$tp)
+        :(return $(args...)) => LineNumberNode(0)
         ::LineNumberNode => ex
-        _ => error("`$(ex.args)` statement is not supported for invertible lang! got $ex")
+        _ => error("statement is not supported for invertible lang! got $ex")
     end
 end
 
@@ -57,15 +69,15 @@ end
 function forstatement(i, start, step, stop, body)
     start_, step_, stop_ = gensym(), gensym(), gensym()
     ex = :(
-        $start_ = $(start)[];
-        $step_ = $(step)[];
-        $stop_ = $(stop)[];
+        $start_ = $start[];
+        $step_ = $step[];
+        $stop_ = $stop[];
         for $i=$start_:$step_:$stop_
             $(body...);
         end;
-        @invcheck $start_ == $(start)[];
-        @invcheck $step_ == $(step)[];
-        @invcheck $stop_ == $(stop)[]
+        @invcheck $start_ == $start[];
+        @invcheck $step_ == $step[];
+        @invcheck $stop_ == $stop[]
         )
 end
 
@@ -80,18 +92,21 @@ macro i(ex)
             info = ()
             ifname = :(~$fname)
             iex = dual_func(ex)
-            NiLangCore.regdual(fname=>ex, ifname=>iex)
 
             # implementations
             ftype = get_ftype(fname)
             iftype = get_ftype(NiLangCore.dual_fname(fname))
-            :(function $(esc(fname))($(args...))
+            esc(:(
+            function $fname($(args...))
                 $(interpret_body(body, info)...)
+                return ($(get_argname.(args)...),)
             end;
-            function $(esc(NiLangCore.dual_fname(fname)))($(args...))
+            function $(NiLangCore.dual_fname(fname))($(args...))
                 $(interpret_body(dual_body(body), info)...)
+                return ($(get_argname.(args)...),)
             end;
-            $(esc(:(NiLangCore.isreversible)))(::$(esc(ftype))) = true)
+            NiLangCore.isreversible(::$ftype) = true
+            ))
         end
         _=>error("$ex is not a function def")
     end
@@ -103,10 +118,13 @@ function interpret_func(ex)
         :($fname($(args...)) = $(body...)) => begin
             info = ()
             ftype = get_ftype(fname)
-            :(function $(esc(fname))($(args...))
+            esc(:(
+            function $fname($(args...))
                 $(interpret_body(body, info)...)
+                return ($(args...),)
             end;
-            $(esc(:(NiLangCore.isreversible)))(::$(esc(ftype))) = true)
+            NiLangCore.isreversible(::$ftype) = true
+            ))
         end
         _=>error("$ex is not a function def")
     end

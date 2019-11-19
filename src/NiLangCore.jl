@@ -1,6 +1,8 @@
 module NiLangCore
-using GeneralizedGenerated
 using MLStyle
+using TupleTools
+
+#include("ngg/ngg.jl")
 
 include("utils.jl")
 include("Core.jl")
@@ -9,10 +11,10 @@ include("vars.jl")
 include("instr.jl")
 include("dualcode.jl")
 include("preprocess.jl")
-include("interpretor.jl")
-include("gradcode.jl")
+include("interpreter.jl")
 include("checks.jl")
 
-include("ngg/ngg.jl")
+include("autodiff/autodiff.jl")
+export AD
 
 end # module

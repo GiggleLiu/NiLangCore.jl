@@ -1,128 +1,100 @@
 using NiLangCore
-using NiLangCore: interpret_ex, dual_ex, grad_ex, precom_ex
+using NiLangCore: interpret_ex, dual_ex, precom_ex
 
 using Test
-import Base: +, -, xor
-
-@testset "naming" begin
-    @test NiLangCore.grad_name(:(~test1')) == :(_::Inv{typeof((test1')')})
-    @test NiLangCore.grad_name(:(~test1')) == :(_::Inv{typeof((test1')')})
-    @test NiLangCore.index_name(:(_::Grad{typeof(+)})) == :((+)')
-    @test NiLangCore.index_name(:(_::Grad{Inv{typeof(+)}})) == :((~+)')
-    @test NiLangCore.index_name(:(_::Grad{Grad{Inv{typeof(+)}}})) == :((~+)'')
-    @test NiLangCore.index_name(:(_::Inv{Grad{typeof(+)}})) == :((~(+)'))
-end
+import Base: +, -
+import NiLangCore: ⊕, ⊖
 
 @dual begin
-    function +(a!::Reg, b)
-        # check address conflict, a, b should be different.
-        a![] += b[]
+    function ⊕(a!, b)
+        @assign val(a!) val(a!) + val(b)
+        a!, b
     end
-
-    function -(a!::Reg, b)
-        a![] -= b[]
+    function ⊖(a!, b)
+        @assign val(a!) val(a!) - val(b)
+        a!, b
     end
 end
-
-@adjoint function (+)'(a!::Reg, b, aδ, bδ!)
-    -(a!, b)
-    @maybe bδ! + aδ
-end
+@ignore ⊕(a!::Nothing, b)
+@ignore ⊕(a!::Nothing, b::Nothing)
+@ignore ⊕(a!, b::Nothing)
 
 @selfdual begin
-    function xor(a!::Reg, b)
-        a![] = xor(a![], b[])
+    function XOR(a!, b)
+        @assign a! xor(a!, b)
+        a!, b
     end
 end
-@nograd xor
+#@nograd XOR
 
-@adjoint function (⊕(*))'(out!::Reg, x, y, outδ, xδ!, yδ!)
-    out! ⊖ x * y
-    @maybe xδ! ⊕ outδ * y
-    @maybe yδ! ⊕ x * outδ
+@testset "ignore" begin
+    @test nothing ⊕ 3 == (nothing, 3)
+    @test nothing ⊕ nothing == (nothing, nothing)
+    @test 3 ⊕ nothing == (3, nothing)
 end
 
 @testset "@dual" begin
-    @test isreversible(+)
-    @test isreversible(-)
-    @test !isreflexive(+)
-    @test ~(+) == -
-    @newvar a=2.0
-    @newvar b=1.0
-    a + b
-    @test a[] == 3.0
-    a - b
-    @test a[] == 2.0
-    check_inv(+, (a, b))
-    check_grad(+, (a, b), loss=a)
-    @test isprimitive(+)
-    @test isprimitive(-)
-    @test nargs(+) == 2
-    @test nargs(-) == 2
+    @test isreversible(⊕)
+    @test isreversible(⊖)
+    @test !isreflexive(⊕)
+    @test ~(⊕) == ⊖
+    a=2.0
+    b=1.0
+    @instr a ⊕ b
+    @test a == 3.0
+    args = (1,2)
+    @instr ⊕(args...)
+    @test args == (3,2)
+    @instr a ⊖ b
+    @test a == 2.0
+    @test check_inv(⊕, (a, b))
+    @test isprimitive(⊕)
+    @test isprimitive(⊖)
+    @test nargs(⊕) == 2
+    @test nargs(⊖) == 2
 end
 
 @testset "@selfdual" begin
-    @test isreversible(xor)
-    @test isreflexive(xor)
-    @test isprimitive(xor)
-    @test nargs(xor) == 2
-    @test ~(xor) == xor
-    @newvar a=2
-    @newvar b=1
-    a ⊻ b
-    @test a[] == 3
-    a ⊻ b
-    @test a[] == 2
-    @newvar aδ = 1.0
-    @newvar bδ = 1.0
-    (⊻)'(a, b, aδ, bδ)
-    @test a[] == 3
-    @test aδ[] == 1
-    @test bδ[] == 1
+    @test isreversible(XOR)
+    @test isreflexive(XOR)
+    @test isprimitive(XOR)
+    @test nargs(XOR) == 2
+    @test ~(XOR) == XOR
+    a=2
+    b=1
+    @instr XOR(a, b)
+    @test a == 3
+    @instr XOR(a, b)
+    @test a == 2
 end
 
+#=
 @testset "interpret_ex" begin
     info = ()
-    @test interpret_ex(:(f(x, y)), info) == :($(esc(:f))(x, y))
-    @test interpret_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :($(esc(:(⊕(+))))(out, x, y))
-    @test interpret_ex(:(x .+ y), info) == :($(esc(:.+))(x, y))
-    @test interpret_ex(:(f.(x, y)), info) == :($(esc(:f)).(x, y))
-    @test interpret_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :($(esc(:(⊕(+)))).(out, x, y))
-    @test interpret_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :($(esc(:(⊕(swap)))).(out, x, y))
+    @test interpret_ex(:(f(x, y)), info) == :(@instr f(x, y))
+    @test interpret_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :(@instr ⊕(+)(out, x, y))
+    @test interpret_ex(:(x .+ y), info) == :(@instr x .+ y)
+    @test interpret_ex(:(f.(x, y)), info) == :(@instr f.(x, y))
+    @test interpret_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :(@instr ⊕(+).(out, x, y))
+    @test interpret_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :(@instr ⊕(swap).(out, x, y))
 end
+=#
 
 @testset "dual_ex" begin
     @test dual_ex(:(⊕(+)(out, x, y))) == :(⊖(+)(out, x, y))
-    @test dual_ex(:(x .+ y)) == :((x .- y))
-    @test dual_ex(:((+).(x, y))) == :((-).(x, y))
+    #@test dual_ex(:(x .⊕ y)) == :((x .(~(⊕)) y))
+    @test dual_ex(:((+).(x, y))) == :((~(+)).(x, y))
     @test dual_ex(:(⊕(+).(out, x, y))) == :(⊖(+).(out, x, y))
-    @test dual_ex(:(⊕(xor).(out, x, y))) == :(⊖(xor).(out, x, y))
-end
-
-@testset "grad_ex" begin
-    info = Dict(:x=>:gx, :y=>:gy, :out=>:gout)
-    @test grad_ex(:(out ⊕ (x + y)), info) == :((⊕)'(+, out, x, y, gout, gx, gy))
-    @test grad_ex(:(x .+ y), info) == :((+)'.(x, y, gx, gy))
-    @test grad_ex(:(out .⊕ (x .+ y)), info) == :((⊕)'.(+, out, x, y, gout, gx, gy))
-    @test grad_ex(:(out .⊕ swap.(x, y)), info) == :((⊕)'.(swap, out, x, y, gout, gx, gy))
+    @test dual_ex(:(⊕(XOR).(out, x, y))) == :(⊖(XOR).(out, x, y))
 end
 
 @testset "⊕" begin
-    x = Var(1.0)
-    y = Var(1.0)
-    ⊕(exp)(y, x)
-    @test x[] ≈ 1
-    @test y[] ≈ 1+exp(1.0)
-    (~⊕(exp))(y, x)
-    @test x[] ≈ 1
-    @test y[] ≈ 1
-end
-
-@testset "maybe" begin
-    x = 1
-    y = 2
-    @test conditioned_apply(+, (x, y), (x, y)) == 3
-    @test (@maybe x + y) == 3
-    x = nothing
-    @test (@maybe x + y) == nothing
+    x = 1.0
+    y = 1.0
+    @instr ⊕(exp)(y, x)
+    @test x ≈ 1
+    @test y ≈ 1+exp(1.0)
+    @instr (~⊕(exp))(y, x)
+    @test x ≈ 1
+    @test y ≈ 1
 end

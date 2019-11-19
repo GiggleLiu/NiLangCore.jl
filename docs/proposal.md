@@ -3,59 +3,88 @@
 ## Requirements
 ```julia
 # variable with `!` are changed.
+# ⊕ and ⊖ represents `+=` and `-=`
+# variables can not be either assigned removed.
+# input variables match output variables exactly.
 @i function f(x!, y)
-    x + y
+    x! ⊕ y
 end
 
 # 1. forward and backward excution
-x = GRef(1.0)
-y = GRef(1.0)
-f(x, y)  # x == 2.0
-(~f)(x, y)  # x == 1.0
+x = 1.0
+y = 1.0
+@instr f(x, y)  # x == 2.0
+@instr (~f)(x, y)  # x == 1.0
+
 
 # 2. obtain gradients
-@i function gf(x, y, gx, gy)
-    f(x, y)
-    # NOTE:
-    # 1. f' implements the chain rule,
-    # (x_out, y_out, dL/gx_out, dL/gy_out) -> (x_out, y_out, dL/gx_in, dL/gx_in)
-    # i.e. applying a jacobian to gradient space: `J_f * [gx, gy]`
-    # 2. should compile `f'` automatically
-    f'(x, y, gx, gy)
-end
-# NOTE: `gx` is the loss
-gx, gy = GRef(1.0), GRef(0.0)
-gf(x, y, gx, gy)  # gx == gy == 1.0
+(x, y) = f'(x, y; loss=x)
+gx = x.g
+gy = y.g
 
-# 3. higher order gradients
-@i function ggf(x, y, gx, gy, ggx, ggy)
-    gf(x, y, gx, gy)
-    # NOTE:
-    # 1. x, y are not changed, the gradient of identity mapping is not
-    # of interest hence set to nothing and will not be computed at runtime.
-    # see `@maybe` macro for reference.
-    # 2. should compile `f''` automatically, since `gf'` calls `f''`.
-    gf'(x, y, gx, gy, nothing, nothing, ggx, ggy)
-end
-# NOTE: `x_out` is the loss
-gx, gy = GRef(1.0), GRef(0.0)
-ggx, ggy = GRef(1.0), GRef(0.0)
-ggf(x, y, gx, gy, ggx, ggy)  # obtain dL^2/dxdx, dL^2/dxdy
-ggx, ggy = GRef(0.0), GRef(1.0)
-ggf(x, y, gx, gy, ggx, ggy)  # obtain dL^2/dydx, dL^2/dydy
+# 3. broadcasting
+@instr f'.(x, y)
 
-# 3. obtain second order gradients
-@i function f2(out! x, y)
-    out ⊕ x * y
-end
+# 4. obtain higher order gradients
+@instr f''(x, y; loss=x)
+ggx = x.g.g
+ggy = y.g.g
 
-@newfloats gx, gy, x2, y3, gx2, gy2
-gx = GRef(0.0)
-gy = GRef(0.0)
-gx2 =  ggy
-f2''(x, y, gx, gy, x2, y2, ggx, ggy)
+# Here, `x` is the loss, we want to obtain the gradients dx/dx and dx/dy.
+# Gradients are stored in another tape (like an image tape of input variables).
 ```
 
 ## Schetch of current design
-#### correctness
-`check_inv(f, (args...))` and `check_inv(f, (args...))`
+### Interpreter Rules
+
+Inverse Rules: `Forward (Inverse) Rule <-> Inverse (Forward) Rule`
+* `@anc x::Float64` <-> `@deanc x::Float64`  # introduce ancilla
+* `@gradalloc args...` <-> `@graddealloc args...`  # allocate gradient space
+* `x ⊕ y` <-> `x ⊖ y`
+* `f(args...)` <-> `~f(args...)`
+* `if (precon, postcon) ... else ... end` <-> `if (postcon, precon) ... else ... end`
+* ...
+
+Interpreter Rules: `Forward Rule -> Native Julia Code`
+* `@safe ex` -> `ex`  # safe expression that does not harm invertibility
+* `f(args...)` -> `args... = f(args...)`  # to avoid using mutable structures
+* `if (precon, postcon) ... else ... end` -> `if precon ... else ... end; @invcheck postcon`
+* ...
+
+To excute an instruction/function, use `@instr f(args...)`, it is equivalent to `args... = f(args...)`.
+
+### Gradients
+Gradients are now Implemented in a multiple dispatch way!
+`GVar` is a variable with gradient field, `@gradalloc x` is equivalent to `x = GVar(x)`.
+```julia
+@i function ⊖(a!::GVar, b)
+    a!.x ⊖ b.x  # normal run
+    b.g ⊕ a!.g  # operation to gradient space
+end
+```
+
+The gradient function is implemented as
+```julia
+# NOTE:
+# 1. f' == Grad(f)
+# 2. `loss` is one of the inputs
+@i function (g::Grad)(args...; loss)
+    # foward pass, args are variables
+    g.f(args...)
+    # allocate gradient space, it will change the type of variables to `Grad`!
+    @gradalloc x y
+    loss.g ⊕ 1
+    # NOTE:
+    # (x_out, y_out, dL/gx_out, dL/gy_out) -> (x_out, y_out, dL/gx_in, dL/gx_in)
+    # i.e. applying a jacobian to gradient space: `J_f * [gx, gy]`
+    # 2. should compile `f'` automatically
+    ~g.f(args...)
+end
+```
+
+### Difficulties
+* Current design does not use mutable variables to obtain better performance, as a result, we have to interpret function calls as `(args...) = f(args...)`, as a result, expressions like `f(grad(x), y)` and `f(x, 2)` is not supported anymore, making the programs very ugly.
+
+A possible solution is requiring user to define `fsetproperty(grad, x, xg)` functions, meanwhile handling constants manually.
+
+* To obtain gradients, I wrapped the variable with a gradient field, this behavior is a bit strange. Because in princile, input and output represents the same space in memory.
