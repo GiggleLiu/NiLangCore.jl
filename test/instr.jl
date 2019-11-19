@@ -15,6 +15,9 @@ import NiLangCore: ⊕, ⊖
         a!, b
     end
 end
+@ignore ⊕(a!::Nothing, b)
+@ignore ⊕(a!::Nothing, b::Nothing)
+@ignore ⊕(a!, b::Nothing)
 
 @selfdual begin
     function XOR(a!, b)
@@ -23,6 +26,12 @@ end
     end
 end
 #@nograd XOR
+
+@testset "ignore" begin
+    @test nothing ⊕ 3 == (nothing, 3)
+    @test nothing ⊕ nothing == (nothing, nothing)
+    @test 3 ⊕ nothing == (3, nothing)
+end
 
 @testset "@dual" begin
     @test isreversible(⊕)

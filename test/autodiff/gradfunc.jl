@@ -1,16 +1,8 @@
 using Test, NiLangCore
 
 @i function ⊖(a!::GVar, b::GVar)
-    a!.x ⊖ b.x
-    b.g ⊕ a!.g
-end
-
-@i function ⊖(a!, b::GVar)
-    a! ⊖ b.x
-end
-
-@i function ⊖(a!::GVar, b)
-    a!.x ⊖ b
+    val(a!) ⊖ val(b)
+    grad(b) ⊕ grad(a!)
 end
 
 @i function (_::OMinus{typeof(*)})(out!::GVar, x::GVar, y::GVar)

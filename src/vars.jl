@@ -81,6 +81,7 @@ abstract type Bundle{T} <: Number end
 # NOTE: the reason for not using x[], x[] is designed for mutable types!
 val(x) = x
 val(b::Bundle) = b.x
+chfield(x::Bundle, ::typeof(val), xval) = chfield(x, Val(:x), xval)
 
 function chfield end
 chfield(x::T, val, y::T) where T = y
