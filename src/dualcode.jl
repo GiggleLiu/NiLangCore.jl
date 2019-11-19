@@ -19,14 +19,18 @@ function dual_fname(op)
 end
 
 function _infer_dual(sym::Symbol)
-    if sym == :⊕
-        :⊖
-    elseif sym == :⊖
-        :⊕
-    elseif sym == :.⊕
-        :.⊖
-    elseif sym == :.⊖
-        :.⊕
+    if sym == :+=
+        :-=
+    elseif sym == :-=
+        :+=
+    elseif sym == :.+=
+        :.-=
+    elseif sym == :.-=
+        :.+=
+    elseif sym == :⊻=
+        :⊻=
+    elseif sym == :.⊻=
+        :.⊻=
     end
 end
 
@@ -40,6 +44,15 @@ function dual_ex(ex)
             end
         end
         :($f.($(args...))) => :($(getdual(f)).($(args...)))
+        :($a += $f($(args...))) => :($a -= $f($(args...)))
+        :($a .+= $f($(args...))) => :($a .-= $f($(args...)))
+        :($a .+= $f.($(args...))) => :($a .-= $f.($(args...)))
+        :($a -= $f($(args...))) => :($a += $f($(args...)))
+        :($a .-= $f($(args...))) => :($a .+= $f($(args...)))
+        :($a .-= $f.($(args...))) => :($a .+= $f.($(args...)))
+        :($a ⊻= $f($(args...))) => :($a ⊻= $f($(args...)))
+        :($a .⊻= $f($(args...))) => :($a .⊻= $f($(args...)))
+        :($a .⊻= $f.($(args...))) => :($a .⊻= $f.($(args...)))
         :(if ($pre, $post); $(tbr...); else; $(fbr...); end) => begin
             :(if ($post, $pre); $(dual_body(tbr)...); else; $(dual_body(fbr)...); end)
         end

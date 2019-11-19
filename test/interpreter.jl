@@ -4,7 +4,7 @@ using Test
 @testset "i" begin
     @i function test1(a, b, out)
         a ⊕ b
-        out ⊕ a * b
+        out += a * b
     end
 
     @i function tt(a, b)
@@ -32,7 +32,7 @@ end
     @i function test1(a, b, out)
         a ⊕ b
         if (a > 8, a > 8)
-            out ⊕ a*b
+            out += a*b
         else
         end
     end
@@ -57,7 +57,7 @@ end
     @i function test1(a, b, out)
         a ⊕ b
         if (out < 4,  out < 4)
-            out ⊕ a*b
+            out += a*b
         else
         end
     end
@@ -72,7 +72,7 @@ end
     @i function test1(a, b, out)
         a ⊕ b
         if (a > 2, a > 2)
-            out ⊕ a*b
+            out += a*b
         else
         end
     end
@@ -171,7 +171,7 @@ end
 
     @i function test2(a, b, out)
         a .⊕ b
-        out .⊕ (a .* b)
+        out .+= (a .* b)
     end
 
     x = Array([3, 1.0])
@@ -196,7 +196,7 @@ end
 
     @i function test2(a, b, out)
         a ⊕ b
-        out ⊕ (a * b)
+        out += (a * b)
     end
 
     x = [3, 1.0]

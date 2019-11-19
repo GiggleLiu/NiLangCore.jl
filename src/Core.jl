@@ -33,30 +33,36 @@ Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
 Base.display(bf::Inv) where f = print(bf)
 
 ######### Infer
-export ⊕, ⊖
-export OPlus, OMinus
-struct OPlus{FT} <: Function
+export PlusEq, MinusEq
+struct PlusEq{FT} <: Function
     f::FT
 end
-struct OMinus{FT} <: Function
+struct MinusEq{FT} <: Function
     f::FT
 end
-const OPM{FT} = Union{OPlus{FT}, OMinus{FT}}
+struct XorEq{FT} <: Function
+    f::FT
+end
+const OPMX{FT} = Union{PlusEq{FT}, MinusEq{FT}, XorEq{FT}}
 
 """
 accumulate result into x.
 """
-(inf::OPlus)(out!, args...) = (out! += inf.f(getindex.(args)...), args...)
-(inf::OMinus)(out!, args...) = (out! -= inf.f(getindex.(args)...), args...)
-# TODO: support "<="
-⊕(f) = OPlus(f)
-⊖(f) = OMinus(f)
+(inf::PlusEq)(out!, args...) = (chval(out!, val(out!) + inf.f(val.(args)...)), args...)
+(inf::MinusEq)(out!, args...) = (chval(out!, val(out!) - inf.f(val.(args)...)), args...)
+(inf::XorEq)(out!, args...) = (chval(out!, val(out!) ⊻ inf.f(val.(args)...)), args...)
 
+Base.:~(op::PlusEq) = MinusEq(op.f)
+Base.:~(om::MinusEq) = PlusEq(om.f)
+Base.:~(om::XorEq) = om
+_str(::PlusEq) = '⊕'
+_str(::MinusEq) = '⊖'
+_str(::XorEq) = '⊖'
+Base.display(o::OPMX) = print(_str(o), o.f)
+Base.show(io::IO, o::OPMX) = print(io, _str(o), o.f)
+isreversible(::OPMX) = true
 
-Base.:~(op::OPlus) = OMinus(op.f)
-Base.:~(om::OMinus) = OPlus(om.f)
-_char(::OPlus) = '⊕'
-_char(::OMinus) = '⊖'
-Base.display(o::OPM) = print(_char(o), o.f)
-Base.show(io::IO, o::OPM) = print(io, _char(o), o.f)
-isreversible(::OPM) = true
+export ⊕, ⊖
+⊕(f) = PlusEq(f)
+⊖(f) = MinusEq(f)
+Base.:⊻(f) = XorEq(f)

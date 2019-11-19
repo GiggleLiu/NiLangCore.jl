@@ -1,4 +1,4 @@
-export check_inv
+export check_inv, world_similar
 
 function world_similar(a, b; atol::Real=1e-8, verbose::Bool=false)
     for (xa, xb) in zip(a, b)

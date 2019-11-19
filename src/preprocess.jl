@@ -27,12 +27,12 @@ end
 function precom_ex(ex, ancs)
     @match ex begin
         :($f($(args...))) => begin
-            if f in [:⊕, :⊖]
+            if f in [:+=, :-=]
                 @match args[2] begin
                     :($subf($(subargs...))) => :($f($subf)($(args[1]), $(subargs...)))
                     _ => ex
                 end
-            elseif f in [:(.⊕), :(.⊖)]
+            elseif f in [:(.+=), :(.-=)]
                 @match args[2] begin
                     :($subf.($(subargs...))) => :($(debcast(f))($subf).($(args[1]), $(subargs...)))
                     :($subf($(subargs...))) => :($(debcast(f))($(debcast(subf))).($(args[1]), $(subargs...)))

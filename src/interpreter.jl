@@ -13,6 +13,15 @@ function interpret_ex(ex, info)
     @match ex begin
         :($f($(args...))) => :(@instr $f($(args...)))
         :($f.($(args...))) => :(@instr $f.($(args...)))
+        :($a += $f($(args...))) => :(@instr $a += $f($(args...)))
+        :($a .+= $f($(args...))) => :(@instr $a .+= $f($(args...)))
+        :($a .+= $f.($(args...))) => :(@instr $a .+= $f.($(args...)))
+        :($a -= $f($(args...))) => :(@instr $a -= $f($(args...)))
+        :($a .-= $f($(args...))) => :(@instr $a .-= $f($(args...)))
+        :($a .-= $f.($(args...))) => :(@instr $a .-= $f.($(args...)))
+        :($a ⊻= $f($(args...))) => :(@instr $a ⊻= $f($(args...)))
+        :($a .⊻= $f($(args...))) => :(@instr $a .⊻= $f($(args...)))
+        :($a .⊻= $f.($(args...))) => :(@instr $a .⊻= $f.($(args...)))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             ifstatement(pre, post, interpret_body(truebranch, info), interpret_body(falsebranch, info))

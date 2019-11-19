@@ -36,7 +36,6 @@ end
 
 export @ignore
 macro ignore(exs...)
-    @show exs
     res = :()
     for ex in exs
         res = :($res; $(@match ex begin
@@ -86,6 +85,15 @@ macro instr(ex)
             ex = :($symres = $f.($(args...)))
             esc(:($ex; $(bcast_assign_vars(args, symres))))
         end
+        :($a += $f($(args...))) => esc(:(@instr PlusEq($f)($a, $(args...))))
+        :($a .+= $f($(args...))) => esc(:(@instr PlusEq($(debcast(f))).($a, $(args...))))
+        :($a .+= $f.($(args...))) => esc(:(@instr PlusEq($f).($a, $(args...))))
+        :($a -= $f($(args...))) => esc(:(@instr MinusEq($f)($a, $(args...))))
+        :($a .-= $f($(args...))) => esc(:(@instr MinusEq($(debcast(f))).($a, $(args...))))
+        :($a .-= $f.($(args...))) => esc(:(@instr MinusEq($f).($a, $(args...))))
+        :($a ⊻= $f($(args...))) => esc(:(@instr XorEq($f)($a, $(args...))))
+        :($a .⊻= $f($(args...))) => esc(:(@instr XorEq($(debcast(f))).($a, $(args...))))
+        :($a .⊻= $f.($(args...))) => esc(:(@instr XorEq($f).($a, $(args...))))
         _ => error("got $ex")
     end
 end
@@ -103,15 +111,22 @@ function assign_vars(args, symres)
 end
 
 function bcast_assign_vars(args, symres)
-    ex = :()
-    for (i,arg) in enumerate(args)
-        exi = @match arg begin
-            :($args...) => :($args = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
-            _ => assign_ex(arg, :(getindex.($symres, $i)))
+    if length(args) == 1
+        @match args[1] begin
+            :($args...) => :($args = ([getindex.($symres, j) for j=1:length($symres[1])]...,))
+            _ => assign_ex(args[1], symres)
         end
-        exi !== nothing && (ex = :($ex; $exi))
+    else
+        ex = :()
+        for (i,arg) in enumerate(args)
+            exi = @match arg begin
+                :($args...) => :($args = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
+                _ => assign_ex(arg, :(getindex.($symres, $i)))
+            end
+            exi !== nothing && (ex = :($ex; $exi))
+        end
+        ex
     end
-    return ex
 end
 
 function assign_ex(arg::Symbol, res)
@@ -133,11 +148,6 @@ assign_ex(arg::Expr, res) = @match arg begin
         end
     end
     _ => error("input expression illegal, got $arg.")
-end
-
-function bcast_assign_ex(arg::Expr, res)
-    @match assign_ex(arg, res) begin
-    end
 end
 
 iter_assign(a::AbstractArray, val, indices...) = (a[indices...] = val; a)

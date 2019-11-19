@@ -7,9 +7,10 @@ struct GVar{T,GT<:Reg{T}} <: Bundle{T}
     g::GT
 end
 GVar{T1,T2}(x) where {T1,T2} = GVar(T1(x), zero(T2))
+GVar{T1,T2}(x::GVar{T1,T2}) where {T1,T2} = x # to avoid ambiguity error
 Base.copy(b::GVar) = GVar(b.x, copy(b.g))
 Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
-grad(gv::GVar) = gv.g
+grad(gv::GVar) = val(gv.g)
 grad(gv) = nothing
 
 # constructors and deconstructors
@@ -17,13 +18,16 @@ grad(gv) = nothing
 GVar(x::Integer) = x
 (_::Type{Inv{GVar}})(x::Integer) = x
 
-## identity mapping
+## variable mapping
 GVar(x) = GVar(x, zero(x))
 GVar(x::GVar) = GVar(x, zero(x))
 (_::Type{Inv{GVar}})(x::GVar) = (@invcheck grad(x) ≈ zero(x); val(x))
 Base.isapprox(x::Bundle, y::Number; kwargs...) = isapprox(val(x), y; kwargs...)
 Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(val(x), val(y); kwargs...)
 Base.isapprox(x::Number, y::Bundle; kwargs...) = isapprox(x, val(y); kwargs...)
+
+GVar(x::AbstractArray) = GVar.(x)
+(f::Type{Inv{GVar}})(x::AbstractArray) = f.(x)
 
 GVar(x::Tuple) = GVar.(x)
 (_::Type{Inv{GVar}})(x::Tuple) = (~GVar).(x)
@@ -37,6 +41,7 @@ chfield(x::GVar{T1,T2}, ::typeof(grad), g) where {T1,T2} = chfield(x, Val(:g), g
 
 export Loss
 struct Loss{T}<:Bundle{T} x::T end
+Loss(x::Loss{T}) where T = x # to avoid ambiguity error
 Loss{T}(x::Loss{T}) where T = x
 (_::Type{Inv{Loss}})(x) = x.x
 Base.eps(::Type{<:Loss{T}}) where T = Base.eps(T)

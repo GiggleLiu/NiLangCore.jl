@@ -12,3 +12,7 @@ end
 @testset "interpreter.jl" begin
     include("interpreter.jl")
 end
+
+@testset "autodiff.jl" begin
+    include("autodiff/autodiff.jl")
+end
