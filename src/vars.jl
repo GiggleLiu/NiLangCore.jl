@@ -54,14 +54,14 @@ end
 ############# ancillas ################
 macro deanc(ex)
     @match ex begin
-        :($x::$tp) => :(@invcheck $(esc(x)) ≈ zero($tp))
+        :($x::$tp) => :(@invcheck $(esc(x)) ≈ zero($(esc(tp))))
         _ => error("please use like `@deanc x::T`")
     end
 end
 
 macro anc(ex)
     @match ex begin
-        :($x::$tp) => :($(esc(x)) = zero($tp))
+        :($x::$tp) => :($(esc(x)) = zero($(esc(tp))))
         _ => error("please use like `@anc x::T`")
     end
 end
