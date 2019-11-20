@@ -7,7 +7,7 @@ isprimitive(f) = false
 # inv check
 export invcheckon, InvertibilityError, @invcheck
 const _invcheckon = Ref(true)
-invcheckon(val::Bool) = _invcheckon(val)
+invcheckon(val::Bool) = _invcheckon[] = val
 invcheckon() = _invcheckon[]
 
 struct InvertibilityError <: Exception

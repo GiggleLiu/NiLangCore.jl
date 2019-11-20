@@ -104,3 +104,13 @@ using NiLangCore
 @benchmark $ag + $ag
 ag.g = AG(0.0)
 @benchmark $a + $a
+
+using NiLangCore, NiLangCore.AD
+@i function test(x, one, N::Int)
+    for i = 1:N
+        x ⊕ one
+    end
+end
+
+invcheckon(true)
+@benchmark test'(Loss(0.0), 1.0, 1000000)

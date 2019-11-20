@@ -35,8 +35,6 @@ GVar(x::Tuple) = GVar.(x)
 Base.show(io::IO, gv::GVar) = print(io, "GVar($(gv.x), $(gv.g))")
 Base.show(io::IO, ::MIME"plain/text", gv::GVar) = Base.show(io, gv)
 # interfaces
-chfield(x::GVar{T1,T2}, ::Val{:x}, v) where {T1,T2} = GVar{T1,T2}(T1(v), x.g)
-chfield(x::GVar{T1,T2}, ::Val{:g}, g) where {T1,T2} = GVar{T1,T2}(x.x, g)
 chfield(x::GVar{T1,T2}, ::typeof(grad), g) where {T1,T2} = chfield(x, Val(:g), g)
 
 export Loss
@@ -47,7 +45,6 @@ Loss{T}(x::Loss{T}) where T = x
 Base.eps(::Type{<:Loss{T}}) where T = Base.eps(T)
 Base.show(io::IO, gv::Loss) = print(io, "Loss($(gv.x))")
 Base.show(io::IO, ::MIME"plain/text", gv::Loss) = Base.show(io, gv)
-chfield(x::Loss{T}, ::Val{:x}, xval) where {T} = Loss{T}(xval)
 
 ######## Conditional apply
 export conditioned_apply, @maybe

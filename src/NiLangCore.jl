@@ -3,6 +3,7 @@ using MLStyle
 using TupleTools
 
 #include("ngg/ngg.jl")
+include("lens.jl")
 
 include("utils.jl")
 include("Core.jl")
