@@ -6,7 +6,19 @@ function dual_func(ex)
                     $(dual_body(body)...);
                 end)
         end
-        _ => error("must input a function, got $ex")
+        _ => begin
+            if ex.head == :function
+                @match ex.args[1] begin
+                    :($fname($(args...)) where {$(ts...)}) =>
+                        :(function $(:(~$fname))($(args...)) where {$(ts...)};
+                                $(dual_body(ex.args[2].args)...);
+                            end)
+                    _ => error("not a valid input, got $ex")
+                end
+            else
+                error("must input a function, got $ex")
+            end
+        end
     end
 end
 

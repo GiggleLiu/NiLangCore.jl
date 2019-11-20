@@ -20,9 +20,9 @@ end
 @ignore ⊕(a!, b::Nothing)
 
 @selfdual begin
-    function XOR(a!, b)
+    function XOR(a!::T, b) where T
         @assign a! xor(a!, b)
-        a!, b
+        T(a!), b
     end
 end
 #@nograd XOR

@@ -88,29 +88,44 @@ macro i(ex)
     ex = precom(ex)
     @match ex begin
         :(function $fname($(args...)) $(body...) end) ||
-        :($fname($(args...)) = $(body...)) => begin
-            info = ()
-            fname = _replace_opmx(fname)
-            ifname = :(~$fname)
-            iex = dual_func(ex)
-
-            # implementations
-            ftype = get_ftype(fname)
-            iftype = get_ftype(NiLangCore.dual_fname(fname))
-            esc(:(
-            function $fname($(args...))
-                $(interpret_body(body, info)...)
-                return ($(get_argname.(args)...),)
-            end;
-            function $(NiLangCore.dual_fname(fname))($(args...))
-                $(interpret_body(dual_body(body), info)...)
-                return ($(get_argname.(args)...),)
-            end;
-            NiLangCore.isreversible(::$ftype) = true
-            ))
+        :($fname($(args...)) = $(body...)) => _gen_ifunc(ex, fname, args, body, nothing)
+        _ => begin
+            if ex.head == :function
+                @match ex.args[1] begin
+                    :($fname($(args...)) where {$(ts...)}) => _gen_ifunc(ex, fname, args, ex.args[2].args, ts)
+                    _ => error("$ex is not a function def")
+                end
+            else
+                error("$ex is not a function def")
+            end
         end
-        _=>error("$ex is not a function def")
     end
+end
+
+function _gen_ifunc(ex, fname, args, body, ts)
+    info = ()
+    fname = _replace_opmx(fname)
+    ifname = :(~$fname)
+    iex = dual_func(ex)
+
+    # implementations
+    ftype = get_ftype(fname)
+    iftype = get_ftype(NiLangCore.dual_fname(fname))
+
+    if ts !== nothing
+        head = :($fname($(args...)) where {$(ts...)})
+        dualhead = :($(NiLangCore.dual_fname(fname))($(args...)) where {$(ts...)})
+    else
+        head = :($fname($(args...)))
+        dualhead = :($(NiLangCore.dual_fname(fname))($(args...)))
+    end
+    fdef1 = Expr(:function, head, quote $(interpret_body(body, info)...); return ($(get_argname.(args)...),) end)
+    fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body), info)...); return ($(get_argname.(args)...),) end)
+    esc(:(
+    $fdef1;
+    $fdef2;
+    NiLangCore.isreversible(::$ftype) = true
+    ))
 end
 
 _replace_opmx(ex) = @match ex begin

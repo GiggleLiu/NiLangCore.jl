@@ -4,12 +4,32 @@ function precom(ex)
     @match ex begin
         :(function $(fname)($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
-            ancs = Dict{Symbol,Symbol}()
-            :(function $fname($(args...));
-                $(flushancs(precom_body(body, ancs), ancs)...);
-            end)
+            _precom(fname, args, body, nothing)
         end
-        _ => error("must input a function, got $ex")
+        _ => begin
+            if ex.head == :function
+                @match ex.args[1] begin
+                    :($fname($(args...)) where {$(ts...)}) =>
+                        _precom(fname, args, ex.args[2].args, ts)
+                    _ => error("not a valid input, got $ex")
+                end
+            else
+                error("must input a function, got $ex")
+            end
+        end
+    end
+end
+
+function _precom(fname, args, body, ts)
+    ancs = Dict{Symbol,Symbol}()
+    if ts === nothing
+        :(function $fname($(args...));
+            $(flushancs(precom_body(body, ancs), ancs)...);
+        end)
+    else
+        :(function $fname($(args...)) where {$(ts...)};
+            $(flushancs(precom_body(body, ancs), ancs)...);
+        end)
     end
 end
 

@@ -2,7 +2,7 @@ using NiLangCore
 using Test
 
 @testset "i" begin
-    @i function test1(a, b, out)
+    @i function test1(a::T, b, out) where T<:Number
         a ⊕ b
         out += a * b
     end
@@ -217,4 +217,3 @@ end
     end
     @test check_inv(test, (0.1, 2.0, -2.5); verbose=true)
 end
-
