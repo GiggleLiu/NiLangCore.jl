@@ -76,15 +76,3 @@ function precom_ex(ex, ancs)
         _ => ex
     end
 end
-
-@info precom(:(
-    function f(x)
-        @anc i::Float64
-        if (i[] > 3, i[]>3)
-            @anc z::Int
-        else
-            @anc y::Int
-            @deanc y::Int
-        end
-    end
-))

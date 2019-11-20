@@ -210,3 +210,11 @@ end
     @instr test2.(args...)
     @test args[3]==[28, 7]
 end
+
+@testset "neg sign" begin
+    @i function test(out, x, y)
+        out += x * (-y)
+    end
+    @test check_inv(test, (0.1, 2.0, -2.5); verbose=true)
+end
+

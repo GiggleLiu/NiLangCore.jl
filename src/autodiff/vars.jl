@@ -1,7 +1,4 @@
 ######## GVar, a bundle that records gradient
-export GVar, grad
-
-# mutable to support `x.g = ...` expression.
 struct GVar{T,GT<:Reg{T}} <: Bundle{T}
     x::T
     g::GT
@@ -17,6 +14,7 @@ grad(gv) = nothing
 ## identity mapping
 GVar(x::Integer) = x
 (_::Type{Inv{GVar}})(x::Integer) = x
+Base.:-(x::GVar) = GVar(-x.x, -x.g)
 
 ## variable mapping
 GVar(x) = GVar(x, zero(x))
@@ -36,8 +34,8 @@ Base.show(io::IO, gv::GVar) = print(io, "GVar($(gv.x), $(gv.g))")
 Base.show(io::IO, ::MIME"plain/text", gv::GVar) = Base.show(io, gv)
 # interfaces
 chfield(x::GVar{T1,T2}, ::typeof(grad), g) where {T1,T2} = chfield(x, Val(:g), g)
+chfield(x::T, ::typeof(grad), g::T) where T = x
 
-export Loss
 struct Loss{T}<:Bundle{T} x::T end
 Loss(x::Loss{T}) where T = x # to avoid ambiguity error
 Loss{T}(x::Loss{T}) where T = x
@@ -45,8 +43,9 @@ Loss{T}(x::Loss{T}) where T = x
 Base.eps(::Type{<:Loss{T}}) where T = Base.eps(T)
 Base.show(io::IO, gv::Loss) = print(io, "Loss($(gv.x))")
 Base.show(io::IO, ::MIME"plain/text", gv::Loss) = Base.show(io, gv)
-
+Base.:-(x::Loss) = Loss(-x.x)
 ######## Conditional apply
+
 export conditioned_apply, @maybe
 
 """excute if and only if arguments are not nothing"""

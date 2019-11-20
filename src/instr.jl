@@ -68,7 +68,6 @@ end
 
 export @instr
 macro instr(ex)
-    println("excuting => $ex")
     @match ex begin
         :($f($(args...))) => begin
             symres = gensym()
@@ -102,13 +101,16 @@ function assign_vars(args, symres)
     ex = :()
     for (i,arg) in enumerate(args)
         exi = @match arg begin
-            :($args...) => :($args = NiLangCore.tailn($symres, Val($i-1)))
+            :($args...) => :($args = NiLangCore.tailn(NiLangCore.wrap_tuple($symres), Val($i-1)))
             _ => assign_ex(arg, :($symres[$i]))
         end
         exi !== nothing && (ex = :($ex; $exi))
     end
-    return ex
+    ex
 end
+
+wrap_tuple(x) = (x,)
+wrap_tuple(x::Tuple) = x
 
 function bcast_assign_vars(args, symres)
     if length(args) == 1

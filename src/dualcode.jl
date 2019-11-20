@@ -12,7 +12,10 @@ end
 
 function dual_fname(op)
     @match op begin
-        :($x::$tp) => :(_::Inv{$tp})
+        :($x::MinusEq{$tp}) => :($x::PlusEq{$tp})
+        :($x::PlusEq{$tp}) => :($x::MinusEq{$tp})
+        :($x::XorEq{$tp}) => :($x::XorEq{$tp})
+        :($x::$tp) => :($x::Inv{$tp})
         #_ => :(_::Inv{typeof($op)})
         _ => :(_::typeof(~$op))
     end

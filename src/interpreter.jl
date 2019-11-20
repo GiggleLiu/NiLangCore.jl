@@ -90,6 +90,7 @@ macro i(ex)
         :(function $fname($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
             info = ()
+            fname = _replace_opmx(fname)
             ifname = :(~$fname)
             iex = dual_func(ex)
 
@@ -110,6 +111,13 @@ macro i(ex)
         end
         _=>error("$ex is not a function def")
     end
+end
+
+_replace_opmx(ex) = @match ex begin
+    :(⊕($f)) => :(_::PlusEq{typeof($f)})
+    :(⊖($f)) => :(_::MinusEq{typeof($f)})
+    :(⊻($f)) => :(_::XorEq{typeof($f)})
+    _ => ex
 end
 
 function interpret_func(ex)

@@ -6,7 +6,7 @@ import NiLangCore: ⊕, ⊖
     grad(b) ⊕ grad(a!)
 end
 
-@i function (_::MinusEq{typeof(*)})(out!::GVar, x::GVar, y::GVar)
+@i function ⊖(*)(out!::GVar, x::GVar, y::GVar)
     @safe println("out! = ", out!)
     val(out!) -= val(x) * val(y)
     grad(x) += grad(out!) * val(y)
@@ -27,6 +27,7 @@ end
     @test check_inv(⊕(*), (Loss(0.4), 0.4, 0.5))
     @test ⊖(*)(GVar(0.0, 1.0), GVar(0.4), GVar(0.6)) == (GVar(-0.24, 1.0), GVar(0.4, 0.6), GVar(0.6, 0.4))
     @test check_grad(⊕(*), (Loss(0.4), 0.4, 0.5))
+    @test check_grad(⊖(*), (Loss(0.4), 0.4, 0.5))
 end
 
 @testset "i" begin
@@ -124,4 +125,12 @@ end
     ga = 0.4
     gb = 0.3
     @test_broken check_grad(test1', (Loss(a),b))
+end
+
+
+@testset "neg sign" begin
+    @i function test(out, x, y)
+        out += x * (-y)
+    end
+    @test check_grad(test, (Loss(0.1), 2.0, -2.5); verbose=true)
 end
