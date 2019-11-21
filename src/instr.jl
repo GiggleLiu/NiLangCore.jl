@@ -1,51 +1,16 @@
-export @dual, @selfdual, nargs, nouts
-
-function nargs end
-function nouts end
+export @dual, @selfdual
 
 """
 define dual instructions
 
 TODO: check address conflicts!
 """
-macro dual(ex)
-    @match ex begin
-        :($fline; $f1; $invfline; $f2) => begin
-            if f1.head == :function && f2.head == :function
-                f1head = f1.args[1]
-                f2head = f2.args[1]
-                f, args = @match f1head begin
-                    :($f($(args...))) || :($f($(args...)) where {$ts...}) => (f, args)
-                    _ => error("first function is not valid $f1")
-                end
-                invf, invargs = @match f2head begin
-                    :($f($(args...))) || :($f($(args...)) where {$ts...}) => (f, args)
-                    _ => error("second function is not valid $f2")
-                end
-                _gen_instrfunc(f1, f2, f, invf, args, invargs)
-            else
-                error("f1/f2 are not functions, got $f1, $f2")
-            end
-        end
-        _ => error("get unrecognized function $ex")
-    end
-end
-
-function _gen_instrfunc(ex1, ex2, f, invf, args, invargs)
-    if length(args) != length(invargs)
-        return :(error("forward and reverse function arguments should be the same! got $args and $invargs"))
-    end
+macro dual(f, invf)
     esc(:(
-    $ex1;
-    $ex2;
     NiLangCore.isreversible(::typeof($f)) = true;
     NiLangCore.isreversible(::typeof($invf)) = true;
     NiLangCore.isprimitive(::typeof($f)) = true;
     NiLangCore.isprimitive(::typeof($invf)) = true;
-    NiLangCore.nargs(::typeof($f)) = $(length(args));
-    NiLangCore.nargs(::typeof($invf)) = $(length(args));
-    NiLangCore.nouts(::typeof($f)) = $(count(endwithpang, args));
-    NiLangCore.nouts(::typeof($invf)) = $(count(endwithpang, args));
     Base.:~(::typeof($f)) = $invf;
     Base.:~(::typeof($invf)) = $f
     ))
@@ -67,23 +32,13 @@ macro ignore(exs...)
 end
 
 """define a self-dual instruction"""
-macro selfdual(ex)
-    @match ex begin
-        :($fline; $fdef) => begin
-            @match fdef.args[1] begin
-                :($f($(args...))) || :($f($(args...)) where {$(ts...)}) => esc(:(
-                $fdef;
-                NiLangCore.isreversible(::typeof($f)) = true;
-                NiLangCore.isreflexive(::typeof($f)) = true;
-                NiLangCore.isprimitive(::typeof($f)) = true;
-                NiLangCore.nargs(::typeof($f)) = $(length(args));
-                Base.:~(::typeof($f)) = $f
-                ))
-                _ => error("not a valid function, got $fdef")
-            end
-        end
-        _ => error("get unrecognized function $ex")
-    end
+macro selfdual(f)
+    esc(:(
+    NiLangCore.isreversible(::typeof($f)) = true;
+    NiLangCore.isreflexive(::typeof($f)) = true;
+    NiLangCore.isprimitive(::typeof($f)) = true;
+    Base.:~(::typeof($f)) = $f
+    ))
 end
 
 export @instr

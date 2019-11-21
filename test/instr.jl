@@ -5,26 +5,26 @@ using Test
 import Base: +, -
 import NiLangCore: ⊕, ⊖
 
-@dual begin
-    function ⊕(a!, b)
-        @assign val(a!) val(a!) + val(b)
-        a!, b
-    end
-    function ⊖(a!, b)
-        @assign val(a!) val(a!) - val(b)
-        a!, b
-    end
+function ⊕(a!, b)
+    @assign val(a!) val(a!) + val(b)
+    a!, b
 end
+function ⊖(a!, b)
+    @assign val(a!) val(a!) - val(b)
+    a!, b
+end
+const _add = ⊕
+const _sub = ⊖
+@dual _add _sub
 @ignore ⊕(a!::Nothing, b)
 @ignore ⊕(a!::Nothing, b::Nothing)
 @ignore ⊕(a!, b::Nothing)
 
-@selfdual begin
-    function XOR(a!::T, b) where T
-        @assign a! xor(a!, b)
-        T(a!), b
-    end
+function XOR(a!::T, b) where T
+    @assign a! xor(a!, b)
+    T(a!), b
 end
+@selfdual XOR
 #@nograd XOR
 
 @testset "ignore" begin
@@ -50,15 +50,12 @@ end
     @test check_inv(⊕, (a, b))
     @test isprimitive(⊕)
     @test isprimitive(⊖)
-    @test nargs(⊕) == 2
-    @test nargs(⊖) == 2
 end
 
 @testset "@selfdual" begin
     @test isreversible(XOR)
     @test isreflexive(XOR)
     @test isprimitive(XOR)
-    @test nargs(XOR) == 2
     @test ~(XOR) == XOR
     a=2
     b=1
