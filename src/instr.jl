@@ -125,20 +125,7 @@ assign_ex(arg::Expr, res) = @match arg begin
             end)
         end
     end
-    _ => begin
-        if _isconst(arg)
-            return nothing
-        else
-            error("input expression illegal, got $arg.")
-        end
-    end
-end
-
-_isconst(x::Symbol) = x in [:im, :π]
-_isconst(x::Union{Number,String}) = true
-_isconst(x::Expr) = @match x begin
-    :($f($(args...))) => all(_isconst, args)
-    _ => false
+    _ => :(@invcheck $arg ≈ $res)
 end
 
 iter_assign(a::AbstractArray, val, indices...) = (a[indices...] = val; a)

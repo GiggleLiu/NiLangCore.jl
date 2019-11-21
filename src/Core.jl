@@ -23,14 +23,15 @@ end
 ######## Inv
 export Inv
 struct Inv{FT} <: Function
-    f::FT
+    _f::FT
 end
-Inv(f::Inv) = f.f
+Inv(f::Inv) = f._f
 isreversible(::Inv) = true
 Base.:~(f::Function) = Inv(f)
 Base.:~(::Type{T}) where T = Inv{T}  # for type, it is a destructor
-Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
+Base.show(io::IO, b::Inv) = print(io, "~$(b._f)")
 Base.display(bf::Inv) where f = print(bf)
+Base.getproperty(iv::Inv, prop::Symbol) = prop == :_f ? getfield(iv, :_f) : getproperty(iv._f, prop)
 
 ######### Infer
 export PlusEq, MinusEq
