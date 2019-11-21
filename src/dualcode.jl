@@ -1,25 +1,8 @@
 function dual_func(ex)
-    @match ex begin
-        :(function $(fname)($(args...)) $(body...) end) ||
-        :($fname($(args...)) = $(body...)) => begin
-            :(function $(:(~$fname))($(args...));
-                    $(dual_body(body)...);
-                end)
-        end
-        _ => begin
-            if ex.head == :function
-                @match ex.args[1] begin
-                    :($fname($(args...)) where {$(ts...)}) =>
-                        :(function $(:(~$fname))($(args...)) where {$(ts...)};
-                                $(dual_body(ex.args[2].args)...);
-                            end)
-                    _ => error("not a valid input, got $ex")
-                end
-            else
-                error("must input a function, got $ex")
-            end
-        end
-    end
+    fname, args, ts, body = match_function(ex)
+    :(function $(:(~$fname))($(args...)) where {$(ts...)};
+            $(dual_body(ex.args[2].args)...);
+        end)
 end
 
 function dual_fname(op)

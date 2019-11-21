@@ -125,7 +125,7 @@ assign_ex(arg::Expr, res) = @match arg begin
             end)
         end
     end
-    _ => :(@invcheck $arg ≈ $res)
+    _ => :(@invcheck $arg === $res || $arg ≈ $res)
 end
 
 iter_assign(a::AbstractArray, val, indices...) = (a[indices...] = val; a)

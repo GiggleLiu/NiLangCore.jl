@@ -1,36 +1,9 @@
 export precom
 
 function precom(ex)
-    @match ex begin
-        :(function $(fname)($(args...)) $(body...) end) ||
-        :($fname($(args...)) = $(body...)) => begin
-            _precom(fname, args, body, nothing)
-        end
-        _ => begin
-            if ex.head == :function
-                @match ex.args[1] begin
-                    :($fname($(args...)) where {$(ts...)}) =>
-                        _precom(fname, args, ex.args[2].args, ts)
-                    _ => error("not a valid input, got $ex")
-                end
-            else
-                error("must input a function, got $ex")
-            end
-        end
-    end
-end
-
-function _precom(fname, args, body, ts)
+    fname, args, ts, body = match_function(ex)
     ancs = Dict{Symbol,Symbol}()
-    if ts === nothing
-        :(function $fname($(args...));
-            $(flushancs(precom_body(body, ancs), ancs)...);
-        end)
-    else
-        :(function $fname($(args...)) where {$(ts...)};
-            $(flushancs(precom_body(body, ancs), ancs)...);
-        end)
-    end
+    fname, args, ts, flushancs(precom_body(body, ancs), ancs)
 end
 
 function precom_body(body::AbstractVector, ancs)

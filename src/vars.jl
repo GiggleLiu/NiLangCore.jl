@@ -70,6 +70,7 @@ function chfield end
 
 export Bundle, Reg, val
 export chfield, chval
+export Dup
 # variables
 # Bundle is a wrapper of data type
 # instructions on Bundle will not change the original behavior of wrapped data type.
@@ -86,6 +87,7 @@ val(b::Bundle) = val(b.x)
 end
 chfield(x::Bundle, ::typeof(val), xval) = chfield(x, Val(:x), chfield(x.x, val, xval))
 chfield(x, ::Type{T}, v) where {T<:Bundle} = (~T)(v)
+isreversible(::Type{<:Bundle}) = true
 
 function chfield end
 chfield(x::T, ::typeof(val), y::T) where T = y
@@ -93,3 +95,12 @@ NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
 NiLangCore.chfield(x::T, ::typeof(conj), y::T) where T = conj(y)
 chval(a, x) = chfield(a, val, x)
 const Reg{T} = Union{T, Bundle{T}} where T<:Number
+
+struct Dup{T} <: Bundle{T}
+    x::T
+    twin::T
+end
+function Dup(x::T) where T
+   Dup{T}(x, copy(x))
+end
+(_::Type{<:Inv{Dup}})(dp::Dup) = (@invcheck dp.twin ≈ dp.x; dp.x)

@@ -16,6 +16,19 @@ end
 
 get_argname(arg::Symbol) = arg
 function get_argname(fname::Expr)
-    fname.head == :(::) && return fname.args[1]
-    return fname
+    @match fname begin
+        :($x::$t) => x
+        :($x::$t=$y) => x
+        :($x=$y) => x
+        _ => error("can not get the function name of expression $ex.")
+    end
+end
+
+function match_function(ex)
+    @match ex begin
+        :(function $(fname)($(args...)) $(body...) end) ||
+        :($fname($(args...)) = $(body...)) => (fname, args, [], body)
+        Expr(:function, :($fname($(args...)) where {$(ts...)}), xbody) => (fname, args, ts, xbody.args)
+        _ => error("must input a function, got $ex")
+    end
 end

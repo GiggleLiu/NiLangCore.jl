@@ -85,24 +85,11 @@ export @i
 export interpret_func
 
 macro i(ex)
-    ex = precom(ex)
-    @match ex begin
-        :(function $fname($(args...)) $(body...) end) ||
-        :($fname($(args...)) = $(body...)) => _gen_ifunc(ex, fname, args, body, nothing)
-        _ => begin
-            if ex.head == :function
-                @match ex.args[1] begin
-                    :($fname($(args...)) where {$(ts...)}) => _gen_ifunc(ex, fname, args, ex.args[2].args, ts)
-                    _ => error("$ex is not a function def")
-                end
-            else
-                error("$ex is not a function def")
-            end
-        end
-    end
+    fname, args, ts, body = precom(ex)
+    _gen_ifunc(ex, fname, args, ts, body)
 end
 
-function _gen_ifunc(ex, fname, args, body, ts)
+function _gen_ifunc(ex, fname, args, ts, body)
     info = ()
     fname = _replace_opmx(fname)
     ifname = :(~$fname)
@@ -112,13 +99,8 @@ function _gen_ifunc(ex, fname, args, body, ts)
     ftype = get_ftype(fname)
     iftype = get_ftype(NiLangCore.dual_fname(fname))
 
-    if ts !== nothing
-        head = :($fname($(args...)) where {$(ts...)})
-        dualhead = :($(NiLangCore.dual_fname(fname))($(args...)) where {$(ts...)})
-    else
-        head = :($fname($(args...)))
-        dualhead = :($(NiLangCore.dual_fname(fname))($(args...)))
-    end
+    head = :($fname($(args...)) where {$(ts...)})
+    dualhead = :($(NiLangCore.dual_fname(fname))($(args...)) where {$(ts...)})
     fdef1 = Expr(:function, head, quote $(interpret_body(body, info)...); return ($(get_argname.(args)...),) end)
     fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body), info)...); return ($(get_argname.(args)...),) end)
     esc(:(
