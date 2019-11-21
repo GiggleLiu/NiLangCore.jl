@@ -20,7 +20,9 @@ function get_argname(fname::Expr)
         :($x::$t) => x
         :($x::$t=$y) => x
         :($x=$y) => x
-        _ => error("can not get the function name of expression $ex.")
+        :($x...) => :($x...)
+        :($x::$t...) => :($x...)
+        _ => error("can not get the function name of expression $fname.")
     end
 end
 

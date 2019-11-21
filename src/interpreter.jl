@@ -101,8 +101,8 @@ function _gen_ifunc(ex, fname, args, ts, body)
 
     head = :($fname($(args...)) where {$(ts...)})
     dualhead = :($(NiLangCore.dual_fname(fname))($(args...)) where {$(ts...)})
-    fdef1 = Expr(:function, head, quote $(interpret_body(body, info)...); return ($(get_argname.(args)...),) end)
-    fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body), info)...); return ($(get_argname.(args)...),) end)
+    fdef1 = Expr(:function, head, quote $(interpret_body(body, info)...); $(invfuncfoot(args)) end)
+    fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body), info)...); $(invfuncfoot(args)) end)
     esc(:(
     $fdef1;
     $fdef2;
@@ -110,10 +110,22 @@ function _gen_ifunc(ex, fname, args, ts, body)
     ))
 end
 
+function notkey(args)
+    if length(args) > 0 && args[1] isa Expr && args[1].head == :parameters
+        args = args[2:end]
+    else
+        args
+    end
+end
+
+function invfuncfoot(args)
+    :(return ($(get_argname.(notkey(args))...),))
+end
+
 _replace_opmx(ex) = @match ex begin
-    :(⊕($f)) => :(_::PlusEq{typeof($f)})
-    :(⊖($f)) => :(_::MinusEq{typeof($f)})
-    :(⊻($f)) => :(_::XorEq{typeof($f)})
+    :(⊕($f)) => :($(gensym())::PlusEq{typeof($f)})
+    :(⊖($f)) => :($(gensym())::MinusEq{typeof($f)})
+    :(⊻($f)) => :($(gensym())::XorEq{typeof($f)})
     _ => ex
 end
 

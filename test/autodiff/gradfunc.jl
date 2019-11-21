@@ -7,7 +7,6 @@ import NiLangCore: ⊕, ⊖
 end
 
 @i function ⊖(*)(out!::GVar, x::GVar, y::GVar)
-    @safe println("out! = ", out!)
     val(out!) -= val(x) * val(y)
     grad(x) += grad(out!) * val(y)
     grad(y) += val(x) * grad(out!)
@@ -23,6 +22,10 @@ end
     x, y = 3.0, 4.0
     lx = Loss(x)
     @test check_grad(⊕, (lx, y))
+
+    x, y = 3.0, 4.0
+    (⊕)'(Loss(x), NoGrad(y))
+    @test grad(y) === nothing
 
     @test check_inv(⊕(*), (Loss(0.4), 0.4, 0.5))
     @test ⊖(*)(GVar(0.0, 1.0), GVar(0.4), GVar(0.6)) == (GVar(-0.24, 1.0), GVar(0.4, 0.6), GVar(0.6, 0.4))
@@ -68,7 +71,7 @@ end
     out = [0.0, 1.0]
     loss = 0.0
     # gradients
-    check_grad(test2, (x, y, out, Loss(loss)))
+    @test check_grad(test2, (x, y, out, Loss(loss)))
 end
 
 @testset "broadcast 2" begin
@@ -126,7 +129,6 @@ end
     gb = 0.3
     @test_broken check_grad(test1', (Loss(a),b))
 end
-
 
 @testset "neg sign" begin
     @i function test(out, x, y)

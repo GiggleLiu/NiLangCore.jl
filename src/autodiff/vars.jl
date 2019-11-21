@@ -44,6 +44,17 @@ Base.eps(::Type{<:Loss{T}}) where T = Base.eps(T)
 Base.show(io::IO, gv::Loss) = print(io, "Loss($(gv.x))")
 Base.show(io::IO, ::MIME"plain/text", gv::Loss) = Base.show(io, gv)
 Base.:-(x::Loss) = Loss(-x.x)
+
+struct NoGrad{T}<:Bundle{T} x::T end
+NoGrad(x::NoGrad{T}) where T = x # to avoid ambiguity error
+NoGrad{T}(x::NoGrad{T}) where T = x
+(_::Type{Inv{NoGrad}})(x) = x.x
+Base.eps(::Type{<:NoGrad{T}}) where T = Base.eps(T)
+Base.show(io::IO, gv::NoGrad) = print(io, "NoGrad($(gv.x))")
+Base.show(io::IO, ::MIME"plain/text", gv::NoGrad) = Base.show(io, gv)
+Base.:-(x::NoGrad) = NoGrad(-x.x)
+GVar(x::NoGrad) = x
+(_::Type{Inv{GVar}})(x::NoGrad) = x
 ######## Conditional apply
 
 export conditioned_apply, @maybe

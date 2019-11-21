@@ -217,3 +217,10 @@ end
     end
     @test check_inv(test, (0.1, 2.0, -2.5); verbose=true)
 end
+
+@testset "kwargs" begin
+    @i function test(out, x; y)
+        out += x * (-y)
+    end
+    @test check_inv(test, (0.1, 2.0); kwargs=(:y=>0.5,), verbose=true)
+end
