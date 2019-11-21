@@ -90,5 +90,6 @@ chfield(x, ::Type{T}, v) where {T<:Bundle} = (~T)(v)
 function chfield end
 chfield(x::T, ::typeof(val), y::T) where T = y
 NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
+NiLangCore.chfield(x::T, ::typeof(conj), y::T) where T = conj(y)
 chval(a, x) = chfield(a, val, x)
 const Reg{T} = Union{T, Bundle{T}} where T<:Number

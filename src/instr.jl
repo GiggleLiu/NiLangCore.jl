@@ -158,6 +158,7 @@ assign_ex(arg::Union{Number,String}, res) = :(@invcheck $arg ≈ $res)
 assign_ex(arg::Expr, res) = @match arg begin
     :($x.$k) => :($(assign_ex(x, :(chfield($x, $(Val(k)), $res)))))
     :($f($x)) => :($(assign_ex(x, :(chfield($x, $f, $res)))))
+    :($x') => :($(assign_ex(x, :(chfield($x, conj, $res)))))
     :($a[$(x...)]) => begin
         if length(x) == 0
             :($a[] = $res)
@@ -169,7 +170,20 @@ assign_ex(arg::Expr, res) = @match arg begin
             end)
         end
     end
-    _ => error("input expression illegal, got $arg.")
+    _ => begin
+        if _isconst(arg)
+            return nothing
+        else
+            error("input expression illegal, got $arg.")
+        end
+    end
+end
+
+_isconst(x::Symbol) = x in [:im, :π]
+_isconst(x::Union{Number,String}) = true
+_isconst(x::Expr) = @match x begin
+    :($f($(args...))) => all(_isconst, args)
+    _ => false
 end
 
 iter_assign(a::AbstractArray, val, indices...) = (a[indices...] = val; a)
