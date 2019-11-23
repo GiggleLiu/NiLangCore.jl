@@ -33,6 +33,9 @@ function interpret_ex(ex, info)
         :(for $i=$start:$step:$stop; $(body...); end) => begin
             forstatement(i, start, step, stop, interpret_body(body, ()))
         end
+        :(begin $(body...) end) => begin
+            :(begin $(interpret_body(body, info)...) end)
+        end
         :(@maybe $line $subex) => :(@maybe $(interpret_ex(subex, info)))
         :(@safe $line $subex) => subex
         :(@anc $line $x::$tp) => :(@anc $x::$tp)

@@ -86,6 +86,7 @@ val(b::Bundle) = val(b.x)
     :(@with x.$FIELD = xval)
 end
 chfield(x::Bundle, ::typeof(val), xval) = chfield(x, Val(:x), chfield(x.x, val, xval))
+chfield(x, ::typeof(identity), xval) = xval
 chfield(x, ::Type{T}, v) where {T<:Bundle} = (~T)(v)
 isreversible(::Type{<:Bundle}) = true
 
