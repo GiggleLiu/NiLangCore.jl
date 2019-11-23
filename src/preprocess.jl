@@ -27,15 +27,13 @@ function precom_opm(f, out, arg2)
     if f in [:(+=), :(-=)]
         @match arg2 begin
             :($subf($(subargs...))) => Expr(f, out, arg2)
-            ::Symbol => Expr(f, out, :(identity($arg2)))
-            _ => error("got unsupported expression $ex")
+            _ => Expr(f, out, :(identity($arg2)))
         end
     elseif f in [:(.+=), :(.-=)]
         @match arg2 begin
             :($subf.($(subargs...))) => Expr(f, out, arg2)
             :($subf($(subargs...))) => Expr(f, out, arg2)
-            ::Symbol => Expr(f, out, :(identity.($arg2)))
-            _ => error("got unsupported expression $ex")
+            _ => Expr(f, out, :(identity.($arg2)))
         end
     end
 end

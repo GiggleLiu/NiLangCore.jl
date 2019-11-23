@@ -46,7 +46,7 @@ macro pop(ex::Expr)
         :($x = $val) =>
             :(
             push!(A_STACK, $(esc(x)));
-            @invcheck $(esc(x)[]) ≈ $val
+            @invcheck NiLangCore.isappr($(esc(x)[]), $val)
             )
     end
 end
@@ -54,7 +54,7 @@ end
 ############# ancillas ################
 macro deanc(ex)
     @match ex begin
-        :($x::$tp) => :(@invcheck $(esc(x)) ≈ zero($(esc(tp))))
+        :($x::$tp) => :(@invcheck NiLangCore.isappr($(esc(x)), zero($(esc(tp)))))
         _ => error("please use like `@deanc x::T`")
     end
 end
@@ -104,4 +104,5 @@ end
 function Dup(x::T) where T
    Dup{T}(x, copy(x))
 end
-(_::Type{<:Inv{Dup}})(dp::Dup) = (@invcheck dp.twin ≈ dp.x; dp.x)
+(_::Type{<:Inv{Dup}})(dp::Dup) = (@invcheck isappr(dp.twin, dp.x); dp.x)
+isappr(x, y) = isapprox(x, y; atol=1e-8)

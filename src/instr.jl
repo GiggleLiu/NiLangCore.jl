@@ -113,12 +113,12 @@ function bcast_assign_vars(args, symres)
     end
 end
 
-checkconst(arg, res) = :(@invcheck $arg === $res || $arg == $res || $arg ≈ $res)
+checkconst(arg, res) = :(@invcheck $arg === $res || $arg == $res || NiLangCore.isappr($arg, $res))
 
 function assign_ex(arg::Symbol, res)
     _isconst(arg) ? checkconst(arg, res) : :($arg = $res)
 end
-assign_ex(arg::Union{Number,String}, res) = :(@invcheck $arg ≈ $res)
+assign_ex(arg::Union{Number,String}, res) = checkconst(arg, res)
 assign_ex(arg::Expr, res) = @match arg begin
     :($x.$k) => :($(_isconst(x) ? checkconst(arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)))))
     :($f($x)) => :($(_isconst(x) ? checkconst(arg, res) : assign_ex(x, :(chfield($x, $f, $res)))))
