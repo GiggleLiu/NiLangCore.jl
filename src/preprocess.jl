@@ -52,6 +52,7 @@ function precom_ex(ex, info)
             :(if($pre, $post); $(precom_body(truebranch, info)...); else; $(precom_body(falsebranch, info)...); end)
         end
         :(if ($pre, $post); $(truebranch...); end) => begin
+            post = post == :~ ? pre : post
             precom_ex(:(if ($pre, $post); $(truebranch...); else; end), info)
         end
         :(while ($pre, $post); $(body...); end) => begin
@@ -64,12 +65,7 @@ function precom_ex(ex, info)
         # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
-            rg = @match range begin
-                :($start:$step:$stop) => range
-                :($start:$stop) => :($start:1:$stop)
-                _ => error("not supported for loop style $ex.")
-            end
-            :(for $i=$rg; $(precom_body(body, PreInfo())...); end)
+            :(for $i=$(precom_range(range)); $(precom_body(body, PreInfo())...); end)
         end
         :(@anc $line $x::$tp) => begin
             info.ancs[x] = tp
@@ -89,4 +85,10 @@ function precom_ex(ex, info)
         :(~(@routine $line $name)) => :(begin $(dual_body(info.routines[name])...) end)
         _ => ex
     end
+end
+
+precom_range(range) = @match range begin
+    :($start:$step:$stop) => range
+    :($start:$stop) => :($start:1:$stop)
+    _ => error("not supported for loop style $ex.")
 end

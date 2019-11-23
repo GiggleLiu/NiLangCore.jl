@@ -68,6 +68,13 @@ macro instr(ex)
         :($a ⊻= $f($(args...))) => esc(:(@instr XorEq($f)($a, $(args...))))
         :($a .⊻= $f($(args...))) => esc(:(@instr XorEq($(debcast(f))).($a, $(args...))))
         :($a .⊻= $f.($(args...))) => esc(:(@instr XorEq($f).($a, $(args...))))
+
+        :($a += $b) => esc(:(@instr PlusEq(identity)($a, $b)))
+        :($a -= $b) => esc(:(@instr MinusEq(identity)($a, $b)))
+        :($a ⊻= $b) => esc(:(@instr XorEq(identity)($a, $b)))
+        :($a .+= $b) => esc(:(@instr PlusEq(identity).($a, $b)))
+        :($a .-= $b) => esc(:(@instr MinusEq(identity).($a, $b)))
+        :($a .⊻= $b) => esc(:(@instr XorEq(identity).($a, $b)))
         _ => error("got $ex")
     end
 end
@@ -106,14 +113,16 @@ function bcast_assign_vars(args, symres)
     end
 end
 
+checkconst(arg, res) = :(@invcheck $arg === $res || $arg == $res || $arg ≈ $res)
+
 function assign_ex(arg::Symbol, res)
-    :($arg = $res)
+    _isconst(arg) ? checkconst(arg, res) : :($arg = $res)
 end
 assign_ex(arg::Union{Number,String}, res) = :(@invcheck $arg ≈ $res)
 assign_ex(arg::Expr, res) = @match arg begin
-    :($x.$k) => :($(assign_ex(x, :(chfield($x, $(Val(k)), $res)))))
-    :($f($x)) => :($(assign_ex(x, :(chfield($x, $f, $res)))))
-    :($x') => :($(assign_ex(x, :(chfield($x, conj, $res)))))
+    :($x.$k) => :($(_isconst(x) ? checkconst(arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)))))
+    :($f($x)) => :($(_isconst(x) ? checkconst(arg, res) : assign_ex(x, :(chfield($x, $f, $res)))))
+    :($x') => :($(_isconst(x) ? checkconst(arg, res) : assign_ex(x, :(chfield($x, conj, $res)))))
     :($a[$(x...)]) => begin
         if length(x) == 0
             :($a[] = $res)
@@ -125,7 +134,14 @@ assign_ex(arg::Expr, res) = @match arg begin
             end)
         end
     end
-    _ => :(@invcheck $arg == $res || $arg ≈ $res)
+    _ => checkconst(arg, res)
+end
+
+_isconst(x::Symbol) = x in [:im, :π]
+_isconst(x::Union{Number,String}) = true
+_isconst(x::Expr) = @match x begin
+    :($f($(args...))) => all(_isconst, args)
+    _ => false
 end
 
 iter_assign(a::AbstractArray, val, indices...) = (a[indices...] = val; a)

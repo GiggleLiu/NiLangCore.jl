@@ -8,7 +8,6 @@ Base.display(bf::Grad) where f = print(bf)
 Inv(f::Grad) = Grad(~f.f)
 #Grad(f::Inv) = Inv(f.f')
 
-# TODO: make `iloss` kwargs
 @i function (g::Grad)(args...)
     g.f(args...)
     GVar.(args)

@@ -96,7 +96,7 @@ function _gen_ifunc(ex, fname, args, ts, body)
     info = ()
     fname = _replace_opmx(fname)
     ifname = :(~$fname)
-    iex = dual_func(ex)
+    iex = dual_func(fname, args, ts, body)
 
     # implementations
     ftype = get_ftype(fname)

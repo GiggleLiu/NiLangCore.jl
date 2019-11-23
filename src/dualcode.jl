@@ -1,7 +1,6 @@
-function dual_func(ex)
-    fname, args, ts, body = match_function(ex)
+function dual_func(fname, args, ts, body)
     :(function $(:(~$fname))($(args...)) where {$(ts...)};
-            $(dual_body(ex.args[2].args)...);
+            $(dual_body(body)...);
         end)
 end
 
@@ -51,6 +50,14 @@ function dual_ex(ex)
         :($a ⊻= $f($(args...))) => :($a ⊻= $f($(args...)))
         :($a .⊻= $f($(args...))) => :($a .⊻= $f($(args...)))
         :($a .⊻= $f.($(args...))) => :($a .⊻= $f.($(args...)))
+
+        :($a += $b) => :($a -= $b)
+        :($a .+= $b) => :($a .-= $b)
+        :($a -= $b) => :($a += $b)
+        :($a .-= $b) => :($a .+= $b)
+        :($a ⊻= $b) => :($a ⊻= $b)
+        :($a .⊻= $b) => :($a .⊻= $b)
+
         :(if ($pre, $post); $(tbr...); else; $(fbr...); end) => begin
             :(if ($post, $pre); $(dual_body(tbr)...); else; $(dual_body(fbr)...); end)
         end
@@ -64,7 +71,11 @@ function dual_ex(ex)
         :(@maybe $line $subex) => :(@maybe $(dual_ex(subex)))
         :(@anc $line $x::$tp) => :(@deanc $x::$tp)
         :(@deanc $line $x::$tp) => :(@anc $x::$tp)
-        _ => ex
+        :(begin $(body...) end) => :(begin $(dual_body(body)...) end)
+        ::LineNumberNode => ex
+        ::Nothing => ex
+        :() => ex
+        _ => error("can not invert target expression $ex")
     end
 end
 
