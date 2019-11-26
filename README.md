@@ -1,7 +1,5 @@
 # NiLangCore
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://GiggleLiu.github.io/NiLangCore.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://GiggleLiu.github.io/NiLangCore.jl/dev)
 [![Build Status](https://travis-ci.com/GiggleLiu/NiLangCore.jl.svg?branch=master)](https://travis-ci.com/GiggleLiu/NiLangCore.jl)
 [![Codecov](https://codecov.io/gh/GiggleLiu/NiLangCore.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/GiggleLiu/NiLangCore.jl)
 
@@ -31,4 +29,20 @@ end
 
 # obtain the gradient
 test'(0.5, 0.3)
+```
+
+## Duality
+```
+a += b <--> a -= b
+a ⊻= b <--> a ⊻= b
+@anc x <--> @deanc x (i.e. x = zero(T) <--> @assert x == zero(T))
+if (precond, postcond) ... else ... end <--> if (postcond, precond) ... else ... end
+while (precond, postcond) ... end <--> while (postcond, precond) ... end
+for i=start:step:stop ... end <--> for i=stop:-step:start ... end
+@safe ... <--> @safe ...
+```
+
+Duality of types
+```
+Bundle{T}(::T) <--> (~Bundle{T})(::Bundle{T})
 ```

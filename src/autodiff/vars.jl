@@ -19,7 +19,7 @@ Base.:-(x::GVar) = GVar(-x.x, -x.g)
 ## variable mapping
 GVar(x) = GVar(x, zero(x))
 GVar(x::GVar) = GVar(x, zero(x))
-(_::Type{Inv{GVar}})(x::GVar) = (@invcheck NiLangCore.isappr(grad(x), zero(x)); val(x))
+(_::Type{Inv{GVar}})(x::GVar) = (@invcheck NiLangCore.isappr(grad(x), zero(x)); x.x)
 Base.isapprox(x::Bundle, y::Number; kwargs...) = isapprox(val(x), y; kwargs...)
 Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(val(x), val(y); kwargs...)
 Base.isapprox(x::Number, y::Bundle; kwargs...) = isapprox(x, val(y); kwargs...)

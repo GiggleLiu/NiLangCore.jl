@@ -246,3 +246,17 @@ end
     @instr test(out, x)
     @test out == 0.0
 end
+
+@testset "inverse a prog" begin
+    @i function test(out, x)
+        ~(out += x;
+        out += x)
+        ~for i=1:3
+            out += x
+        end
+    end
+    out, x = 0.0, 1.0
+    @test check_inv(test, (out, x))
+    @instr test(out, x)
+    @test out == -5.0
+end

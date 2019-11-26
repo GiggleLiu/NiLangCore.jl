@@ -109,7 +109,7 @@ function _gen_ifunc(ex, fname, args, ts, body)
     esc(:(
     $fdef1;
     $fdef2;
-    NiLangCore.isreversible(::$ftype) = true
+    $(_funcdef(:isreversible, ftype))
     ))
 end
 
@@ -143,9 +143,13 @@ function interpret_func(ex)
                 $(interpret_body(body, info)...)
                 return ($(args...),)
             end;
-            NiLangCore.isreversible(::$ftype) = true
+            $(_funcdef(:isreversible, ftype))
             ))
         end
         _=>error("$ex is not a function def")
     end
+end
+
+function _funcdef(f, ftype)
+    :(NiLangCore.$f(::$ftype) = true)
 end

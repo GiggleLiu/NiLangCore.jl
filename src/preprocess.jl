@@ -55,7 +55,7 @@ function precom_ex(ex, info)
         end
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
-            :(while ($pre, $post); $(precom_body(body, PreInfo())...); end)
+            :(while ($pre, $post); $(precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...); end)
         end
         :(begin $(body...) end) => begin
             :(begin $(precom_body(body, info)...) end)
@@ -63,7 +63,7 @@ function precom_ex(ex, info)
         # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
-            :(for $i=$(precom_range(range)); $(precom_body(body, PreInfo())...); end)
+            :(for $i=$(precom_range(range)); $(precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...); end)
         end
         :(@anc $line $x::$tp) => begin
             info.ancs[x] = tp
@@ -81,7 +81,12 @@ function precom_ex(ex, info)
         end
         :(@routine $line $name) => :(begin $(info.routines[name]...) end)
         :(~(@routine $line $name)) => :(begin $(dual_body(info.routines[name])...) end)
-        _ => ex
+        :(~($(body...))) => :(begin $(dual_body(precom_body(body, info))...) end)
+        :($f($(args...))) => :($f($(args...)))
+        :($f.($(args...))) => :($f.($(args...)))
+        ::LineNumberNode => ex
+        ::Nothing => ex
+        _ => error("unsupported statement: $ex")
     end
 end
 

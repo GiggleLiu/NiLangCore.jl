@@ -7,12 +7,24 @@ TODO: check address conflicts!
 """
 macro dual(f, invf)
     esc(:(
-    NiLangCore.isreversible(::typeof($f)) = true;
-    NiLangCore.isreversible(::typeof($invf)) = true;
-    NiLangCore.isprimitive(::typeof($f)) = true;
-    NiLangCore.isprimitive(::typeof($invf)) = true;
-    Base.:~(::typeof($f)) = $invf;
-    Base.:~(::typeof($invf)) = $f
+        NiLangCore.isreversible($f) || begin
+            NiLangCore.isreversible(::typeof($f)) = true
+        end;
+        NiLangCore.isreversible($invf) || begin
+            NiLangCore.isreversible(::typeof($invf)) = true
+        end;
+        NiLangCore.isprimitive($f) || begin
+            NiLangCore.isprimitive(::typeof($f)) = true
+        end;
+        NiLangCore.isprimitive($invf) || begin
+            NiLangCore.isprimitive(::typeof($invf)) = true
+        end;
+        Base.:~($f) === $invf || begin
+            Base.:~(::typeof($f)) = $invf;
+        end;
+        Base.:~($invf) === $f || begin
+            Base.:~(::typeof($invf)) = $f;
+        end
     ))
 end
 
@@ -34,10 +46,18 @@ end
 """define a self-dual instruction"""
 macro selfdual(f)
     esc(:(
-    NiLangCore.isreversible(::typeof($f)) = true;
-    NiLangCore.isreflexive(::typeof($f)) = true;
-    NiLangCore.isprimitive(::typeof($f)) = true;
-    Base.:~(::typeof($f)) = $f
+        NiLangCore.isreversible($f) || begin
+            NiLangCore.isreversible(::typeof($f)) = true
+        end;
+        NiLangCore.isreflexive($f) || begin
+            NiLangCore.isreflexive(::typeof($f)) = true
+        end;
+        NiLangCore.isprimitive($f) || begin
+            NiLangCore.isprimitive(::typeof($f)) = true
+        end;
+        Base.:~($f) === $f || begin
+            Base.:~(::typeof($f)) = $f
+        end
     ))
 end
 
@@ -83,7 +103,10 @@ function assign_vars(args, symres)
     ex = :()
     for (i,arg) in enumerate(args)
         exi = @match arg begin
-            :($args...) => :($args = NiLangCore.tailn(NiLangCore.wrap_tuple($symres), Val($i-1)))
+            :($ag...) => begin
+                i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
+                :($ag = NiLangCore.tailn(NiLangCore.wrap_tuple($symres), Val($i-1)))
+            end
             _ => assign_ex(arg, :($symres[$i]))
         end
         exi !== nothing && (ex = :($ex; $exi))
@@ -104,7 +127,10 @@ function bcast_assign_vars(args, symres)
         ex = :()
         for (i,arg) in enumerate(args)
             exi = @match arg begin
-                :($args...) => :($args = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
+                :($ag...) => begin
+                    i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
+                    :($ag = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
+                end
                 _ => assign_ex(arg, :(getindex.($symres, $i)))
             end
             exi !== nothing && (ex = :($ex; $exi))
@@ -133,6 +159,13 @@ assign_ex(arg::Expr, res) = @match arg begin
                 $a[$(x...)] = $res
             end)
         end
+    end
+    :(($(args...),)) => begin
+        ex = :()
+        for i=1:length(args)
+            ex = :($ex; $(assign_ex(args[i], :($res[$i]))))
+        end
+        ex
     end
     _ => checkconst(arg, res)
 end

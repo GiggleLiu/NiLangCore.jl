@@ -28,3 +28,10 @@ end
     @assign arr[] 0.0
     @test arr[] == 0.0
 end
+
+@testset "assign tuple" begin
+    x = 0.3
+    z = Loss(0.3)
+    @instr GVar.((x,))
+    @test x === GVar(0.3)
+end
