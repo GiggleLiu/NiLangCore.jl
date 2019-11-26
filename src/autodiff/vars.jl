@@ -8,7 +8,7 @@ GVar{T1,T2}(x::GVar{T1,T2}) where {T1,T2} = x # to avoid ambiguity error
 Base.copy(b::GVar) = GVar(b.x, copy(b.g))
 Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
 grad(gv::GVar) = val(gv.g)
-grad(gv) = nothing
+grad(gv::T) where T = zero(T)
 
 # constructors and deconstructors
 ## identity mapping

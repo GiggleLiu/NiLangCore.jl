@@ -74,6 +74,7 @@ function precom_ex(ex, info)
             ex
         end
         :(@maybe $line $subex) => :(@maybe $(precom_ex(subex, info)))
+        :(@safe $line $subex) => :(@safe $subex)
         :(@routine $line $name begin $(body...) end) => begin
             precode = precom_body(body, info)
             info.routines[name] = precode

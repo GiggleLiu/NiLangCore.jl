@@ -25,7 +25,7 @@ end
 
     x, y = 3.0, 4.0
     (⊕)'(Loss(x), NoGrad(y))
-    @test grad(y) === nothing
+    @test grad(y) === 0.0
 
     @test check_inv(⊕(*), (Loss(0.4), 0.4, 0.5))
     @test ⊖(*)(GVar(0.0, 1.0), GVar(0.4), GVar(0.6)) == (GVar(-0.24, 1.0), GVar(0.4, 0.6), GVar(0.6, 0.4))
