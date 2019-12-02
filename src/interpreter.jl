@@ -38,8 +38,8 @@ function interpret_ex(ex, info)
         end
         :(@maybe $line $subex) => :(@maybe $(interpret_ex(subex, info)))
         :(@safe $line $subex) => subex
-        :(@anc $line $x::$tp) => :(@anc $x::$tp)
-        :(@deanc $line $x::$tp) => :(@deanc $x::$tp)
+        :(@anc $line $x = $tp) => :(@anc $x = $tp)
+        :(@deanc $line $x = $tp) => :(@deanc $x = $tp)
         :(return $(args...)) => LineNumberNode(0)
         ::LineNumberNode => ex
         _ => error("statement is not supported for invertible lang! got $ex")

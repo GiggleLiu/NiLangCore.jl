@@ -1,7 +1,7 @@
 export precom
 
 struct PreInfo
-    ancs::Dict{Symbol, Symbol}
+    ancs::Dict{Symbol, Any}
     routines::Dict{Symbol, Any}
 end
 PreInfo() = PreInfo(Dict{Symbol,Symbol}(), Dict{Symbol,Any}())
@@ -18,7 +18,7 @@ end
 
 function flushancs(out, info)
     for (x, tp) in info.ancs
-        push!(out, :(@deanc $x::$tp))
+        push!(out, :(@deanc $x = $tp))
     end
     return out
 end
@@ -65,11 +65,11 @@ function precom_ex(ex, info)
         :(for $i in $range; $(body...); end) => begin
             :(for $i=$(precom_range(range)); $(precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...); end)
         end
-        :(@anc $line $x::$tp) => begin
-            info.ancs[x] = tp
+        :(@anc $line $x = $val) => begin
+            info.ancs[x] = val
             ex
         end
-        :(@deanc $line $x::$tp) => begin
+        :(@deanc $line $x = $val) => begin
             delete!(info.ancs, x)
             ex
         end

@@ -95,6 +95,28 @@ macro instr(ex)
         :($a .+= $b) => esc(:(@instr PlusEq(identity).($a, $b)))
         :($a .-= $b) => esc(:(@instr MinusEq(identity).($a, $b)))
         :($a .⊻= $b) => esc(:(@instr XorEq(identity).($a, $b)))
+        #=
+        NOTE 1: not only left side can change, the gradients of right side can also change.
+        NOTE 2: the broadcasting over a scalar is not allowed. For,
+            * native Julia broadcast can not accumulate gradients properly.
+            * NiLang for loop is possible, but hard.
+        :($a += $f($(args...))) => esc(:($a = PlusEq($f)($a, $(args...))[1]))
+        :($a .+= $f($(args...))) => esc(:($a = getindex.(PlusEq($(debcast(f))).($a, $(args...)),1)))
+        :($a .+= $f.($(args...))) => esc(:($a = getindex.(PlusEq($f).($a, $(args...)),1)))
+        :($a -= $f($(args...))) => esc(:($a = MinusEq($f)($a, $(args...))[1]))
+        :($a .-= $f($(args...))) => esc(:($a = getindex.(MinusEq($(debcast(f))).($a, $(args...)),1)))
+        :($a .-= $f.($(args...))) => esc(:($a = getindex.(MinusEq($f).($a, $(args...)),1)))
+        :($a ⊻= $f($(args...))) => esc(:($a = XorEq($f)($a, $(args...))[1]))
+        :($a .⊻= $f($(args...))) => esc(:($a = getindex.(XorEq($(debcast(f))).($a, $(args...)),1)))
+        :($a .⊻= $f.($(args...))) => esc(:($a = getindex.(XorEq($f).($a, $(args...))[1])))
+
+        :($a += $b) => esc(:($a = PlusEq(identity)($a, $b)[1]))
+        :($a -= $b) => esc(:($a = MinusEq(identity)($a, $b)[1]))
+        :($a ⊻= $b) => esc(:($a = XorEq(identity)($a, $b)[1]))
+        :($a .+= $b) => esc(:($a = getindex.(PlusEq(identity).($a, $b),1)))
+        :($a .-= $b) => esc(:($a = getindex.(MinusEq(identity).($a, $b),1)))
+        :($a .⊻= $b) => esc(:($a = getindex.(XorEq(identity).($a, $b),1)))
+        =#
         _ => error("got $ex")
     end
 end
@@ -154,7 +176,7 @@ assign_ex(arg::Expr, res) = @match arg begin
             :($a[] = $res)
         else
             :(if ($a isa Tuple)
-                $a = NiLangCore.TupleTools.insertat($a, $(x[]), ($res,))
+                $a = NiLangCore.TupleTools.insertat($a, $(x[1]), ($res,))
             else
                 $a[$(x...)] = $res
             end)

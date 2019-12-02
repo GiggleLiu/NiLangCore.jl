@@ -69,8 +69,8 @@ function dual_ex(ex)
             :(for $i=$stop:(-$step):$start; $(dual_body(body)...); end)
         end
         :(@maybe $line $subex) => :(@maybe $(dual_ex(subex)))
-        :(@anc $line $x::$tp) => :(@deanc $x::$tp)
-        :(@deanc $line $x::$tp) => :(@anc $x::$tp)
+        :(@anc $line $x = $val) => :(@deanc $x = $val)
+        :(@deanc $line $x = $val) => :(@anc $x = $val)
         :(@safe $line $subex) => :(@safe $subex)
         :(begin $(body...) end) => :(begin $(dual_body(body)...) end)
         ::LineNumberNode => ex

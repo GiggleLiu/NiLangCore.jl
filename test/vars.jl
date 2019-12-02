@@ -1,11 +1,11 @@
 using Test, NiLangCore
 
 @testset "anc" begin
-    @anc x::Float64
+    @anc x = 0.0
     @test x === 0.0
-    @test (@deanc x::Float64)
+    @test (@deanc x = 0.0)
     x += 1
-    @test_throws InvertibilityError (@deanc x::Float64)
+    @test_throws InvertibilityError (@deanc x = 0.0)
     @assign val(x) 0.1
     @test x == 0.1
     @assign -x 0.1

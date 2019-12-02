@@ -12,6 +12,13 @@ end
     grad(y) += val(x) * grad(out!)
 end
 
+@testset "NGrad" begin
+    @test exp''' isa NGrad{3,typeof(exp)}
+    @test NGrad{3}(exp) isa NGrad{3,typeof(exp)}
+    @test (~NGrad{2})(exp''') isa NGrad{1,typeof(exp)}
+    @test (~NGrad{3})(exp''') === exp
+end
+
 @testset "instr" begin
     x, y = 3.0, 4.0
     lx = Loss(x)
@@ -40,7 +47,7 @@ end
     end
 
     @i function tt(a, b)
-        @anc out::Float64
+        @anc out = 0.0
         test1(a, b, out)
         (~test1)(a, b, out)
         a ⊕ b

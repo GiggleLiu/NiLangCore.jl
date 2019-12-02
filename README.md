@@ -35,7 +35,7 @@ test'(0.5, 0.3)
 ```
 a += b <--> a -= b
 a ⊻= b <--> a ⊻= b
-@anc x <--> @deanc x (i.e. x = zero(T) <--> @assert x == zero(T))
+@anc x = 0.0 <--> @deanc x =0.0
 if (precond, postcond) ... else ... end <--> if (postcond, precond) ... else ... end
 while (precond, postcond) ... end <--> while (postcond, precond) ... end
 for i=start:step:stop ... end <--> for i=stop:-step:start ... end

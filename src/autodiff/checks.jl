@@ -15,7 +15,7 @@ end
 
 function gradient(f, args; kwargs=())
     gargs = f'(args...; kwargs...)
-    return [val.(grad.(x)) for x in gargs if x isa GVar || x isa AbstractArray{<:GVar}]
+    return [val.(grad.(x)) for x in gargs]
 end
 
 function ng(f, args, iarg, iloss; δ=1e-5, kwargs=())
