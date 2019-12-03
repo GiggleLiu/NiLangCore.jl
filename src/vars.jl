@@ -85,6 +85,9 @@ val(b::Bundle) = val(b.x)
 @generated function chfield(x, ::Val{FIELD}, xval) where FIELD
     :(@with x.$FIELD = xval)
 end
+@generated function chfield(x, f::Function, xval)
+    :($(checkconst(:(f(x)), :xval)); x)
+end
 chfield(x::Bundle, ::typeof(val), xval) = chfield(x, Val(:x), chfield(x.x, val, xval))
 chfield(x, ::typeof(identity), xval) = xval
 chfield(x, ::Type{T}, v) where {T<:Bundle} = (~T)(v)
