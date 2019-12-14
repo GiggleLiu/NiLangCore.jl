@@ -105,7 +105,7 @@ using NiLangCore
 ag.g = AG(0.0)
 @benchmark $a + $a
 
-using NiLangCore, NiLangCore.AD
+using NiLangCore, NiLangCore.ADCore
 @i function test(x, one, N::Int)
     for i = 1:N
         x ⊕ one

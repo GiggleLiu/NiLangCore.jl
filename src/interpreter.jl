@@ -88,11 +88,11 @@ export @i
 export interpret_func
 
 macro i(ex)
-    fname, args, ts, body = precom(ex)
-    _gen_ifunc(ex, fname, args, ts, body)
+    mc, fname, args, ts, body = precom(ex)
+    _gen_ifunc(mc, fname, args, ts, body)
 end
 
-function _gen_ifunc(ex, fname, args, ts, body)
+function _gen_ifunc(mc, fname, args, ts, body)
     info = ()
     fname = _replace_opmx(fname)
     ifname = :(~$fname)
@@ -106,6 +106,10 @@ function _gen_ifunc(ex, fname, args, ts, body)
     dualhead = :($(NiLangCore.dual_fname(fname))($(args...)) where {$(ts...)})
     fdef1 = Expr(:function, head, quote $(interpret_body(body, info)...); $(invfuncfoot(args)) end)
     fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body), info)...); $(invfuncfoot(args)) end)
+    if mc !== nothing
+        fdef1 = macrocall()
+        fdef1 = macrocall()
+    end
     esc(:(
     $fdef1;
     $fdef2;

@@ -7,9 +7,15 @@ end
 PreInfo() = PreInfo(Dict{Symbol,Symbol}(), Dict{Symbol,Any}())
 
 function precom(ex)
+    if ex.head == :macrocall
+        mc = ex.args[1]
+        ex = ex.args[3]
+    else
+        mc = nothing
+    end
     fname, args, ts, body = match_function(ex)
     info = PreInfo()
-    fname, args, ts, flushancs(precom_body(body, info), info)
+    mc, fname, args, ts, flushancs(precom_body(body, info), info)
 end
 
 function precom_body(body::AbstractVector, info)
@@ -27,13 +33,15 @@ function precom_opm(f, out, arg2)
     if f in [:(+=), :(-=)]
         @match arg2 begin
             :($subf($(subargs...))) => Expr(f, out, arg2)
-            _ => Expr(f, out, :(identity($arg2)))
+            #_ => Expr(f, out, :(identity($arg2)))
+            _ => error("unknown expression after assign $(QuoteNode(arg2))")
         end
     elseif f in [:(.+=), :(.-=)]
         @match arg2 begin
             :($subf.($(subargs...))) => Expr(f, out, arg2)
             :($subf($(subargs...))) => Expr(f, out, arg2)
-            _ => Expr(f, out, :(identity.($arg2)))
+            #_ => Expr(f, out, :(identity.($arg2)))
+            _ => error("unknown expression after assign $(QuoteNode(arg2))")
         end
     end
 end
@@ -44,6 +52,12 @@ function precom_ex(ex, info)
         :($a -= $b) => precom_opm(:-=, a, b)
         :($a .+= $b) => precom_opm(:.+=, a, b)
         :($a .-= $b) => precom_opm(:.-=, a, b)
+        :($a ⊕ $b) => :($a += identity($b))
+        :($a .⊕ $b) => :($a .+= identity.($b))
+        :($a ⊖ $b) => :($a -= identity($b))
+        :($a .⊖ $b) => :($a .-= identity.($b))
+        :($a ⊙ $b) => :($a ⊻= identity($b))
+        :($a .⊙ $b) => :($a .⊻= identity.($b))
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             post = post == :~ ? pre : post

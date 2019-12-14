@@ -16,6 +16,6 @@ include("interpreter.jl")
 include("checks.jl")
 
 include("autodiff/autodiff.jl")
-export AD
+export ADCore
 
 end # module

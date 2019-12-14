@@ -20,13 +20,23 @@ Inv(f::NGrad{N}) where {N} = NGrad{N}(~f.f)
 (_::Type{Inv{NGrad{M}}})(f::NGrad{M}) where {M} = f.f
 #Grad(f::Inv) = Inv(f.f')
 
+
 @i function (g::Grad)(args...; kwargs...)
-    g.f(args...; kwargs...)
-    GVar.(args)
-    for i=1:length(args)
-        if (args[i] isa GVar{<:Loss}, ~)
-            grad(args[i]) ⊕ 1.0
+    @safe @assert count(x -> x isa Loss, args) == 1
+    @anc iloss = 0
+    @routine getiloss begin
+        for i=1:length(args)
+            if (args[i] isa Loss, iloss==i)
+                iloss += identity(i)
+                (~Loss)(args[i])
+            end
         end
     end
+
+    g.f(args...; kwargs...)
+    GVar.(args)
+    grad(args[iloss]) += identity(1.0)
     (~g.f)(args...; kwargs...)
+
+    ~@routine getiloss
 end

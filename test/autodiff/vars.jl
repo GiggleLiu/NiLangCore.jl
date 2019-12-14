@@ -1,4 +1,4 @@
-using NiLangCore, NiLangCore.AD
+using NiLangCore, NiLangCore.ADCore
 using Test
 
 @testset "gvar" begin

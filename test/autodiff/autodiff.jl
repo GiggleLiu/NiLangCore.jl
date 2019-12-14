@@ -1,4 +1,4 @@
-using Test, NiLangCore, NiLangCore.AD
+using Test, NiLangCore, NiLangCore.ADCore
 
 include("vars.jl")
 include("gradfunc.jl")

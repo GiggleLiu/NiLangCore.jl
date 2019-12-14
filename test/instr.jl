@@ -5,20 +5,15 @@ using Test
 import Base: +, -
 import NiLangCore: ⊕, ⊖
 
-function ⊕(a!, b)
+function add(a!, b)
     @assign val(a!) val(a!) + val(b)
     a!, b
 end
-function ⊖(a!, b)
+function sub(a!, b)
     @assign val(a!) val(a!) - val(b)
     a!, b
 end
-const _add = ⊕
-const _sub = ⊖
-@dual _add _sub
-@ignore ⊕(a!::Nothing, b)
-@ignore ⊕(a!::Nothing, b::Nothing)
-@ignore ⊕(a!, b::Nothing)
+@dual add sub
 
 function XOR(a!::T, b) where T
     @assign a! xor(a!, b)
@@ -27,29 +22,23 @@ end
 @selfdual XOR
 #@nograd XOR
 
-@testset "ignore" begin
-    @test nothing ⊕ 3 == (nothing, 3)
-    @test nothing ⊕ nothing == (nothing, nothing)
-    @test 3 ⊕ nothing == (3, nothing)
-end
-
 @testset "@dual" begin
-    @test isreversible(⊕)
-    @test isreversible(⊖)
-    @test !isreflexive(⊕)
-    @test ~(⊕) == ⊖
+    @test isreversible(add)
+    @test isreversible(sub)
+    @test !isreflexive(add)
+    @test ~(add) == sub
     a=2.0
     b=1.0
-    @instr a ⊕ b
+    @instr add(a, b)
     @test a == 3.0
     args = (1,2)
-    @instr ⊕(args...)
+    @instr add(args...)
     @test args == (3,2)
-    @instr a ⊖ b
+    @instr sub(a, b)
     @test a == 2.0
-    @test check_inv(⊕, (a, b))
-    @test isprimitive(⊕)
-    @test isprimitive(⊖)
+    @test check_inv(add, (a, b))
+    @test isprimitive(add)
+    @test isprimitive(sub)
 end
 
 @testset "@selfdual" begin

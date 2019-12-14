@@ -68,7 +68,7 @@ end
 
 function chfield end
 
-export Bundle, Reg, val
+export Bundle, Reg, val, value
 export chfield, chval
 export Dup
 # variables
@@ -82,6 +82,8 @@ abstract type Bundle{T} <: Number end
 # NOTE: the reason for not using x[], x[] is designed for mutable types!
 val(x) = x
 val(b::Bundle) = val(b.x)
+value(x) = x
+value(b::Bundle) = b.x
 @generated function chfield(x, ::Val{FIELD}, xval) where FIELD
     :(@with x.$FIELD = xval)
 end
@@ -89,12 +91,31 @@ end
     :($(checkconst(:(f(x)), :xval)); x)
 end
 chfield(x::Bundle, ::typeof(val), xval) = chfield(x, Val(:x), chfield(x.x, val, xval))
+chfield(x::Bundle, ::typeof(value), xval) = chfield(x, Val(:x), xval)
 chfield(x, ::typeof(identity), xval) = xval
 chfield(x, ::Type{T}, v) where {T<:Bundle} = (~T)(v)
+
+function chfield(tp::Tuple, i::Tuple{Int}, val)
+    TupleTools.insertat(tp, i[1], (val,))
+end
+
+chfield(a, b, c) = error("chfield($a, $b, $c) not defined!")
+
+chfield(tp::Tuple, i::Int, val) = chfield(tp, (i,), val)
+
+for VTYPE in [:AbstractArray, :Ref]
+    @eval function chfield(a::$VTYPE, indices::Tuple, val)
+        setindex!(a, val, indices...)
+        a
+    end
+    @eval chfield(tp::$VTYPE, i::Int, val) = chfield(tp, (i,), val)
+end
+
 isreversible(::Type{<:Bundle}) = true
 
 function chfield end
 chfield(x::T, ::typeof(val), y::T) where T = y
+chfield(x::T, ::typeof(value), y::T) where T = y
 NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
 NiLangCore.chfield(x::T, ::typeof(conj), y::T) where T = conj(y)
 chval(a, x) = chfield(a, val, x)

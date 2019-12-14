@@ -7,7 +7,8 @@ GVar{T1,T2}(x) where {T1,T2} = GVar(T1(x), zero(T2))
 GVar{T1,T2}(x::GVar{T1,T2}) where {T1,T2} = x # to avoid ambiguity error
 Base.copy(b::GVar) = GVar(b.x, copy(b.g))
 Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
-grad(gv::GVar) = val(gv.g)
+value(gv::GVar) = gv.x
+grad(gv::GVar) = gv.g
 grad(gv::T) where T = zero(T)
 
 # constructors and deconstructors
@@ -34,12 +35,13 @@ Base.show(io::IO, gv::GVar) = print(io, "GVar($(gv.x), $(gv.g))")
 Base.show(io::IO, ::MIME"plain/text", gv::GVar) = Base.show(io, gv)
 # interfaces
 chfield(x::GVar{T1,T2}, ::typeof(grad), g) where {T1,T2} = chfield(x, Val(:g), g)
-chfield(x::T, ::typeof(grad), g::T) where T = x
+chfield(x::T, ::typeof(grad), g::T) where T = (@invcheck iszero(g) || g≈0; x)
 
 struct Loss{T}<:Bundle{T} x::T end
 Loss(x::Loss{T}) where T = x # to avoid ambiguity error
 Loss{T}(x::Loss{T}) where T = x
 (_::Type{Inv{Loss}})(x) = x.x
+grad(x::Loss) = grad(x.x)
 Base.eps(::Type{<:Loss{T}}) where T = Base.eps(T)
 Base.show(io::IO, gv::Loss) = print(io, "Loss($(gv.x))")
 Base.show(io::IO, ::MIME"plain/text", gv::Loss) = Base.show(io, gv)

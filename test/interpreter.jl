@@ -3,7 +3,7 @@ using Test
 
 @testset "i" begin
     @i function test1(a::T, b, out) where T<:Number
-        a ⊕ b
+        add(a, b)
         out += a * b
     end
 
@@ -30,7 +30,7 @@ end
 @testset "if statement 1" begin
     # compute (a+b)*b -> out
     @i function test1(a, b, out)
-        a ⊕ b
+        add(a, b)
         if (a > 8, a > 8)
             out += a*b
         else
@@ -55,7 +55,7 @@ end
 
     # compute (a+b)*b -> out
     @i function test1(a, b, out)
-        a ⊕ b
+        add(a, b)
         if (out < 4,  out < 4)
             out += a*b
         else
@@ -70,7 +70,7 @@ end
     y = 4
     out = 0
     @i function test1(a, b, out)
-        a ⊕ b
+        add(a, b)
         if (a > 2, a > 2)
             out += a*b
         else
@@ -195,7 +195,7 @@ end
     @test x == [3, 1.0]
 
     @i function test2(a, b, out)
-        a ⊕ b
+        add(a, b)
         out += (a * b)
     end
 
@@ -228,7 +228,7 @@ end
 @testset "routines" begin
     @i function test(out, x)
         @routine r1 begin
-            out += x
+            out += identity(x)
         end
         @routine r1
     end
@@ -238,7 +238,7 @@ end
 
     @i function test(out, x)
         @routine r1 begin
-            out += x
+            out += identity(x)
         end
         ~@routine r1
     end
@@ -249,10 +249,10 @@ end
 
 @testset "inverse a prog" begin
     @i function test(out, x)
-        ~(out += x;
-        out += x)
+        ~(out += identity(x);
+        out += identity(x))
         ~for i=1:3
-            out += x
+            out += identity(x)
         end
     end
     out, x = 0.0, 1.0

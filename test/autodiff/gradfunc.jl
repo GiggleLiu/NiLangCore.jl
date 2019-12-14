@@ -1,9 +1,14 @@
-using Test, NiLangCore, NiLangCore.AD
+using Test, NiLangCore, NiLangCore.ADCore
 import NiLangCore: ⊕, ⊖
 
-@i function ⊖(a!::GVar, b::GVar)
-    val(a!) ⊖ val(b)
-    grad(b) ⊕ grad(a!)
+@i function sub(a!::GVar, b::GVar)
+    sub(value(a!), value(b))
+    add(grad(b), grad(a!))
+end
+
+@i function ⊖(identity)(a!::GVar, b::GVar)
+    sub(value(a!), value(b))
+    add(grad(b), grad(a!))
 end
 
 @i function ⊖(*)(out!::GVar, x::GVar, y::GVar)
@@ -22,16 +27,16 @@ end
 @testset "instr" begin
     x, y = 3.0, 4.0
     lx = Loss(x)
-    @instr (⊕)'(lx, y)
+    @instr (add)'(lx, y)
     @test grad(lx) == 1.0
     @test grad(y) == 1.0
-    @test check_inv((⊕)', (lx, y))
+    @test check_inv((add)', (lx, y))
     x, y = 3.0, 4.0
     lx = Loss(x)
-    @test check_grad(⊕, (lx, y))
+    @test check_grad(add, (lx, y))
 
     x, y = 3.0, 4.0
-    (⊕)'(Loss(x), NoGrad(y))
+    (add)'(Loss(x), NoGrad(y))
     @test grad(y) === 0.0
 
     @test check_inv(⊕(*), (Loss(0.4), 0.4, 0.5))

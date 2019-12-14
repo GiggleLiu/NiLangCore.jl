@@ -129,7 +129,7 @@ function assign_vars(args, symres)
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
                 :($ag = NiLangCore.tailn(NiLangCore.wrap_tuple($symres), Val($i-1)))
             end
-            _ => assign_ex(arg, :($symres[$i]))
+            _ => assign_ex(arg, :(NiLangCore.wrap_tuple($symres)[$i]))
         end
         exi !== nothing && (ex = :($ex; $exi))
     end
@@ -172,15 +172,7 @@ assign_ex(arg::Expr, res) = @match arg begin
     :($f($x)) => :($(_isconst(x) ? checkconst(arg, res) : assign_ex(x, :(chfield($x, $f, $res)))))
     :($x') => :($(_isconst(x) ? checkconst(arg, res) : assign_ex(x, :(chfield($x, conj, $res)))))
     :($a[$(x...)]) => begin
-        if length(x) == 0
-            :($a[] = $res)
-        else
-            :(if ($a isa Tuple)
-                $a = NiLangCore.TupleTools.insertat($a, $(x[1]), ($res,))
-            else
-                $a[$(x...)] = $res
-            end)
-        end
+        :($a = chfield($a, $(Expr(:tuple, x...)), $res))
     end
     :(($(args...),)) => begin
         ex = :()
