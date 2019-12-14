@@ -64,7 +64,7 @@ Base.display(o::OPMX) = print(_str(o), o.f)
 Base.show(io::IO, o::OPMX) = print(io, _str(o), o.f)
 isreversible(::OPMX) = true
 
-export ⊕, ⊖
+export ⊕, ⊖, ⊙
 ⊕(f) = PlusEq(f)
 ⊖(f) = MinusEq(f)
-Base.:⊻(f) = XorEq(f)
+⊙(f) = XorEq(f)

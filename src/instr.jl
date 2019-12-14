@@ -63,6 +63,7 @@ end
 
 export @instr
 macro instr(ex)
+    ex = precom_ex(ex, PreInfo())
     @match ex begin
         :($f($(args...))) => begin
             symres = gensym()
@@ -88,13 +89,6 @@ macro instr(ex)
         :($a ⊻= $f($(args...))) => esc(:(@instr XorEq($f)($a, $(args...))))
         :($a .⊻= $f($(args...))) => esc(:(@instr XorEq($(debcast(f))).($a, $(args...))))
         :($a .⊻= $f.($(args...))) => esc(:(@instr XorEq($f).($a, $(args...))))
-
-        :($a += $b) => esc(:(@instr PlusEq(identity)($a, $b)))
-        :($a -= $b) => esc(:(@instr MinusEq(identity)($a, $b)))
-        :($a ⊻= $b) => esc(:(@instr XorEq(identity)($a, $b)))
-        :($a .+= $b) => esc(:(@instr PlusEq(identity).($a, $b)))
-        :($a .-= $b) => esc(:(@instr MinusEq(identity).($a, $b)))
-        :($a .⊻= $b) => esc(:(@instr XorEq(identity).($a, $b)))
         #=
         NOTE 1: not only left side can change, the gradients of right side can also change.
         NOTE 2: the broadcasting over a scalar is not allowed. For,
