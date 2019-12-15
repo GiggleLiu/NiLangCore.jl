@@ -66,30 +66,21 @@ macro anc(ex)
     end
 end
 
-function chfield end
-
-export Bundle, Reg, val, value
-export chfield, chval
+export Bundle, val, value
+export chfield
 export Dup
 # variables
 # Bundle is a wrapper of data type
 # instructions on Bundle will not change the original behavior of wrapped data type.
 # but, will extract information.
 # Bundle type is always callable as a data converter.
-abstract type Bundle{T} <: Number end
-"""get the data in a bundle"""
+abstract type Bundle{T} <: InvType end
 
 # NOTE: the reason for not using x[], x[] is designed for mutable types!
 val(x) = x
 val(b::Bundle) = val(b.x)
 value(x) = x
 value(b::Bundle) = b.x
-@generated function chfield(x, ::Val{FIELD}, xval) where FIELD
-    :(@with x.$FIELD = xval)
-end
-@generated function chfield(x, f::Function, xval)
-    :($(checkconst(:(f(x)), :xval)); x)
-end
 chfield(x::Bundle, ::typeof(val), xval) = chfield(x, Val(:x), chfield(x.x, val, xval))
 chfield(x::Bundle, ::typeof(value), xval) = chfield(x, Val(:x), xval)
 chfield(x, ::typeof(identity), xval) = xval
@@ -118,8 +109,6 @@ chfield(x::T, ::typeof(val), y::T) where T = y
 chfield(x::T, ::typeof(value), y::T) where T = y
 NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
 NiLangCore.chfield(x::T, ::typeof(conj), y::T) where T = conj(y)
-chval(a, x) = chfield(a, val, x)
-const Reg{T} = Union{T, Bundle{T}} where T<:Number
 
 struct Dup{T} <: Bundle{T}
     x::T
@@ -128,7 +117,3 @@ end
 function Dup(x::T) where T
    Dup{T}(x, copy(x))
 end
-Dup(x::Dup) = Dup(x)
-(_::Type{<:Inv{Dup}})(dp::Dup) = (@invcheck isappr(dp.twin, dp.x); dp.x)
-isappr(x, y) = isapprox(x, y; atol=1e-8)
-isappr(x::AbstractArray, y::AbstractArray) = all(isapprox.(x, y; atol=1e-8))

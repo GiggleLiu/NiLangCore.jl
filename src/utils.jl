@@ -34,3 +34,36 @@ function match_function(ex)
         _ => error("must input a function, got $ex")
     end
 end
+
+
+gentup(struct_T) = NamedTuple{( fieldnames(struct_T)...,), Tuple{(fieldtype(struct_T,i) for i=1:fieldcount(struct_T))...}}
+
+"""convert an object to a named tuple."""
+@generated function struct2namedtuple(x)
+   nt = Expr(:quote, gentup(x))
+   tup = Expr(:tuple)
+   for i=1:fieldcount(x)
+       push!(tup.args, :(getfield(x, $i)) )
+   end
+   return :($nt($tup))
+end
+
+function almost_same(a::T, b::T) where T
+    a === b || a == b || NiLangCore.isappr(a, b)
+end
+
+function almost_same(a::TA, b::TB) where {TA, TB}
+    false
+end
+
+@generated function almost_same(a::T, b::T) where T<:RevType
+    nf = fieldcount(a)
+    quote
+        res = true
+        @nexprs $nf i-> res = res && almost_same(getfield(a, i), getfield(b, i))
+        res
+    end
+end
+
+isappr(x, y) = isapprox(x, y; atol=1e-8)
+isappr(x::AbstractArray, y::AbstractArray) = all(isapprox.(x, y; atol=1e-8))

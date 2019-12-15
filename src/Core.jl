@@ -50,16 +50,16 @@ const OPMX{FT} = Union{PlusEq{FT}, MinusEq{FT}, XorEq{FT}}
 """
 accumulate result into x.
 """
-(inf::PlusEq)(out!, args...) = (chval(out!, val(out!) + inf.f(val.(args)...)), args...)
-(inf::MinusEq)(out!, args...) = (chval(out!, val(out!) - inf.f(val.(args)...)), args...)
-(inf::XorEq)(out!, args...) = (chval(out!, val(out!) ⊻ inf.f(val.(args)...)), args...)
+(inf::PlusEq)(out!, args...) = (chfield(out!, value, value(out!) + inf.f(value.(args)...)), args...)
+(inf::MinusEq)(out!, args...) = (chfield(out!, value, value(out!) - inf.f(value.(args)...)), args...)
+(inf::XorEq)(out!, args...) = (chfield(out!, value, value(out!) ⊻ inf.f(value.(args)...)), args...)
 
 Base.:~(op::PlusEq) = MinusEq(op.f)
 Base.:~(om::MinusEq) = PlusEq(om.f)
 Base.:~(om::XorEq) = om
 _str(::PlusEq) = '⊕'
 _str(::MinusEq) = '⊖'
-_str(::XorEq) = '⊖'
+_str(::XorEq) = '⊙'
 Base.display(o::OPMX) = print(_str(o), o.f)
 Base.show(io::IO, o::OPMX) = print(io, _str(o), o.f)
 isreversible(::OPMX) = true

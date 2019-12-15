@@ -37,15 +37,15 @@ function ng(f, args, iarg, iloss; δ=1e-5, kwargs=())
         end
         return res
     else
-        args = tset(x->chval(x, val(x) + δ/2), args, iarg)
+        args = tset(x->chfield(x, val, val(x) + δ/2), args, iarg)
         @instr f(args...; kwargs...)
         pos = val(args[iloss])
         @instr (~f)(args...; kwargs...)
-        args = tset(x->chval(x, val(x) - δ), args, iarg)
+        args = tset(x->chfield(x, val, val(x) - δ), args, iarg)
         @instr f(args...; kwargs...)
         neg = val(args[iloss])
         @instr (~f)(args...; kwargs...)
-        args = tset(x->chval(x, val(x) + δ/2), args, iarg)
+        args = tset(x->chfield(x, val, val(x) + δ/2), args, iarg)
         (pos - neg)/δ
     end
 end

@@ -1,5 +1,5 @@
 ######## GVar, a bundle that records gradient
-struct GVar{T,GT<:Reg{T}} <: Bundle{T}
+struct GVar{T,GT<:Union{GVar{T},T}} <: Bundle{T}
     x::T
     g::GT
 end
