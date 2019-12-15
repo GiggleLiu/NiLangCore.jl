@@ -11,15 +11,27 @@ end
     add(grad(b), grad(a!))
 end
 
-@i function ⊖(identity)(a!::GVar, b)
-    sub(value(a!), value(b))
-end
+@nograd ⊖(identity)(a!::GVar, b)
 
 @i function ⊖(*)(out!::GVar, x::GVar, y::GVar)
     value(out!) -= value(x) * value(y)
     grad(x) += grad(out!) * value(y)
     grad(y) += value(x) * grad(out!)
 end
+
+@i function ⊖(*)(out!::GVar, x::GVar, y)
+    value(out!) -= value(x) * value(y)
+    grad(x) += grad(out!) * value(y)
+end
+
+@i function ⊖(*)(out!::GVar, x, y::GVar)
+    value(out!) -= value(x) * value(y)
+    grad(y) += value(x) * grad(out!)
+end
+@nograd ⊖(*)(a!, b::GVar, c)
+@nograd ⊖(*)(a!, b::GVar, c::GVar)
+@nograd ⊖(*)(a!, b, c::GVar)
+@nograd ⊖(*)(a!::GVar, b, c)
 
 @testset "NGrad" begin
     @test exp''' isa NGrad{3,typeof(exp)}
@@ -43,7 +55,7 @@ end
     (add)'(Loss(x), NoGrad(y))
     @test grad(y) === 0.0
 
-    @test check_inv(⊕(*), (Loss(0.4), 0.4, 0.5))
+    @test check_inv(⊕(*), (0.4, 0.4, 0.5))
     @test ⊖(*)(GVar(0.0, 1.0), GVar(0.4), GVar(0.6)) == (GVar(-0.24, 1.0), GVar(0.4, 0.6), GVar(0.6, 0.4))
     @test check_grad(⊕(*), (Loss(0.4), 0.4, 0.5))
     @test check_grad(⊖(*), (Loss(0.4), 0.4, 0.5))

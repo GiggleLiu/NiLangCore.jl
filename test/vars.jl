@@ -3,7 +3,7 @@ using Test, NiLangCore
 @testset "anc" begin
     @anc x = 0.0
     @test x === 0.0
-    @test (@deanc x = 0.0)
+    @test (@deanc x = 0.0) isa Any
     x += 1
     @test_throws InvertibilityError (@deanc x = 0.0)
     @assign value(x) 0.2

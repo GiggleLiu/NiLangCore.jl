@@ -68,4 +68,4 @@ end
 end
 
 isappr(x, y) = isapprox(x, y; atol=1e-8)
-isappr(x::AbstractArray, y::AbstractArray) = all(isapprox.(x, y; atol=1e-8))
+isappr(x::AbstractArray, y::AbstractArray) = all(isappr.(x, y))

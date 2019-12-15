@@ -50,9 +50,13 @@ const OPMX{FT} = Union{PlusEq{FT}, MinusEq{FT}, XorEq{FT}}
 """
 accumulate result into x.
 """
-(inf::PlusEq)(out!, args...) = (chfield(out!, value, value(out!) + inf.f(value.(args)...)), args...)
-(inf::MinusEq)(out!, args...) = (chfield(out!, value, value(out!) - inf.f(value.(args)...)), args...)
-(inf::XorEq)(out!, args...) = (chfield(out!, value, value(out!) ⊻ inf.f(value.(args)...)), args...)
+#(inf::PlusEq)(out!, args...) = (chfield(out!, value, value(out!) + inf.f(value.(args)...)), args...)
+#(inf::MinusEq)(out!, args...) = (chfield(out!, value, value(out!) - inf.f(value.(args)...)), args...)
+#(inf::XorEq)(out!, args...) = (chfield(out!, value, value(out!) ⊻ inf.f(value.(args)...)), args...)
+
+(inf::PlusEq)(out!, args...) = out! + inf.f(args...), args...
+(inf::MinusEq)(out!, args...) = out! - inf.f(args...), args...
+(inf::XorEq)(out!, args...) = out! ⊻ inf.f(args...), args...
 
 Base.:~(op::PlusEq) = MinusEq(op.f)
 Base.:~(om::MinusEq) = PlusEq(om.f)
@@ -73,3 +77,6 @@ export ⊕, ⊖, ⊙
 abstract type RevType end
 function invkernel end
 function chfield end
+
+chfield(x, ::Type{T}, v) where {T<:RevType} = (~T)(v)
+isreversible(::Type{<:RevType}) = true

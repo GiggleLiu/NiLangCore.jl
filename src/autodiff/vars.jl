@@ -5,6 +5,7 @@ struct GVar{T,GT} <: Bundle{T}
 end
 Base.copy(b::GVar) = GVar(b.x, copy(b.g))
 Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
+Base.zero(::Type{<:GVar{T}}) where T = GVar(zero(T))
 
 # define kernel and field views
 @fieldview grad(gv::GVar) = gv.g
@@ -14,9 +15,12 @@ grad(gv::T) where T = zero(T)
 grad(gv::AbstractArray{T}) where T = grad.(gv)
 chfield(x::T, ::typeof(grad), g::T) where T = (@invcheck iszero(g) || g≈0; x)
 
+# NOTE: superwarning: check value only to make ancilla gradient descardable.
+NiLangCore.almost_same(a::GVar, b::GVar) = NiLangCore.almost_same(value(a), value(b))
+
 # constructors and deconstructors
-GVar(x::Integer) = x
-(_::Type{Inv{GVar}})(x::Integer) = x
+#GVar(x::Integer) = x
+#(_::Type{Inv{GVar}})(x::Integer) = x
 Base.:-(x::GVar) = GVar(-x.x, -x.g)
 
 ## variable mapping
@@ -56,4 +60,26 @@ GVar(x::NoGrad) = x.x
 for TP in [:GVar, :Loss, :NoGrad]
     @eval value(gv::$TP) = gv.x
     @eval chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
+end
+
+macro nograd(ex)
+    @match ex begin
+        :($f($(args...))) => begin
+            newargs = []
+            for arg in args
+                push!(newargs, @match arg begin
+                    :($x::GVar) => :($x.x)
+                    :($x::GVar{$tp}) => :($x.x)
+                    _ => arg
+                end
+                )
+            end
+            esc(quote
+                @i function $f($(args...))
+                    $f($(newargs...))
+                end
+            end)
+        end
+        _ => error("expect `f(args...)`, got $ex")
+    end
 end

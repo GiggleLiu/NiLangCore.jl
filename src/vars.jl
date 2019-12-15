@@ -7,7 +7,11 @@ const GLOBAL_INFO = Dict{Any,Any}()
 ############# ancillas ################
 macro deanc(ex)
     @match ex begin
-        :($x = $val) => :(@invcheck NiLangCore.almost_same($(esc(x)), $(esc(val))))
+        :($x = $val) => esc(:(
+            if invcheckon() && !(NiLangCore.almost_same($x, $val))
+                throw(InvertibilityError("$($x) ≂̸ $($val)"))
+            end
+           ))
         _ => error("please use like `@deanc x = val`")
     end
 end
@@ -60,6 +64,3 @@ invkernel(b::Bundle) = value(b)
 Base.isapprox(x::Bundle, y; kwargs...) = isapprox(value(x), y; kwargs...)
 Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(value(x), value(y); kwargs...)
 Base.isapprox(x, y::Bundle; kwargs...) = isapprox(x, value(y); kwargs...)
-
-chfield(x, ::Type{T}, v) where {T<:RevType} = (~T)(v)
-isreversible(::Type{<:Bundle}) = true
