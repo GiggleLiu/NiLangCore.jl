@@ -1,61 +1,14 @@
-export @push, @pop
 export @anc, @deanc
+export RevType, Bundle
+export invkernel, chfield, value
 
-const A_STACK = []
-const B_STACK = []
 const GLOBAL_INFO = Dict{Any,Any}()
-
-"""
-push value to A STACK, with initialization.
-"""
-macro push(ex::Expr)
-    @match ex begin
-        :($x = $val) =>
-        :(
-        $(esc(x)) = $(Var(val));
-        push!(A_STACK, $(esc(x)))
-        )
-    end
-end
-
-"""
-push a value to A STACK from top of B STACK.
-"""
-macro push(ex::Symbol)
-    :(
-    $(esc(ex)) = pop!(B_STACK);
-    push!(A_STACK, $(esc(ex)))
-    )
-end
-
-"""
-pop a value to B STACK from top of A STACK.
-"""
-macro pop(ex::Symbol)
-    :(
-    $(esc(ex)) = pop!(A_STACK);
-    push!(B_STACK, $(esc(ex)))
-    )
-end
-
-"""
-pop value to B STACK, with post check.
-"""
-macro pop(ex::Expr)
-    @match ex begin
-        :($x = $val) =>
-            :(
-            push!(A_STACK, $(esc(x)));
-            @invcheck NiLangCore.isappr($(esc(x)[]), $val)
-            )
-    end
-end
 
 ############# ancillas ################
 macro deanc(ex)
     @match ex begin
-        :($x = $val) => :(@invcheck NiLangCore.isappr($(esc(x)), $(esc(val))))
-        _ => error("please use like `@deanc x::T`")
+        :($x = $val) => :(@invcheck NiLangCore.almost_same($(esc(x)), $(esc(val))))
+        _ => error("please use like `@deanc x = val`")
     end
 end
 
@@ -66,40 +19,27 @@ macro anc(ex)
     end
 end
 
-export Bundle, value
-export chfield
-export Dup
 # variables
-# Bundle is a wrapper of data type
-# instructions on Bundle will not change the original behavior of wrapped data type.
-# but, will extract information.
-# Bundle type is always callable as a data converter.
-abstract type Bundle{T} <: RevType end
-
-# NOTE: the reason for not using x[], x[] is designed for mutable types!
-value(x) = x
-
 export @fieldview
 macro fieldview(ex)
     @match ex begin
-        :($f($obj) = begin $line; $obj.$prop end) => quote
-            $(esc(f))($obj) = begin $line; $obj.$prop end
-            NiLangCore.chfield($obj, ::typeof($(esc(f))), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)
-        end
-        _ => error("expect expression `f(obj) = obj.prop`, got $ex")
+        :($f($obj::$tp) = begin $line; $obj.$prop end) => esc(quote
+            $f($obj::$tp) = begin $line; $obj.$prop end
+            NiLangCore.chfield($obj::$tp, ::typeof($f), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)
+        end)
+        _ => error("expect expression `f(obj::type) = obj.prop`, got $ex")
     end
 end
 
-invkernel(b::Bundle) = value(b)
-chfield(x, ::typeof(identity), xval) = xval
-chfield(x, ::Type{T}, v) where {T<:Bundle} = (~T)(v)
+# NOTE: the reason for not using x[], x[] is designed for mutable types!
+value(x) = x
+chfield(x::T, ::typeof(value), y::T) where T = y
 
+chfield(a, b, c) = error("chfield($a, $b, $c) not defined!")
+chfield(x, ::typeof(identity), xval) = xval
 function chfield(tp::Tuple, i::Tuple{Int}, val)
     TupleTools.insertat(tp, i[1], (val,))
 end
-
-chfield(a, b, c) = error("chfield($a, $b, $c) not defined!")
-
 chfield(tp::Tuple, i::Int, val) = chfield(tp, (i,), val)
 
 for VTYPE in [:AbstractArray, :Ref]
@@ -109,18 +49,17 @@ for VTYPE in [:AbstractArray, :Ref]
     end
     @eval chfield(tp::$VTYPE, i::Int, val) = chfield(tp, (i,), val)
 end
-
-isreversible(::Type{<:Bundle}) = true
-
-function chfield end
-chfield(x::T, ::typeof(value), y::T) where T = y
 NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
 NiLangCore.chfield(x::T, ::typeof(conj), y::T) where T = conj(y)
 
-struct Dup{T} <: Bundle{T}
-    x::T
-    twin::T
-end
-function Dup(x::T) where T
-   Dup{T}(x, copy(x))
-end
+# Bundle is a wrapper of data type, its invkernel is its value.
+# instructions on Bundle will not change the original behavior of wrapped data type.
+abstract type Bundle{t} <: RevType end
+invkernel(b::Bundle) = value(b)
+
+Base.isapprox(x::Bundle, y; kwargs...) = isapprox(value(x), y; kwargs...)
+Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(value(x), value(y); kwargs...)
+Base.isapprox(x, y::Bundle; kwargs...) = isapprox(x, value(y); kwargs...)
+
+chfield(x, ::Type{T}, v) where {T<:RevType} = (~T)(v)
+isreversible(::Type{<:Bundle}) = true
