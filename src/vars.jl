@@ -66,7 +66,7 @@ macro anc(ex)
     end
 end
 
-export Bundle, val, value
+export Bundle, value
 export chfield
 export Dup
 # variables
@@ -74,15 +74,23 @@ export Dup
 # instructions on Bundle will not change the original behavior of wrapped data type.
 # but, will extract information.
 # Bundle type is always callable as a data converter.
-abstract type Bundle{T} <: InvType end
+abstract type Bundle{T} <: RevType end
 
 # NOTE: the reason for not using x[], x[] is designed for mutable types!
-val(x) = x
-val(b::Bundle) = val(b.x)
 value(x) = x
-value(b::Bundle) = b.x
-chfield(x::Bundle, ::typeof(val), xval) = chfield(x, Val(:x), chfield(x.x, val, xval))
-chfield(x::Bundle, ::typeof(value), xval) = chfield(x, Val(:x), xval)
+
+export @fieldview
+macro fieldview(ex)
+    @match ex begin
+        :($f($obj) = begin $line; $obj.$prop end) => quote
+            $(esc(f))($obj) = begin $line; $obj.$prop end
+            NiLangCore.chfield($obj, ::typeof($(esc(f))), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)
+        end
+        _ => error("expect expression `f(obj) = obj.prop`, got $ex")
+    end
+end
+
+invkernel(b::Bundle) = value(b)
 chfield(x, ::typeof(identity), xval) = xval
 chfield(x, ::Type{T}, v) where {T<:Bundle} = (~T)(v)
 
@@ -105,7 +113,6 @@ end
 isreversible(::Type{<:Bundle}) = true
 
 function chfield end
-chfield(x::T, ::typeof(val), y::T) where T = y
 chfield(x::T, ::typeof(value), y::T) where T = y
 NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
 NiLangCore.chfield(x::T, ::typeof(conj), y::T) where T = conj(y)

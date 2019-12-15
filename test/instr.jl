@@ -6,11 +6,11 @@ import Base: +, -
 import NiLangCore: ⊕, ⊖
 
 function add(a!, b)
-    @assign val(a!) val(a!) + val(b)
+    @assign value(a!) value(a!) + value(b)
     a!, b
 end
 function sub(a!, b)
-    @assign val(a!) val(a!) - val(b)
+    @assign value(a!) value(a!) - value(b)
     a!, b
 end
 @dual add sub

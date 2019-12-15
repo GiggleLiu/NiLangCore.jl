@@ -1,5 +1,5 @@
 ######## GVar, a bundle that records gradient
-struct GVar{T,GT<:Union{GVar{T},T}} <: Bundle{T}
+struct GVar{T,GT} <: Bundle{T}
     x::T
     g::GT
 end
@@ -7,9 +7,9 @@ GVar{T1,T2}(x) where {T1,T2} = GVar(T1(x), zero(T2))
 GVar{T1,T2}(x::GVar{T1,T2}) where {T1,T2} = x # to avoid ambiguity error
 Base.copy(b::GVar) = GVar(b.x, copy(b.g))
 Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
-value(gv::GVar) = gv.x
 grad(gv::GVar) = gv.g
 grad(gv::T) where T = zero(T)
+grad(gv::AbstractArray{T}) where T = grad.(gv)
 
 # constructors and deconstructors
 ## identity mapping
@@ -21,9 +21,9 @@ Base.:-(x::GVar) = GVar(-x.x, -x.g)
 GVar(x) = GVar(x, zero(x))
 GVar(x::GVar) = GVar(x, zero(x))
 (_::Type{Inv{GVar}})(x::GVar) = (@invcheck NiLangCore.isappr(grad(x), zero(x)); x.x)
-Base.isapprox(x::Bundle, y::Number; kwargs...) = isapprox(val(x), y; kwargs...)
-Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(val(x), val(y); kwargs...)
-Base.isapprox(x::Number, y::Bundle; kwargs...) = isapprox(x, val(y); kwargs...)
+Base.isapprox(x::Bundle, y::Number; kwargs...) = isapprox(value(x), y; kwargs...)
+Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(value(x), value(y); kwargs...)
+Base.isapprox(x::Number, y::Bundle; kwargs...) = isapprox(x, value(y); kwargs...)
 
 GVar(x::AbstractArray) = GVar.(x)
 (f::Type{Inv{GVar}})(x::AbstractArray) = f.(x)
@@ -50,13 +50,13 @@ Base.:-(x::Loss) = Loss(-x.x)
 struct NoGrad{T}<:Bundle{T} x::T end
 NoGrad(x::NoGrad{T}) where T = x # to avoid ambiguity error
 NoGrad{T}(x::NoGrad{T}) where T = x
-(_::Type{Inv{NoGrad}})(x) = x.x
+(_::Type{Inv{NoGrad}})(x::NoGrad) = x.x
 Base.eps(::Type{<:NoGrad{T}}) where T = Base.eps(T)
 Base.show(io::IO, gv::NoGrad) = print(io, "NoGrad($(gv.x))")
 Base.show(io::IO, ::MIME"plain/text", gv::NoGrad) = Base.show(io, gv)
 Base.:-(x::NoGrad) = NoGrad(-x.x)
-GVar(x::NoGrad) = x
-(_::Type{Inv{GVar}})(x::NoGrad) = x
+GVar(x::NoGrad) = x.x
+(_::Type{Inv{GVar}})(x) = NoGrad(x)
 ######## Conditional apply
 
 export conditioned_apply, @maybe
@@ -81,4 +81,9 @@ end
             f(args...)
         end
     end
+end
+
+for TP in [:GVar, :Loss, :NoGrad]
+    @eval value(gv::$TP) = gv.x
+    @eval chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
 end

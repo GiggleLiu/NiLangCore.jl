@@ -48,15 +48,17 @@ gentup(struct_T) = NamedTuple{( fieldnames(struct_T)...,), Tuple{(fieldtype(stru
    return :($nt($tup))
 end
 
-function almost_same(a::T, b::T) where T
-    a === b || a == b || NiLangCore.isappr(a, b)
+export almost_same
+
+function almost_same(a::T, b::T) where T <: Number
+    NiLangCore.isappr(a, b)
 end
 
 function almost_same(a::TA, b::TB) where {TA, TB}
     false
 end
 
-@generated function almost_same(a::T, b::T) where T<:RevType
+@generated function almost_same(a::T, b::T) where T
     nf = fieldcount(a)
     quote
         res = true

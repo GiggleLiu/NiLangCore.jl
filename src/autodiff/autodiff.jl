@@ -1,7 +1,7 @@
 module ADCore
 using ..NiLangCore
 using MLStyle
-import ..NiLangCore: val, chfield, value
+import ..NiLangCore: chfield, value
 
 export GVar, grad, Loss, NoGrad, TaylorVar
 

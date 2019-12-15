@@ -7,7 +7,7 @@ TaylorVar{T1,T2}(x) where {T1,T2} = TaylorVar(T1(x), zero(T2))
 TaylorVar{T1,T2}(x::TaylorVar{T1,T2}) where {T1,T2} = x # to avoid ambiguity error
 Base.copy(b::TaylorVar) = TaylorVar(b.x, copy(b.tape))
 Base.zero(x::TaylorVar) = TaylorVar(Base.zero(x.x), Base.zero(x.tape))
-series(gv::TaylorVar) = val(gv.tape)
+series(gv::TaylorVar) = value(gv.tape)
 series(gv::T) where T = zero(T)
 
 # constructors and deconstructors
@@ -20,9 +20,9 @@ Base.:-(x::TaylorVar) = TaylorVar(-x.x, -x.tape)
 TaylorVar(x) = TaylorVar(x, zero(x))
 TaylorVar(x::TaylorVar) = TaylorVar(x, zero(x))
 (_::Type{Inv{TaylorVar}})(x::TaylorVar) = (@invcheck NiLangCore.isappr(series(x), zero(x)); x.x)
-Base.isapprox(x::Bundle, y::Number; kwargs...) = isapprox(val(x), y; kwargs...)
-Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(val(x), val(y); kwargs...)
-Base.isapprox(x::Number, y::Bundle; kwargs...) = isapprox(x, val(y); kwargs...)
+Base.isapprox(x::Bundle, y::Number; kwargs...) = isapprox(value(x), y; kwargs...)
+Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(value(x), value(y); kwargs...)
+Base.isapprox(x::Number, y::Bundle; kwargs...) = isapprox(x, value(y); kwargs...)
 
 TaylorVar(x::AbstractArray) = TaylorVar.(x)
 (f::Type{Inv{TaylorVar}})(x::AbstractArray) = f.(x)

@@ -2,6 +2,8 @@ module NiLangCore
 using MLStyle
 using TupleTools
 
+export RevType, invkernel, chfield
+
 #include("ngg/ngg.jl")
 include("lens.jl")
 

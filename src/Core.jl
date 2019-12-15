@@ -68,3 +68,8 @@ export ⊕, ⊖, ⊙
 ⊕(f) = PlusEq(f)
 ⊖(f) = MinusEq(f)
 ⊙(f) = XorEq(f)
+
+# Inv Type
+abstract type RevType end
+function invkernel end
+function chfield end

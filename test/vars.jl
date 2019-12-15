@@ -6,8 +6,6 @@ using Test, NiLangCore
     @test (@deanc x = 0.0)
     x += 1
     @test_throws InvertibilityError (@deanc x = 0.0)
-    @assign val(x) 0.1
-    @test x == 0.1
     @assign value(x) 0.2
     @test x == 0.2
     @assign -x 0.1

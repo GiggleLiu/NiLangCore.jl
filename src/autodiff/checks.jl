@@ -9,13 +9,13 @@ isvar(x::AbstractArray{T}) where T<:AbstractFloat = true
 function tset(vfunc::Function, tp::Tuple, iloss)
     map(i->i===iloss ? vfunc(tp[i]) : tp[i], 1:length(tp))
 end
-function tset(val, tp::Tuple, iloss)
-    map(i->i===iloss ? val : tp[i], 1:length(tp))
+function tset(value, tp::Tuple, iloss)
+    map(i->i===iloss ? value : tp[i], 1:length(tp))
 end
 
 function gradient(f, args; kwargs=())
     gargs = f'(args...; kwargs...)
-    return [val.(grad.(x)) for x in gargs]
+    return [grad(x) for x in gargs]
 end
 
 function ng(f, args, iarg, iloss; δ=1e-5, kwargs=())
@@ -26,26 +26,26 @@ function ng(f, args, iarg, iloss; δ=1e-5, kwargs=())
         for i = 1:length(x)
             args[iarg][i] += T(δ/2)
             @instr f(args...; kwargs...)
-            pos = val(args[iloss])
+            pos = value(args[iloss])
             @instr (~f)(args...; kwargs...)
             args[iarg][i] -= T(δ)
             @instr f(args...; kwargs...)
-            neg = val(args[iloss])
+            neg = value(args[iloss])
             @instr (~f)(args...; kwargs...)
             args[iarg][i] += T(δ/2)
             res[i] = (pos - neg)/δ
         end
         return res
     else
-        args = tset(x->chfield(x, val, val(x) + δ/2), args, iarg)
+        args = tset(x->chfield(x, value, value(x) + δ/2), args, iarg)
         @instr f(args...; kwargs...)
-        pos = val(args[iloss])
+        pos = value(args[iloss])
         @instr (~f)(args...; kwargs...)
-        args = tset(x->chfield(x, val, val(x) - δ), args, iarg)
+        args = tset(x->chfield(x, value, value(x) - δ), args, iarg)
         @instr f(args...; kwargs...)
-        neg = val(args[iloss])
+        neg = value(args[iloss])
         @instr (~f)(args...; kwargs...)
-        args = tset(x->chfield(x, val, val(x) + δ/2), args, iarg)
+        args = tset(x->chfield(x, value, value(x) + δ/2), args, iarg)
         (pos - neg)/δ
     end
 end

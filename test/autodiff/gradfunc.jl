@@ -11,10 +11,14 @@ end
     add(grad(b), grad(a!))
 end
 
+@i function ⊖(identity)(a!::GVar, b)
+    sub(value(a!), value(b))
+end
+
 @i function ⊖(*)(out!::GVar, x::GVar, y::GVar)
-    val(out!) -= val(x) * val(y)
-    grad(x) += grad(out!) * val(y)
-    grad(y) += val(x) * grad(out!)
+    value(out!) -= value(x) * value(y)
+    grad(x) += grad(out!) * value(y)
+    grad(y) += value(x) * grad(out!)
 end
 
 @testset "NGrad" begin
