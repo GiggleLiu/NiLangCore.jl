@@ -19,13 +19,13 @@ chfield(x::T, ::typeof(grad), g::T) where T = (@invcheck iszero(g) || g≈0; x)
 NiLangCore.almost_same(a::GVar, b::GVar) = NiLangCore.almost_same(value(a), value(b))
 
 # constructors and deconstructors
-#GVar(x::Integer) = x
-#(_::Type{Inv{GVar}})(x::Integer) = x
+GVar(x::Integer) = x
+(_::Type{Inv{GVar}})(x::Integer) = x
 Base.:-(x::GVar) = GVar(-x.x, -x.g)
 
 ## variable mapping
 GVar(x) = GVar(x, zero(x))
-(_::Type{Inv{GVar}})(x::GVar) = (@invcheck NiLangCore.isappr(grad(x), zero(x)); x.x)
+(_::Type{Inv{GVar}})(x::GVar) = (@invcheck grad(x) zero(x.x); x.x)
 
 GVar(x::AbstractArray) = GVar.(x)
 (f::Type{Inv{GVar}})(x::AbstractArray) = f.(x)

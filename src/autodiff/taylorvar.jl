@@ -19,7 +19,7 @@ Base.:-(x::TaylorVar) = TaylorVar(-x.x, -x.tape)
 ## variable mapping
 TaylorVar(x) = TaylorVar(x, zero(x))
 TaylorVar(x::TaylorVar) = TaylorVar(x, zero(x))
-(_::Type{Inv{TaylorVar}})(x::TaylorVar) = (@invcheck NiLangCore.isappr(series(x), zero(x)); x.x)
+(_::Type{Inv{TaylorVar}})(x::TaylorVar) = (@invcheck series(x) zero(x); x.x)
 Base.isapprox(x::Bundle, y::Number; kwargs...) = isapprox(value(x), y; kwargs...)
 Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(value(x), value(y); kwargs...)
 Base.isapprox(x::Number, y::Bundle; kwargs...) = isapprox(x, value(y); kwargs...)

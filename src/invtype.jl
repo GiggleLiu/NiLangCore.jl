@@ -4,12 +4,12 @@ using Base.Cartesian
     :(@with x.$FIELD = xval)
 end
 @generated function chfield(x, f::Function, xval)
-    :($(checkconst(:(f(x)), :xval)); x)
+    :(@invcheck f(x) xval; x)
 end
 
 function (_::Type{Inv{T}})(x) where T <: RevType
     kval = invkernel(x)
     recon = T(kval)
-    @invcheck almost_same(recon, x)
+    @invcheck recon x
     kval
 end

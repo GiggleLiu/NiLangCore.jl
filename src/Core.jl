@@ -14,9 +14,21 @@ struct InvertibilityError <: Exception
     ex
 end
 
+"""
+    @invcheck ex
+    @invcheck x val
+
+Pass the check it if `ex` is true or `x ≈ val`.
+"""
 macro invcheck(ex)
     esc(:(if invcheckon();
         $ex || throw(InvertibilityError($(QuoteNode(ex))));
+    end))
+end
+
+macro invcheck(x, val)
+    esc(:(if invcheckon() && !(NiLangCore.almost_same($x, $val))
+        throw(InvertibilityError("$($(QuoteNode(x))) (=$($x)) ≂̸ $($(QuoteNode(val))) (=$($val))"))
     end))
 end
 
@@ -80,3 +92,4 @@ function chfield end
 
 chfield(x, ::Type{T}, v) where {T<:RevType} = (~T)(v)
 isreversible(::Type{<:RevType}) = true
+isreversible(::RevType) = true

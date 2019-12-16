@@ -7,11 +7,7 @@ const GLOBAL_INFO = Dict{Any,Any}()
 ############# ancillas ################
 macro deanc(ex)
     @match ex begin
-        :($x = $val) => esc(:(
-            if invcheckon() && !(NiLangCore.almost_same($x, $val))
-                throw(InvertibilityError("$($x) ≂̸ $($val)"))
-            end
-           ))
+        :($x = $val) => esc(:(@invcheck $x $val))
         _ => error("please use like `@deanc x = val`")
     end
 end

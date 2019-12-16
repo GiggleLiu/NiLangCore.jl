@@ -26,3 +26,10 @@ end
     @test chfield([1,2,3], (2,), 4) == [1,4,3]
     @test chfield(Ref(3), (), 4).x == Ref(4).x
 end
+
+@testset "invcheck" begin
+    @test (@invcheck 0.3 0.3) isa Any
+    @test_throws InvertibilityError (@invcheck 0.3 0.4)
+    @test_throws InvertibilityError (@invcheck 3 3.0)
+    @test (@invcheck 3 == 3.0) isa Any
+end

@@ -55,7 +55,7 @@ function ifstatement(precond, postcond, truebranch, falsebranch)
         else
             $(falsebranch...)
         end;
-        @invcheck $postcond == $var
+        @invcheck $postcond $var
     )
 end
 
@@ -78,9 +78,9 @@ function forstatement(i, start, step, stop, body)
         for $i=$start_:$step_:$stop_
             $(body...);
         end;
-        @invcheck $start_ == $start[];
-        @invcheck $step_ == $step[];
-        @invcheck $stop_ == $stop[]
+        @invcheck $start_  $start[];
+        @invcheck $step_  $step[];
+        @invcheck $stop_  $stop[]
         )
 end
 
