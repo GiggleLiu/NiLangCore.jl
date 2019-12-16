@@ -50,22 +50,21 @@ end
 
 export almost_same
 
-function almost_same(a::T, b::T) where T <: Number
-    NiLangCore.isappr(a, b)
+function almost_same(a::T, b::T; atol=1e-8, kwargs...) where T <: Number
+    isapprox(a, b; atol=atol, kwargs...)
 end
 
-function almost_same(a::TA, b::TB) where {TA, TB}
+function almost_same(a::TA, b::TB; kwargs...) where {TA, TB}
     false
 end
 
-@generated function almost_same(a::T, b::T) where T
+@generated function almost_same(a::T, b::T; kwargs...) where T
     nf = fieldcount(a)
     quote
         res = true
-        @nexprs $nf i-> res = res && almost_same(getfield(a, i), getfield(b, i))
+        @nexprs $nf i-> res = res && almost_same(getfield(a, i), getfield(b, i); kwargs...)
         res
     end
 end
 
-isappr(x, y) = isapprox(x, y; atol=1e-8)
-isappr(x::AbstractArray, y::AbstractArray) = all(isappr.(x, y))
+almost_same(x::T, y::T; kwargs...) where T<:AbstractArray = all(almost_same.(x, y; kwargs...))

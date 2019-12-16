@@ -21,7 +21,7 @@ using Test
     @test isreversible(test1)
     @test isreversible(test1')
     @test isreversible(~test1')
-    @test (~test1)' == ~(test1')
+    @test (~test1)' != ~(test1') # this is not true
     @test check_inv(test1, (x, y, out))
     @test check_inv(tt, (x, y))
     @test check_inv(tt, (x, y))

@@ -7,7 +7,7 @@ using Test
     @assign grad(g1) 0.5
     @test g1 === GVar(0.0, 0.5)
     @test_throws InvertibilityError (~GVar)(g1)
-    @test almost_same(GVar(0.0), GVar(0.0, 1.0))
+    @test !almost_same(GVar(0.0), GVar(0.0, 1.0))
 end
 
 

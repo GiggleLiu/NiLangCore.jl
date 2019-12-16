@@ -16,7 +16,7 @@ grad(gv::AbstractArray{T}) where T = grad.(gv)
 chfield(x::T, ::typeof(grad), g::T) where T = (@invcheck iszero(g) || g≈0; x)
 
 # NOTE: superwarning: check value only to make ancilla gradient descardable.
-NiLangCore.almost_same(a::GVar, b::GVar) = NiLangCore.almost_same(value(a), value(b))
+#NiLangCore.almost_same(a::GVar, b::GVar) = NiLangCore.almost_same(value(a), value(b))
 
 # constructors and deconstructors
 GVar(x::Integer) = x

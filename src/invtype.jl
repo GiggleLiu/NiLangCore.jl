@@ -9,7 +9,7 @@ end
 
 function (_::Type{Inv{T}})(x) where T <: RevType
     kval = invkernel(x)
-    recon = T(kval)
-    @invcheck recon x
+    invtype_reconstructed = T(kval)
+    @invcheck invtype_reconstructed x
     kval
 end
