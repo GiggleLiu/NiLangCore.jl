@@ -33,3 +33,11 @@ end
     @test_throws InvertibilityError (@invcheck 3 3.0)
     @test (@invcheck 3 == 3.0) isa Any
 end
+
+@testset "partial" begin
+    x = Partial{:im}(3+2im)
+    @test value(x) == 2
+    @test chfield(x, value, 4) == Partial{:im}(3+4im)
+    (~Partial{:im})(x) == 3+2im
+end
+

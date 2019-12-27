@@ -14,8 +14,10 @@ NiLangCore.invkernel(gv::GVar) = gv.x
 grad(gv::T) where T = zero(T)
 grad(gv::AbstractArray{T}) where T = grad.(gv)
 chfield(x::T, ::typeof(grad), g::T) where T = (@invcheck iszero(g) || g≈0; x)
+chfield(x::GVar, ::typeof(grad), g::GVar) where T = GVar(x.x, g)
 
 # NOTE: superwarning: check value only to make ancilla gradient descardable.
+NiLangCore.deanc(x::GVar, val::GVar) = @invcheck value(x) value(val)
 #NiLangCore.almost_same(a::GVar, b::GVar) = NiLangCore.almost_same(value(a), value(b))
 
 # constructors and deconstructors
@@ -25,7 +27,7 @@ Base.:-(x::GVar) = GVar(-x.x, -x.g)
 
 ## variable mapping
 GVar(x) = GVar(x, zero(x))
-(_::Type{Inv{GVar}})(x::GVar) = (@invcheck grad(x) zero(x.x); x.x)
+(_::Type{Inv{GVar}})(x::GVar) = (@invcheck iszero(grad(x)); x.x)
 
 GVar(x::AbstractArray) = GVar.(x)
 (f::Type{Inv{GVar}})(x::AbstractArray) = f.(x)
@@ -61,6 +63,7 @@ for TP in [:GVar, :Loss, :NoGrad]
     @eval value(gv::$TP) = gv.x
     @eval chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
 end
+chfield(x::GVar, ::typeof(value), xval::GVar) = GVar(xval, x.g)
 
 macro nograd(ex)
     @match ex begin

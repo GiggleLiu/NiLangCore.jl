@@ -14,6 +14,26 @@ struct InvertibilityError <: Exception
     ex
 end
 
+
+# Inv Type
+abstract type RevType end
+function invkernel end
+function chfield end
+
+chfield(x, ::Type{T}, v) where {T<:RevType} = (~T)(v)
+isreversible(::Type{<:RevType}) = true
+isreversible(::RevType) = true
+
+# Bundle is a wrapper of data type, its invkernel is its value.
+# instructions on Bundle will not change the original behavior of wrapped data type.
+abstract type Bundle{t} <: RevType end
+invkernel(b::Bundle) = value(b)
+
+Base.isapprox(x::Bundle, y; kwargs...) = isapprox(value(x), y; kwargs...)
+Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(value(x), value(y); kwargs...)
+Base.isapprox(x, y::Bundle; kwargs...) = isapprox(x, value(y); kwargs...)
+
+
 """
     @invcheck ex
     @invcheck x val
@@ -66,9 +86,10 @@ accumulate result into x.
 #(inf::MinusEq)(out!, args...) = (chfield(out!, value, value(out!) - inf.f(value.(args)...)), args...)
 #(inf::XorEq)(out!, args...) = (chfield(out!, value, value(out!) ⊻ inf.f(value.(args)...)), args...)
 
-(inf::PlusEq)(out!, args...) = out! + inf.f(args...), args...
-(inf::MinusEq)(out!, args...) = out! - inf.f(args...), args...
-(inf::XorEq)(out!, args...) = out! ⊻ inf.f(args...), args...
+for (TP, OP) in [(:PlusEq, :+), (:MinusEq, :-), (:XorEq, :⊻)]
+    @eval (inf::$TP)(out!, args...) = $OP(out!, inf.f(args...)), args...
+    @eval (inf::$TP)(out!::Bundle, args...) = chfield(out!, value, $OP(value(out!), inf.f(value.(args)...))), args...
+end
 
 Base.:~(op::PlusEq) = MinusEq(op.f)
 Base.:~(om::MinusEq) = PlusEq(om.f)
@@ -84,12 +105,3 @@ export ⊕, ⊖, ⊙
 ⊕(f) = PlusEq(f)
 ⊖(f) = MinusEq(f)
 ⊙(f) = XorEq(f)
-
-# Inv Type
-abstract type RevType end
-function invkernel end
-function chfield end
-
-chfield(x, ::Type{T}, v) where {T<:RevType} = (~T)(v)
-isreversible(::Type{<:RevType}) = true
-isreversible(::RevType) = true

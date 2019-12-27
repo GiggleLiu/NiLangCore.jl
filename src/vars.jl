@@ -1,5 +1,5 @@
 export @anc, @deanc
-export RevType, Bundle
+export RevType, Bundle, Partial
 export invkernel, chfield, value
 
 const GLOBAL_INFO = Dict{Any,Any}()
@@ -7,10 +7,12 @@ const GLOBAL_INFO = Dict{Any,Any}()
 ############# ancillas ################
 macro deanc(ex)
     @match ex begin
-        :($x = $val) => esc(:(@invcheck $x $val))
+        :($x = $val) => :(deanc($(esc(x)), $(esc(val))))
         _ => error("please use like `@deanc x = val`")
     end
 end
+
+deanc(x, val) = @invcheck x val
 
 macro anc(ex)
     @match ex begin
@@ -52,11 +54,21 @@ end
 NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
 NiLangCore.chfield(x::T, ::typeof(conj), y::T) where T = conj(y)
 
-# Bundle is a wrapper of data type, its invkernel is its value.
-# instructions on Bundle will not change the original behavior of wrapped data type.
-abstract type Bundle{t} <: RevType end
-invkernel(b::Bundle) = value(b)
+# take a field view without drop information
+struct Partial{FIELD, T} <: RevType
+    x::T
+end
+Partial{FIELD}(x::T) where {T,FIELD} = Partial{FIELD,T}(x)
 
-Base.isapprox(x::Bundle, y; kwargs...) = isapprox(value(x), y; kwargs...)
-Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(value(x), value(y); kwargs...)
-Base.isapprox(x, y::Bundle; kwargs...) = isapprox(x, value(y); kwargs...)
+@generated function (_::Type{Inv{Partial{FIELD}}})(x::Partial{FIELD}) where {FIELD}
+    :(x.x)
+end
+
+function chfield(hd::Partial{FIELD}, ::typeof(value), val) where FIELD
+    chfield(hd, Val(:x), chfield(hd.x, Val(FIELD), val))
+end
+
+@generated function value(hv::Partial{FIELD}) where FIELD
+    :(hv.x.$FIELD)
+end
+

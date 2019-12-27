@@ -165,7 +165,7 @@ assign_ex(arg::Expr, res) = @match arg begin
     :($f($x)) => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, $f, $res)))))
     :($x') => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, conj, $res)))))
     :($a[$(x...)]) => begin
-        :($a = chfield($a, $(Expr(:tuple, x...)), $res))
+        assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)))
     end
     :(($(args...),)) => begin
         ex = :()

@@ -108,5 +108,5 @@ end
 precom_range(range) = @match range begin
     :($start:$step:$stop) => range
     :($start:$stop) => :($start:1:$stop)
-    _ => error("not supported for loop style $ex.")
+    _ => error("not supported for loop style $range.")
 end
