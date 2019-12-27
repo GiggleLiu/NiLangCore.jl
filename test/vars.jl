@@ -40,4 +40,3 @@ end
     @test chfield(x, value, 4) == Partial{:im}(3+4im)
     (~Partial{:im})(x) == 3+2im
 end
-

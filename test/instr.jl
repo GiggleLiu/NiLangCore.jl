@@ -5,19 +5,30 @@ using Test
 import Base: +, -
 import NiLangCore: ⊕, ⊖
 
-function add(a!, b)
-    @assign value(a!) value(a!) + value(b)
-    a!, b
+function add(a!::Number, b::Number)
+    a!+b, b
 end
-function sub(a!, b)
-    @assign value(a!) value(a!) - value(b)
-    a!, b
+
+@i function add(a!, b)
+    add(value(a!), value(b))
 end
+
+function sub(a!::Number, b::Number)
+    a!-b, b
+end
+
+@i function sub(a!, b)
+    sub(value(a!), value(b))
+end
+
 @dual add sub
 
-function XOR(a!::T, b) where T
-    @assign a! xor(a!, b)
-    T(a!), b
+function XOR(a!::Number, b::Number) where T
+    xor(a!, b), b
+end
+
+@i function XOR(a!::T, b) where T
+    XOR(value(a!), value(b))
 end
 @selfdual XOR
 #@nograd XOR

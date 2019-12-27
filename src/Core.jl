@@ -67,7 +67,7 @@ Base.display(bf::Inv) where f = print(bf)
 Base.getproperty(iv::Inv, prop::Symbol) = prop == :_f ? getfield(iv, :_f) : getproperty(iv._f, prop)
 
 ######### Infer
-export PlusEq, MinusEq
+export PlusEq, MinusEq, XorEq
 struct PlusEq{FT} <: Function
     f::FT
 end
@@ -87,8 +87,7 @@ accumulate result into x.
 #(inf::XorEq)(out!, args...) = (chfield(out!, value, value(out!) ⊻ inf.f(value.(args)...)), args...)
 
 for (TP, OP) in [(:PlusEq, :+), (:MinusEq, :-), (:XorEq, :⊻)]
-    @eval (inf::$TP)(out!, args...) = $OP(out!, inf.f(args...)), args...
-    @eval (inf::$TP)(out!::Bundle, args...) = chfield(out!, value, $OP(value(out!), inf.f(value.(args)...))), args...
+    @eval (inf::$TP)(out!::Number, args::Number...; kwargs...) = $OP(out!, inf.f(args...; kwargs...)), args...
 end
 
 Base.:~(op::PlusEq) = MinusEq(op.f)

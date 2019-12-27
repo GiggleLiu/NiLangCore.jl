@@ -37,6 +37,21 @@ end
     @test x === GVar(0.3)
 end
 
+
+@testset "assign bcast func" begin
+    # vector bcast
+    x = [GVar(0.1, 0.1), GVar(0.2, 0.2)]
+    res = [1.0, 2.0]
+    @assign value.(x) res
+    @test x == [GVar(1.0, 0.1), GVar(2.0, 0.2)]
+
+    # tuple bcast
+    x = (GVar(0.1, 0.1), GVar(0.2, 0.2))
+    res = (1.0, 2.0)
+    @assign value.(x) res
+    @test x == (GVar(1.0, 0.1), GVar(2.0, 0.2))
+end
+
 #=
 gcond(f, args::Tuple, x...) = f, args, x...
 gcond(f, args::Tuple, x::GVar...) = f, f(args...), x...

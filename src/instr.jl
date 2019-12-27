@@ -121,7 +121,7 @@ function assign_vars(args, symres)
         exi = @match arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                :($ag = NiLangCore.tailn(NiLangCore.wrap_tuple($symres), Val($i-1)))
+                assign_ex(ag, :(NiLangCore.tailn(NiLangCore.wrap_tuple($symres), Val($i-1))))
             end
             _ => assign_ex(arg, :(NiLangCore.wrap_tuple($symres)[$i]))
         end
@@ -163,6 +163,7 @@ assign_ex(arg::Union{Number,String}, res) = :(@invcheck $arg $res)
 assign_ex(arg::Expr, res) = @match arg begin
     :($x.$k) => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)))))
     :($f($x)) => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, $f, $res)))))
+    :($f.($x)) => :($(assign_ex(x, :(chfield.($x, Ref($f), $res)))))
     :($x') => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, conj, $res)))))
     :($a[$(x...)]) => begin
         assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)))
