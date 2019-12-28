@@ -1,4 +1,5 @@
 export @dual, @selfdual
+export nargs, nouts
 
 """
 define dual instructions
@@ -166,6 +167,10 @@ assign_ex(arg::Expr, res) = @match arg begin
     :($f.($x)) => :($(assign_ex(x, :(chfield.($x, Ref($f), $res)))))
     :($x') => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, conj, $res)))))
     :($a[$(x...)]) => begin
+        :($a[$(x...)] = $res)
+    end
+    # tuple must be index through tget
+    :(tget($a, $(x...))) => begin
         assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)))
     end
     :(($(args...),)) => begin
@@ -194,3 +199,17 @@ export @assign
 macro assign(a, b)
     esc(assign_ex(a, b))
 end
+
+"""
+    nargs(instr)
+
+Number of arguments as the input of `instr`.
+"""
+function nargs end
+
+"""
+    nouts(instr)
+
+Number of output arguments in the input list of `instr`.
+"""
+function nouts end

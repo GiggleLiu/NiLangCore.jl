@@ -72,3 +72,5 @@ end
     :(hv.x.$FIELD)
 end
 
+export tget
+tget(x::Tuple, inds...) = x[inds...]

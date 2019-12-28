@@ -26,16 +26,16 @@ Base.display(bf::NGrad) = print(bf)
     @anc iloss = 0
     @routine getiloss begin
         for i=1:length(args)
-            if (args[i] isa Loss, iloss==i)
+            if (tget(args,i) isa Loss, iloss==i)
                 iloss += identity(i)
-                (~Loss)(args[i])
+                (~Loss)(tget(args,i))
             end
         end
     end
 
     g.f(args...; kwargs...)
     GVar.(args)
-    grad(args[iloss]) += identity(1.0)
+    grad(tget(args,iloss)) += identity(1.0)
     (~g.f)(args...; kwargs...)
 
     ~@routine getiloss

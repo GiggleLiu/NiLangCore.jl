@@ -52,7 +52,7 @@ end
 
 function ngradient(f, args; kwargs=())
     iloss = findfirst(x->x<:Loss, typeof.(args))
-    @instr (~Loss)(args[iloss])
+    @instr (~Loss)(tget(args,iloss))
     if iloss === nothing
         throw(ArgumentError("input arguments does not contain Loss! $args"))
     end
