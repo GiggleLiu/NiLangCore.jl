@@ -70,16 +70,16 @@ macro instr(ex)
             symres = gensym()
             ex = :($symres = $f($(args...)))
             if startwithdot(f)
-                esc(:($ex; $(bcast_assign_vars(notkey(args), symres))))
+                esc(:($ex; $(bcast_assign_vars(notkey(args), symres)); nothing))
             else
-                esc(:($ex; $(assign_vars(notkey(args), symres))))
+                esc(:($ex; $(assign_vars(notkey(args), symres)); nothing))
             end
         end
         # TODO: support multiple input
         :($f.($(args...))) => begin
             symres = gensym()
             ex = :($symres = $f.($(args...)))
-            esc(:($ex; $(bcast_assign_vars(notkey(args), symres))))
+            esc(:($ex; $(bcast_assign_vars(notkey(args), symres)); nothing))
         end
         :($a += $f($(args...))) => esc(:(@instr PlusEq($f)($a, $(args...))))
         :($a .+= $f($(args...))) => esc(:(@instr PlusEq($(debcast(f))).($a, $(args...))))
