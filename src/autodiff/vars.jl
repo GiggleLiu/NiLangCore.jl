@@ -17,7 +17,7 @@ chfield(x::T, ::typeof(grad), g::T) where T = (@invcheck iszero(g) || g≈0; x)
 chfield(x::GVar, ::typeof(grad), g::GVar) where T = GVar(x.x, g)
 
 # NOTE: superwarning: check value only to make ancilla gradient descardable.
-NiLangCore.deanc(x::GVar, val::GVar) = @invcheck value(x) value(val)
+NiLangCore.deanc(x::GVar, val::GVar) = NiLangCore.deanc(value(x), value(val))
 #NiLangCore.almost_same(a::GVar, b::GVar) = NiLangCore.almost_same(value(a), value(b))
 
 # constructors and deconstructors

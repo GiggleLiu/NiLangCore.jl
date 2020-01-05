@@ -1,3 +1,4 @@
+const GLOBAL_ATOL = Ref(1e-8)
 # Compile utilities
 startwithdot(sym::Symbol) = string(sym)[1] == '.'
 startwithdot(sym::Expr) = false
@@ -50,7 +51,7 @@ end
 
 export almost_same
 
-function almost_same(a::T, b::T; atol=1e-8, kwargs...) where T <: Number
+function almost_same(a::T, b::T; atol=GLOBAL_ATOL[], kwargs...) where T <: Number
     isapprox(a, b; atol=atol, kwargs...)
 end
 

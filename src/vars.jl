@@ -72,5 +72,13 @@ end
     :(hv.x.$FIELD)
 end
 
+function Base.zero(x::T) where T<:Partial
+    zero(T)
+end
+
+function Base.zero(x::Type{<:Partial{FIELD,T}}) where {FIELD, T}
+    Partial{FIELD}(Base.zero(T))
+end
+
 export tget
 tget(x::Tuple, inds...) = x[inds...]

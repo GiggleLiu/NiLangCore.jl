@@ -103,16 +103,19 @@ function _gen_ifunc(mc, fname, args, ts, body)
     iftype = get_ftype(NiLangCore.dual_fname(fname))
 
     head = :($fname($(args...)) where {$(ts...)})
-    dualhead = :($(NiLangCore.dual_fname(fname))($(args...)) where {$(ts...)})
+    dfname = NiLangCore.dual_fname(fname)
     fdef1 = Expr(:function, head, quote $(interpret_body(body, info)...); $(invfuncfoot(args)) end)
-    fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body), info)...); $(invfuncfoot(args)) end)
     if mc !== nothing
         fdef1 = macrocall()
         fdef1 = macrocall()
     end
-    esc(:(
-    $fdef1;
-    $fdef2;
+    ex = fdef1
+    if dfname != fname
+        dualhead = :($dfname($(args...)) where {$(ts...)})
+        fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body), info)...); $(invfuncfoot(args)) end)
+        ex = :($ex; $fdef2)
+    end
+    esc(:($ex;
     $(_funcdef(:isreversible, ftype))
     ))
 end
@@ -154,6 +157,13 @@ function interpret_func(ex)
     end
 end
 
+function _hasmethod1(f::TF, argt) where TF
+    any(m->Tuple{TF, argt} == m.sig, methods(f).ms)
+end
+
 function _funcdef(f, ftype)
-    :(NiLangCore.$f(::$ftype) = true)
+    :(if !NiLangCore._hasmethod1(NiLangCore.$f, $ftype)
+        NiLangCore.$f(::$ftype) = true
+    end
+     )
 end
