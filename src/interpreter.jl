@@ -95,19 +95,15 @@ end
 function _gen_ifunc(mc, fname, args, ts, body)
     info = ()
     fname = _replace_opmx(fname)
-    ifname = :(~$fname)
-    iex = dual_func(fname, args, ts, body)
 
     # implementations
     ftype = get_ftype(fname)
-    iftype = get_ftype(NiLangCore.dual_fname(fname))
 
     head = :($fname($(args...)) where {$(ts...)})
     dfname = NiLangCore.dual_fname(fname)
     fdef1 = Expr(:function, head, quote $(interpret_body(body, info)...); $(invfuncfoot(args)) end)
     if mc !== nothing
-        fdef1 = macrocall()
-        fdef1 = macrocall()
+        # TODO
     end
     ex = fdef1
     if dfname != fname

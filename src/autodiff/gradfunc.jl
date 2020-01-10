@@ -1,4 +1,4 @@
-export Grad, NGrad
+export Grad, NGrad, Hessian
 
 struct NGrad{N,FT} <: Function
     f::FT

@@ -23,6 +23,7 @@ function get_argname(fname::Expr)
         :($x=$y) => x
         :($x...) => :($x...)
         :($x::$t...) => :($x...)
+        Expr(:parameters, args...) => fname
         _ => error("can not get the function name of expression $fname.")
     end
 end

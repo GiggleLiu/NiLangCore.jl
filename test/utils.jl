@@ -28,4 +28,5 @@ end
     @test get_argname(:(y=3)) == :y
     @test get_argname(:(y::Int)) == :y
     @test get_argname(:(y::Int=3)) == :y
+    @test get_argname(:(f(; k::Int=4)).args[2]) == :(f(; k::Int=4)).args[2]
 end
