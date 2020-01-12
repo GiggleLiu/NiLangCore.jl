@@ -3,6 +3,9 @@
 [![Build Status](https://travis-ci.com/GiggleLiu/NiLangCore.jl.svg?branch=master)](https://travis-ci.com/GiggleLiu/NiLangCore.jl)
 [![Codecov](https://codecov.io/gh/GiggleLiu/NiLangCore.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/GiggleLiu/NiLangCore.jl)
 
+**Warning**
+Requires Julia version > 1.3.
+
 Core package for reversible language.
 
 ## Examples
