@@ -89,14 +89,14 @@ function precom_ex(ex, info)
         end
         :(@maybe $line $subex) => :(@maybe $(precom_ex(subex, info)))
         :(@safe $line $subex) => :(@safe $subex)
-        :(@routine $line $name begin $(body...) end) => begin
-            precode = precom_body(body, info)
+        :(@routine $line $name $expr) => begin
+            precode = precom_ex(expr, info)
             info.routines[name] = precode
-            :(begin $(precode...) end)
+            precode
         end
-        :(@routine $line $name) => :(begin $(info.routines[name]...) end)
-        :(~(@routine $line $name)) => :(begin $(dual_body(info.routines[name])...) end)
-        :(~($(body...))) => :(begin $(dual_body(precom_body(body, info))...) end)
+        :(@routine $line $name) => info.routines[name]
+        :(~(@routine $line $name)) => dual_ex(info.routines[name])
+        :(~$expr) => dual_ex(precom_ex(expr, info))
         :($f($(args...))) => :($f($(args...)))
         :($f.($(args...))) => :($f.($(args...)))
         ::LineNumberNode => ex
