@@ -26,13 +26,12 @@ end
 end
 
 function _gen_iconstructor(mc, fname, args, ts, body)
-    info = ()
     trueargs, assigns = args_and_assigns(args)
     body = [[:(@anc $a) for a in assigns]..., body...]
 
     head = :($fname($(trueargs...)) where {$(ts...)})
     tail = :($fname($(get_argname.([trueargs..., assigns...])...)))
-    fdef1 = Expr(:function, head, quote $(interpret_body(body, info)...); return $tail end)
+    fdef1 = Expr(:function, head, quote $(interpret_body(body)...); return $tail end)
 
     dfname = :(_::Type{Inv{$fname}})
     obj = gensym()
@@ -47,7 +46,7 @@ function _gen_iconstructor(mc, fname, args, ts, body)
     end
     loaddata = Expr(:block, loads...)
     dualhead = :($dfname($([invtrueargs[1:end-1]..., :($(invtrueargs[end])::$fname)]...)) where {$(ts...)})
-    fdef2 = Expr(:function, dualhead, quote $fieldvalues = type2tuple($obj); $loaddata; $(interpret_body(dual_body(body), info)...); return $(get_argname(trueargs[end])) end)
+    fdef2 = Expr(:function, dualhead, quote $fieldvalues = type2tuple($obj); $loaddata; $(interpret_body(dual_body(body))...); return $(get_argname(trueargs[end])) end)
 
     # implementations
     ftype = get_ftype(fname)
