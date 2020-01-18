@@ -52,7 +52,7 @@ for VTYPE in [:AbstractArray, :Ref]
     @eval chfield(tp::$VTYPE, i::Int, val) = chfield(tp, (i,), val)
 end
 NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
-NiLangCore.chfield(x::T, ::typeof(conj), y::T) where T = conj(y)
+NiLangCore.chfield(x::T, ::typeof(adjoint), y::T) where T = adjoint(y)
 
 # take a field view without drop information
 struct Partial{FIELD, T} <: RevType

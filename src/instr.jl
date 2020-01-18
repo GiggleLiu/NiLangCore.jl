@@ -165,7 +165,7 @@ assign_ex(arg::Expr, res) = @match arg begin
     :($x.$k) => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)))))
     :($f($x)) => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, $f, $res)))))
     :($f.($x)) => :($(assign_ex(x, :(chfield.($x, Ref($f), $res)))))
-    :($x') => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, conj, $res)))))
+    :($x') => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, adjoint, $res)))))
     :($a[$(x...)]) => begin
         :($a[$(x...)] = $res)
     end
