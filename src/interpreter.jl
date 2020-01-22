@@ -100,16 +100,15 @@ function _gen_ifunc(mc, fname, args, ts, body)
 
     head = :($fname($(args...)) where {$(ts...)})
     dfname = NiLangCore.dual_fname(fname)
+    dftype = get_ftype(dfname)
     fdef1 = Expr(:function, head, quote $(interpret_body(body)...); $(invfuncfoot(args)) end)
     if mc !== nothing
-        # TODO
+        # TODO: support macro before function
     end
     ex = fdef1
-    if dfname != fname
-        dualhead = :($dfname($(args...)) where {$(ts...)})
-        fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body))...); $(invfuncfoot(args)) end)
-        ex = :($ex; $fdef2)
-    end
+    dualhead = :($dfname($(args...)) where {$(ts...)})
+    fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body))...); $(invfuncfoot(args)) end)
+    ex = :($ex; if $ftype != $dftype; $fdef2; end)
     esc(:($ex;
     $(_funcdef(:isreversible, ftype))
     ))
