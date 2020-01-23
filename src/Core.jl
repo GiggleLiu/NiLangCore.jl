@@ -90,7 +90,7 @@ julia> chfield(1+2im, Val(:im), 5)
 or a function
 
 ```jldoctest; setup=:(using NiLangCore)
-julia> using NiLangCore.ADCore: GVar
+julia> using NiLangCore.ADCore: GVar, grad
 
 julia> x = GVar(1.0)
 GVar(1.0, 0.0)

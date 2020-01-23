@@ -38,7 +38,7 @@ export @fieldview
 
 Create a function fieldview that can be accessed by a reversible program
 
-```jldoctest
+```jldoctest; setup=:(using NiLangCore)
 julia> using NiLangCore.ADCore
 
 julia> @fieldview xx(x::GVar) = x.x

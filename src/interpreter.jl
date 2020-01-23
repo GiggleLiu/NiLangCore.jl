@@ -96,7 +96,7 @@ Get the interpreted expression of `ex`.
 julia> using MacroTools
 
 julia> prettify(@code_interpret x += exp(3.0))
-:(@assignback x += exp(3.0))
+:(@assignback (PlusEq(exp))(x, 3.0))
 ```
 """
 macro code_interpret(ex)
