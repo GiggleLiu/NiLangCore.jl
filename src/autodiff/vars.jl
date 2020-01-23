@@ -1,4 +1,10 @@
 ######## GVar, a bundle that records gradient
+"""
+    GVar{T,GT} <: Bundle{T}
+    GVar(x)
+
+Attach a gradient field to `x`.
+"""
 struct GVar{T,GT} <: Bundle{T}
     x::T
     g::GT
@@ -45,6 +51,12 @@ Base.show(io::IO, gv::GVar) = print(io, "GVar($(gv.x), $(gv.g))")
 Base.show(io::IO, ::MIME"plain/text", gv::GVar) = Base.show(io, gv)
 # interfaces
 
+"""
+    Loss{T}<:Bundle{T}
+    Loss(x)
+
+Wrapper used to mark the loss variable.
+"""
 struct Loss{T}<:Bundle{T} x::T end
 Loss(x::Loss{T}) where T = x # to avoid ambiguity error
 Loss{T}(x::Loss{T}) where T = x
@@ -55,6 +67,12 @@ Base.show(io::IO, gv::Loss) = print(io, "Loss($(gv.x))")
 Base.show(io::IO, ::MIME"plain/text", gv::Loss) = Base.show(io, gv)
 Base.:-(x::Loss) = Loss(-x.x)
 
+"""
+    NoGrad{T}<:Bundle{T}
+    NoGrad(x)
+
+A `NoGrad(x)` is equivalent to `GVar^{-1}(x)`, which cancels the `GVar` wrapper.
+"""
 struct NoGrad{T}<:Bundle{T} x::T end
 NoGrad(x::NoGrad{T}) where T = x # to avoid ambiguity error
 NoGrad{T}(x::NoGrad{T}) where T = x
@@ -71,6 +89,11 @@ for TP in [:GVar, :Loss, :NoGrad]
 end
 chfield(x::GVar, ::typeof(value), xval::GVar) = GVar(xval, x.g)
 
+"""
+    @nograd f(args...)
+
+Mark `f(args...)` as having no gradients.
+"""
 macro nograd(ex)
     @match ex begin
         :($f($(args...))) => begin

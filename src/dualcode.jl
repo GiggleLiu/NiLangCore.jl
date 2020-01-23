@@ -1,9 +1,11 @@
+# get the expression of the inverse function
 function dual_func(fname, args, ts, body)
     :(function $(:(~$fname))($(args...)) where {$(ts...)};
             $(dual_body(body)...);
         end)
 end
 
+# get the function name of the inverse function
 function dual_fname(op)
     @match op begin
         :($x::MinusEq{$tp}) => :($x::PlusEq{$tp})
@@ -31,6 +33,11 @@ function _infer_dual(sym::Symbol)
     end
 end
 
+"""
+    dual_ex(ex)
+
+Get the dual expression of `ex`.
+"""
 function dual_ex(ex)
     @match ex begin
         :($f($(args...))) => begin
@@ -78,6 +85,22 @@ function dual_ex(ex)
         :() => ex
         _ => error("can not invert target expression $ex")
     end
+end
+
+export @code_reverse
+
+"""
+    @code_reverse ex
+
+Get the reversed expression of `ex`.
+
+```jldoctest; setup=:(using NiLangCore)
+julia> @code_reverse x += exp(3.0)
+:(x -= exp(3.0))
+```
+"""
+macro code_reverse(ex)
+    QuoteNode(NiLangCore.dual_ex(ex))
 end
 
 dualname(f) = @match f begin

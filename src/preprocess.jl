@@ -110,3 +110,24 @@ precom_range(range) = @match range begin
     :($start:$stop) => :($start:1:$stop)
     _ => error("not supported for loop style $range.")
 end
+
+export @code_preprocess
+
+"""
+    @code_preprocess ex
+
+Preprocess `ex` and return the symmetric reversible IR.
+
+```jldoctest; setup=:(using NiLangCore)
+julia> using MacroTools
+
+julia> prettify(@code_preprocess if (x < 3, ~) x += exp(3.0) end)
+:(if (x < 3, x < 3)
+      x += exp(3.0)
+  else
+  end)
+```
+"""
+macro code_preprocess(ex)
+    QuoteNode(NiLangCore.precom_ex(ex, NiLangCore.PreInfo()))
+end

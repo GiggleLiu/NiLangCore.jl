@@ -52,6 +52,11 @@ end
 
 export almost_same
 
+"""
+    almost_same(a, b; atol=GLOBAL_ATOL[], kwargs...) -> Bool
+
+Return true if `a` and `b` are almost same w.r.t. `atol`.
+"""
 function almost_same(a::T, b::T; atol=GLOBAL_ATOL[], kwargs...) where T <: Number
     isapprox(a, b; atol=atol, kwargs...)
 end
