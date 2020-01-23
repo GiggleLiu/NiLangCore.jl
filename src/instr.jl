@@ -2,9 +2,9 @@ export @dual, @selfdual
 export nargs, nouts
 
 """
-define dual instructions
+    @dual f invf
 
-TODO: check address conflicts!
+Define `f` and `invf` as a pair of dual instructions, i.e. reverse to each other.
 """
 macro dual(f, invf)
     esc(:(
@@ -29,6 +29,7 @@ macro dual(f, invf)
     ))
 end
 
+# TODEP
 export @ignore
 macro ignore(exs...)
     res = :()
@@ -44,7 +45,11 @@ macro ignore(exs...)
     return esc(res)
 end
 
-"""define a self-dual instruction"""
+"""
+    @selfdual f
+
+Define `f` as a self-dual instructions.
+"""
 macro selfdual(f)
     esc(:(
         NiLangCore.isreversible($f) || begin
@@ -62,8 +67,15 @@ macro selfdual(f)
     ))
 end
 
-export @instr
-macro instr(ex)
+export @assignback
+
+# TODO: include control flows.
+"""
+    @assignback f(args...)
+
+Assign input variables with output values: `args... = f(args...)`.
+"""
+macro assignback(ex)
     ex = precom_ex(ex, PreInfo())
     @match ex begin
         :($f($(args...))) => begin
@@ -81,41 +93,15 @@ macro instr(ex)
             ex = :($symres = $f.($(args...)))
             esc(:($ex; $(bcast_assign_vars(notkey(args), symres)); nothing))
         end
-        :($a += $f($(args...))) => esc(:(@instr PlusEq($f)($a, $(args...))))
-        :($a .+= $f($(args...))) => esc(:(@instr PlusEq($(debcast(f))).($a, $(args...))))
-        :($a .+= $f.($(args...))) => esc(:(@instr PlusEq($f).($a, $(args...))))
-        :($a -= $f($(args...))) => esc(:(@instr MinusEq($f)($a, $(args...))))
-        :($a .-= $f($(args...))) => esc(:(@instr MinusEq($(debcast(f))).($a, $(args...))))
-        :($a .-= $f.($(args...))) => esc(:(@instr MinusEq($f).($a, $(args...))))
-        :($a ⊻= $f($(args...))) => esc(:(@instr XorEq($f)($a, $(args...))))
-        :($a .⊻= $f($(args...))) => esc(:(@instr XorEq($(debcast(f))).($a, $(args...))))
-        :($a .⊻= $f.($(args...))) => esc(:(@instr XorEq($f).($a, $(args...))))
-        #=
-        NOTE 1: not only left side can change, the gradients of right side can also change.
-        NOTE 2: the broadcasting over a scalar is not allowed. For,
-            * native Julia broadcast can not accumulate gradients properly.
-            * NiLang for loop is possible, but hard.
-        :($a += $f($(args...))) => esc(:($a = PlusEq($f)($a, $(args...))[1]))
-        :($a .+= $f($(args...))) => esc(:($a = getindex.(PlusEq($(debcast(f))).($a, $(args...)),1)))
-        :($a .+= $f.($(args...))) => esc(:($a = getindex.(PlusEq($f).($a, $(args...)),1)))
-        :($a -= $f($(args...))) => esc(:($a = MinusEq($f)($a, $(args...))[1]))
-        :($a .-= $f($(args...))) => esc(:($a = getindex.(MinusEq($(debcast(f))).($a, $(args...)),1)))
-        :($a .-= $f.($(args...))) => esc(:($a = getindex.(MinusEq($f).($a, $(args...)),1)))
-        :($a ⊻= $f($(args...))) => esc(:($a = XorEq($f)($a, $(args...))[1]))
-        :($a .⊻= $f($(args...))) => esc(:($a = getindex.(XorEq($(debcast(f))).($a, $(args...)),1)))
-        :($a .⊻= $f.($(args...))) => esc(:($a = getindex.(XorEq($f).($a, $(args...))[1])))
-
-        :($a += $b) => esc(:($a = PlusEq(identity)($a, $b)[1]))
-        :($a -= $b) => esc(:($a = MinusEq(identity)($a, $b)[1]))
-        :($a ⊻= $b) => esc(:($a = XorEq(identity)($a, $b)[1]))
-        :($a .+= $b) => esc(:($a = getindex.(PlusEq(identity).($a, $b),1)))
-        :($a .-= $b) => esc(:($a = getindex.(MinusEq(identity).($a, $b),1)))
-        :($a .⊻= $b) => esc(:($a = getindex.(XorEq(identity).($a, $b),1)))
-        =#
         _ => error("got $ex")
     end
 end
 
+"""
+    assign_vars(args, symres)
+
+Get the expression of assigning `symres` to `args`.
+"""
 function assign_vars(args, symres)
     ex = :()
     for (i,arg) in enumerate(args)
@@ -134,6 +120,7 @@ end
 wrap_tuple(x) = (x,)
 wrap_tuple(x::Tuple) = x
 
+"""The broadcast version of `assign_vars`"""
 function bcast_assign_vars(args, symres)
     if length(args) == 1
         @match args[1] begin
@@ -196,10 +183,17 @@ tailn(t::Tuple, ::Val{n}) where n = tailn(TupleTools.tail(t), Val(n-1))
 tailn(t::Tuple, ::Val{0}) = t
 
 export @assign
+
+"""
+    @assign a b
+
+Perform the assign `a = b` in a reversible program.
+"""
 macro assign(a, b)
     esc(assign_ex(a, b))
 end
 
+# TODEP
 """
     nargs(instr)
 
@@ -207,6 +201,7 @@ Number of arguments as the input of `instr`.
 """
 function nargs end
 
+# TODEP
 """
     nouts(instr)
 

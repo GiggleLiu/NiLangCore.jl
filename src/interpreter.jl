@@ -11,17 +11,18 @@ end
 """translate to normal julia code."""
 function interpret_ex(ex)
     @match ex begin
-        :($f($(args...))) => :(@instr $f($(args...)))
-        :($f.($(args...))) => :(@instr $f.($(args...)))
-        :($a += $f($(args...))) => :(@instr $a += $f($(args...)))
-        :($a .+= $f($(args...))) => :(@instr $a .+= $f($(args...)))
-        :($a .+= $f.($(args...))) => :(@instr $a .+= $f.($(args...)))
-        :($a -= $f($(args...))) => :(@instr $a -= $f($(args...)))
-        :($a .-= $f($(args...))) => :(@instr $a .-= $f($(args...)))
-        :($a .-= $f.($(args...))) => :(@instr $a .-= $f.($(args...)))
-        :($a ⊻= $f($(args...))) => :(@instr $a ⊻= $f($(args...)))
-        :($a .⊻= $f($(args...))) => :(@instr $a .⊻= $f($(args...)))
-        :($a .⊻= $f.($(args...))) => :(@instr $a .⊻= $f.($(args...)))
+        :($f($(args...))) => :(@assignback $f($(args...)))
+        :($f.($(args...))) => :(@assignback $f.($(args...)))
+        :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...)))
+        :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...)))
+        :($a .+= $f.($(args...))) => :(@assignback PlusEq($f).($a, $(args...)))
+        :($a -= $f($(args...))) => :(@assignback MinusEq($f)($a, $(args...)))
+        :($a .-= $f($(args...))) => :(@assignback MinusEq($(debcast(f))).($a, $(args...)))
+        :($a .-= $f.($(args...))) => :(@assignback MinusEq($f).($a, $(args...)))
+        :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...)))
+        :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...)))
+        :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...)))
+
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             ifstatement(pre, post, interpret_body(truebranch), interpret_body(falsebranch))
@@ -84,9 +85,31 @@ function forstatement(i, start, step, stop, body)
         )
 end
 
-export @i
-export interpret_func
+export @code_interpret
 
+"""
+    @code_interpret ex
+
+Get the interpreted expression of `ex`.
+
+```jldoctest; setup=:(using NiLangCore)
+julia> using MacroTools
+
+julia> prettify(@code_interpret x += exp(3.0))
+:(@assignback (PlusEq(exp))(x, 3.0))
+```
+"""
+macro code_interpret(ex)
+    QuoteNode(NiLangCore.interpret_ex(ex))
+end
+
+export @i
+
+"""
+    @i function fname(args..., kwargs...) ... end
+
+Define a reversible function. See `test/interpreter.jl` for examples.
+"""
 macro i(ex)
     mc, fname, args, ts, body = precom(ex)
     _gen_ifunc(mc, fname, args, ts, body)
@@ -159,4 +182,15 @@ function _funcdef(f, ftype)
         NiLangCore.$f(::$ftype) = true
     end
      )
+end
+
+export @instr
+
+"""
+    @instr ex
+
+Execute a reversible instruction.
+"""
+macro instr(ex)
+    esc(NiLangCore.interpret_ex(precom_ex(ex, NiLangCore.PreInfo())))
 end

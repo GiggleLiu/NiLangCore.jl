@@ -3,7 +3,7 @@ using ..NiLangCore
 using MLStyle
 import ..NiLangCore: chfield, value
 
-export GVar, grad, Loss, NoGrad, TaylorVar, @nograd
+export GVar, grad, Loss, NoGrad, @nograd
 
 include("vars.jl")
 include("gradfunc.jl")

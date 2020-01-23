@@ -9,6 +9,7 @@ end
     :(@invcheck f(x) xval; x)
 end
 
+# TODEP
 function (_::Type{Inv{T}})(x) where T <: RevType
     kval = invkernel(x)
     invtype_reconstructed = T(kval)
@@ -16,6 +17,26 @@ function (_::Type{Inv{T}})(x) where T <: RevType
     kval
 end
 
+"""
+    @iconstruct function TYPE(args...) ... end
+
+Create a reversible constructor.
+
+
+```jldoctest; setup=:(using NiLangCore, Test)
+julia> struct DVar{T}
+           x::T
+           g::T
+       end
+
+julia> @iconstruct function DVar(xx, gg=zero(xx))
+           gg += identity(xx)
+       end
+
+julia> @test (~DVar)(DVar(0.5)) == 0.5
+Test Passed
+```
+"""
 macro iconstruct(ex)
     mc, fname, args, ts, body = precom(ex)
     esc(_gen_iconstructor(mc, fname, args, ts, body))

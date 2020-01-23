@@ -2,9 +2,13 @@ export @anc, @deanc
 export RevType, Bundle, Partial
 export invkernel, chfield, value
 
-const GLOBAL_INFO = Dict{Any,Any}()
-
 ############# ancillas ################
+"""
+    @deanc x = expr
+
+Deallocate ancilla `x` if `x == expr`,
+else throw an `InvertibilityError`.
+"""
 macro deanc(ex)
     @match ex begin
         :($x = $val) => :(deanc($(esc(x)), $(esc(val))))
@@ -14,6 +18,11 @@ end
 
 deanc(x, val) = @invcheck x val
 
+"""
+    @deanc x = expr
+
+Create an ancilla `x` with initial value `expr`,
+"""
 macro anc(ex)
     @match ex begin
         :($x = $tp) => esc(ex)
@@ -22,7 +31,22 @@ macro anc(ex)
 end
 
 # variables
+# TODO: allow reversible mapping
 export @fieldview
+"""
+    @fieldview fname(x::TYPE) = x.fieldname
+
+Create a function fieldview that can be accessed by a reversible program
+
+```jldoctest; setup=:(using NiLangCore)
+julia> using NiLangCore.ADCore
+
+julia> @fieldview xx(x::GVar) = x.x
+
+julia> chfield(GVar(1.0), xx, 2.0)
+GVar(2.0, 0.0)
+```
+"""
 macro fieldview(ex)
     @match ex begin
         :($f($obj::$tp) = begin $line; $obj.$prop end) => esc(quote
@@ -33,7 +57,11 @@ macro fieldview(ex)
     end
 end
 
-# NOTE: the reason for not using x[], x[] is designed for mutable types!
+"""
+    value(x)
+
+Get the `value` from a wrapper instance.
+"""
 value(x) = x
 chfield(x::T, ::typeof(value), y::T) where T = y
 
@@ -54,7 +82,12 @@ end
 NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
 NiLangCore.chfield(x::T, ::typeof(adjoint), y::T) where T = adjoint(y)
 
-# take a field view without drop information
+"""
+    Partial{FIELD, T} <: RevType
+
+Take a field `FIELD` without dropping information.
+This operation can be undone by calling `~Partial{FIELD}`.
+"""
 struct Partial{FIELD, T} <: RevType
     x::T
 end
@@ -81,4 +114,10 @@ function Base.zero(x::Type{<:Partial{FIELD,T}}) where {FIELD, T}
 end
 
 export tget
+
+"""
+    tget(x::Tuple, i)
+
+Get the i-th entry of a tuple.
+"""
 tget(x::Tuple, inds...) = x[inds...]

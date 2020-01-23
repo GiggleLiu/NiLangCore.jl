@@ -50,6 +50,9 @@ function ng(f, args, iarg, iloss; δ=1e-5, kwargs=())
     end
 end
 
+"""
+Numeric differentiation.
+"""
 function ngradient(f, args; kwargs=())
     iloss = findfirst(x->x<:Loss, typeof.(args))
     @instr (~Loss)(tget(args,iloss))
@@ -65,6 +68,11 @@ function ngradient(f, args; kwargs=())
     end
 end
 
+"""
+    check_grad(f, args; kwargs=(), atol::Real=1e-8, verbose::Bool=false)
+
+Return true if the gradient of `f(args..., kwargs...)` is reversible.
+"""
 function check_grad(f, args; kwargs=(), atol::Real=1e-4, verbose::Bool=false)
     vars = ((iarg for iarg in 1:length(args) if isvar(args[iarg]))...,)
     initial_vars = deepcopy(vars)
