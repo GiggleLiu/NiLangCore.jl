@@ -14,6 +14,12 @@ Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
 Base.zero(::Type{<:GVar{T}}) where T = GVar(zero(T))
 
 # define kernel and field views
+"""
+    grad(var)
+
+Get the gradient field of `var`.
+"""
+function grad end
 @fieldview grad(gv::GVar) = gv.g
 NiLangCore.invkernel(gv::GVar) = gv.x
 
@@ -40,6 +46,9 @@ Base.:-(x::GVar) = GVar(-x.x, -x.g)
 ## variable mapping
 GVar(x) = GVar(x, zero(x))
 (_::Type{Inv{GVar}})(x::GVar) = (@invcheck iszero(grad(x)); x.x)
+function (_::Type{Inv{GVar}})(x::GVar{<:GVar,<:GVar})
+    Partial{:x}(x)
+end
 
 GVar(x::AbstractArray) = GVar.(x)
 (f::Type{Inv{GVar}})(x::AbstractArray) = f.(x)
