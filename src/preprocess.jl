@@ -61,23 +61,23 @@ function precom_ex(ex, info)
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             post = post == :~ ? pre : post
-            :(if($pre, $post); $(precom_body(truebranch, info)...); else; $(precom_body(falsebranch, info)...); end)
+            Expr(:if, :(($pre, $post)), Expr(:block, precom_body(truebranch, info)...), Expr(:block, precom_body(falsebranch, info)...))
         end
         :(if ($pre, $post); $(truebranch...); end) => begin
             post = post == :~ ? pre : post
-            precom_ex(:(if ($pre, $post); $(truebranch...); else; end), info)
+            precom_ex(Expr(:if, :(($pre, $post)), Expr(:block, truebranch...), Expr(:block)), info)
         end
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
-            :(while ($pre, $post); $(precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...); end)
+            Expr(:while, :(($pre, $post)), Expr(:block, precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...))
         end
         :(begin $(body...) end) => begin
-            :(begin $(precom_body(body, info)...) end)
+            Expr(:block, precom_body(body, info)...)
         end
         # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
-            :(for $i=$(precom_range(range)); $(precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...); end)
+            Expr(:for, :($i=$(precom_range(range))), Expr(:block, precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...))
         end
         :(@anc $line $x = $val) => begin
             info.ancs[x] = val

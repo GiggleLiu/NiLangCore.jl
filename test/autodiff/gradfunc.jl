@@ -46,7 +46,7 @@ end
     @instr (add)'(lx, y)
     @test grad(lx) == 1.0
     @test grad(y) == 1.0
-    @test check_inv((add)', (lx, y))
+    @test check_inv((add)', (Loss(3.0), 4.0); verbose=true, atol=1e-5)
     x, y = 3.0, 4.0
     lx = Loss(x)
     @test check_grad(add, (lx, y))
@@ -143,19 +143,6 @@ end
     b = 1.3
     c = 1.9
     @test check_grad(test2, (a,b,Loss(c)))
-end
-
-@testset "second order gradient" begin
-    # compute (a+b)*b -> out
-    @i function test1(a, b)
-        a + b
-    end
-
-    a = 1.1
-    b = 1.7
-    ga = 0.4
-    gb = 0.3
-    @test_broken check_grad(test1', (Loss(a),b))
 end
 
 @testset "neg sign" begin

@@ -66,20 +66,20 @@ function dual_ex(ex)
         :($a .⊻= $b) => :($a .⊻= $b)
 
         :(if ($pre, $post); $(tbr...); else; $(fbr...); end) => begin
-            :(if ($post, $pre); $(dual_body(tbr)...); else; $(dual_body(fbr)...); end)
+            Expr(:if, :(($post, $pre)), Expr(:block, dual_body(tbr)...), Expr(:block, dual_body(fbr)...))
         end
         :(while ($pre, $post); $(body...); end) => begin
-            :(while ($post, $pre); $(dual_body(body)...); end)
+            Expr(:while, :(($post, $pre)), Expr(:block, dual_body(body)...))
         end
         # TODO: allow ommit step.
         :(for $i=$start:$step:$stop; $(body...); end) => begin
-            :(for $i=$stop:(-$step):$start; $(dual_body(body)...); end)
+            Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(body)...))
         end
         :(@maybe $line $subex) => :(@maybe $(dual_ex(subex)))
         :(@anc $line $x = $val) => :(@deanc $x = $val)
         :(@deanc $line $x = $val) => :(@anc $x = $val)
         :(@safe $line $subex) => :(@safe $subex)
-        :(begin $(body...) end) => :(begin $(dual_body(body)...) end)
+        :(begin $(body...) end) => Expr(:block, dual_body(body)...)
         ::LineNumberNode => ex
         ::Nothing => ex
         :() => ex
