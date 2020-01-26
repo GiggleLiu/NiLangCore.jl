@@ -7,7 +7,6 @@ struct NiTypeTest{T} <: RevType
     g::T
 end
 NiTypeTest(x) = NiTypeTest(x, zero(x))
-NiLangCore.invkernel(invtype::NiTypeTest) = invtype.x
 @fieldview NiLangCore.value(invtype::NiTypeTest) = invtype.x
 @fieldview gg(invtype::NiTypeTest) = invtype.g
 
