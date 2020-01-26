@@ -2,7 +2,7 @@
 function interpret_body(body::AbstractVector)
     out = []
     for ex in body
-        push!(out, interpret_ex(ex))
+        ex !== nothing && push!(out, interpret_ex(ex))
     end
     return out
 end
@@ -11,17 +11,17 @@ end
 """translate to normal julia code."""
 function interpret_ex(ex)
     @match ex begin
-        :($f($(args...))) => :(@assignback $f($(args...)))
-        :($f.($(args...))) => :(@assignback $f.($(args...)))
-        :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...)))
-        :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...)))
-        :($a .+= $f.($(args...))) => :(@assignback PlusEq($f).($a, $(args...)))
-        :($a -= $f($(args...))) => :(@assignback MinusEq($f)($a, $(args...)))
-        :($a .-= $f($(args...))) => :(@assignback MinusEq($(debcast(f))).($a, $(args...)))
-        :($a .-= $f.($(args...))) => :(@assignback MinusEq($f).($a, $(args...)))
-        :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...)))
-        :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...)))
-        :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...)))
+        :($f($(args...))) => :(@assignback $f($(args...))) |> rmlines
+        :($f.($(args...))) => :(@assignback $f.($(args...))) |> rmlines
+        :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...))) |> rmlines
+        :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...))) |> rmlines
+        :($a .+= $f.($(args...))) => :(@assignback PlusEq($f).($a, $(args...))) |> rmlines
+        :($a -= $f($(args...))) => :(@assignback MinusEq($f)($a, $(args...))) |> rmlines
+        :($a .-= $f($(args...))) => :(@assignback MinusEq($(debcast(f))).($a, $(args...))) |> rmlines
+        :($a .-= $f.($(args...))) => :(@assignback MinusEq($f).($a, $(args...))) |> rmlines
+        :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...))) |> rmlines
+        :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...))) |> rmlines
+        :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...))) |> rmlines
 
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
@@ -35,12 +35,12 @@ function interpret_ex(ex)
             forstatement(i, start, step, stop, interpret_body(body))
         end
         :(begin $(body...) end) => begin
-            :(begin $(interpret_body(body)...) end)
+            Expr(:block, interpret_body(body)...)
         end
         :(@safe $line $subex) => subex
         :(@anc $line $x = $tp) => :(@anc $x = $tp)
         :(@deanc $line $x = $tp) => :(@deanc $x = $tp)
-        :(return $(args...)) => LineNumberNode(0)
+        :(return $(args...)) => nothing
         ::LineNumberNode => ex
         _ => error("statement is not supported for invertible lang! got $ex")
     end
@@ -48,40 +48,40 @@ end
 
 function ifstatement(precond, postcond, truebranch, falsebranch)
     var = gensym()
-    :(
-        $var = $precond;
-        if $var
-            $(truebranch...)
-        else
-            $(falsebranch...)
-        end;
-        @invcheck $postcond $var
+    Expr(:block,
+        :($var = $precond),
+        Expr(:if, var,
+            Expr(:block, truebranch...),
+            Expr(:block, falsebranch...),
+            ),
+        :(@invcheck $postcond $var)
     )
 end
 
 function whilestatement(precond, postcond, body)
-    :(
-        @invcheck !($postcond);
-        while $precond
-            $(body...)
-            @invcheck $postcond
-        end;
+    Expr(:block,
+        :(@invcheck !($postcond)),
+        Expr(:while,
+            precond,
+            Expr(:block, body...),
+            ),
+        :(@invcheck $postcond)
     )
 end
 
 function forstatement(i, start, step, stop, body)
     start_, step_, stop_ = gensym(), gensym(), gensym()
-    ex = :(
-        $start_ = $start[];
-        $step_ = $step[];
-        $stop_ = $stop[];
-        for $i=$start_:$step_:$stop_
-            $(body...);
-        end;
-        @invcheck $start_  $start[];
-        @invcheck $step_  $step[];
-        @invcheck $stop_  $stop[]
-        )
+    ex = Expr(:block,
+        :($start_ = $start[]),
+        :($step_ = $step[]),
+        :($stop_ = $stop[]),
+        Expr(:for, :($i=$start_:$step_:$stop_),
+            Expr(:block, body...)
+            ),
+        :(@invcheck $start_  $start[]),
+        :(@invcheck $step_  $step[]),
+        :(@invcheck $stop_  $stop[])
+    )
 end
 
 export @code_interpret
@@ -123,14 +123,15 @@ function _gen_ifunc(mc, fname, args, ts, body)
     head = :($fname($(args...)) where {$(ts...)})
     dfname = NiLangCore.dual_fname(fname)
     dftype = get_ftype(dfname)
-    fdef1 = Expr(:function, head, quote $(interpret_body(body)...); $(invfuncfoot(args)) end)
+    fdef1 = Expr(:function, head, Expr(:block, interpret_body(body)..., invfuncfoot(args)))
     if mc !== nothing
         # TODO: support macro before function
     end
     dualhead = :($dfname($(args...)) where {$(ts...)})
-    fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body))...); $(invfuncfoot(args)) end)
-    ex = :(Base.@__doc__ $fdef1; if $ftype != $dftype; $fdef2; end)
-    esc(Expr(:block, ex, _funcdef(:isreversible, ftype)))
+    fdef2 = Expr(:function, dualhead, Expr(:block, interpret_body(dual_body(body))..., invfuncfoot(args)))
+    #ex = :(Base.@__doc__ $fdef1; if $ftype != $dftype; $fdef2; end)
+    ex = Expr(:block, :(Base.@__doc__ $fdef1), Expr(:if, :($ftype != $dftype), fdef2))
+    esc(Expr(:block, ex, _funcdef(:isreversible, ftype) |> rmlines))
 end
 
 function notkey(args)

@@ -54,15 +54,15 @@ end
 Pass the check it if `ex` is true or `x ≈ val`.
 """
 macro invcheck(ex)
-    esc(:(if invcheckon();
-        $ex || throw(InvertibilityError($(QuoteNode(ex))));
-    end))
+    esc(Expr(:if, :(invcheckon()),
+        :($ex || throw(InvertibilityError($(QuoteNode(ex))))),
+    ))
 end
 
 macro invcheck(x, val)
-    esc(:(if invcheckon() && !(NiLangCore.almost_same($x, $val))
+    esc(rmlines(:(if invcheckon() && !(NiLangCore.almost_same($x, $val))
         throw(InvertibilityError("$($(QuoteNode(x))) (=$($x)) ≂̸ $($(QuoteNode(val))) (=$($val))"))
-    end))
+    end)))
 end
 
 # TODEP

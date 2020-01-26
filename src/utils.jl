@@ -75,3 +75,16 @@ end
 end
 
 almost_same(x::T, y::T; kwargs...) where T<:AbstractArray = all(almost_same.(x, y; kwargs...))
+
+
+rmlines(ex::Expr) = begin
+    hd = ex.head
+    if hd == :macrocall
+        Expr(:macrocall, ex.args[1], ex.args[2], ex.args[3] |> rmlines)
+    else
+        tl = map(rmlines, filter(!islinenumbernode, ex.args))
+        Expr(hd, tl...)
+    end
+end
+rmlines(@nospecialize(a)) = a
+islinenumbernode(@nospecialize(x)) = x isa LineNumberNode

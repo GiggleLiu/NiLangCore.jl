@@ -66,16 +66,16 @@ macro assignback(ex)
             symres = gensym()
             ex = :($symres = $f($(args...)))
             if startwithdot(f)
-                esc(:($ex; $(bcast_assign_vars(notkey(args), symres)); nothing))
+                esc(Expr(ex, bcast_assign_vars(notkey(args), symres), nothing))
             else
-                esc(:($ex; $(assign_vars(notkey(args), symres)); nothing))
+                esc(Expr(:block, ex, assign_vars(notkey(args), symres), nothing))
             end
         end
         # TODO: support multiple input
         :($f.($(args...))) => begin
             symres = gensym()
             ex = :($symres = $f.($(args...)))
-            esc(:($ex; $(bcast_assign_vars(notkey(args), symres)); nothing))
+            esc(Expr(:block, ex, bcast_assign_vars(notkey(args), symres), nothing))
         end
         _ => error("got $ex")
     end
@@ -87,7 +87,7 @@ end
 Get the expression of assigning `symres` to `args`.
 """
 function assign_vars(args, symres)
-    ex = :()
+    exprs = []
     for (i,arg) in enumerate(args)
         exi = @match arg begin
             :($ag...) => begin
@@ -96,9 +96,9 @@ function assign_vars(args, symres)
             end
             _ => assign_ex(arg, :(NiLangCore.wrap_tuple($symres)[$i]))
         end
-        exi !== nothing && (ex = :($ex; $exi))
+        exi !== nothing && push!(exprs, exi)
     end
-    ex
+    Expr(:block, exprs...)
 end
 
 wrap_tuple(x) = (x,)
