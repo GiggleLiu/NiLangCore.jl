@@ -128,13 +128,10 @@ function _gen_ifunc(mc, fname, args, ts, body)
     if mc !== nothing
         # TODO: support macro before function
     end
-    ex = fdef1
     dualhead = :($dfname($(args...)) where {$(ts...)})
     fdef2 = Expr(:function, dualhead, quote $(interpret_body(dual_body(body))...); $(invfuncfoot(args)) end)
-    ex = :($ex; if $ftype != $dftype; $fdef2; end)
-    esc(:($ex;
-    $(_funcdef(:isreversible, ftype))
-    ))
+    ex = :(Base.@__doc__ $fdef1; if $ftype != $dftype; $fdef2; end)
+    esc(Expr(:block, ex, _funcdef(:isreversible, ftype)))
 end
 
 function notkey(args)
