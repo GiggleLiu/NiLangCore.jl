@@ -15,9 +15,7 @@ NiLangCore.invkernel(invtype::NiTypeTest) = invtype.x
     it = NiTypeTest(0.5)
     @test value(it) == 0.5
     @test chfield(it, value, 0.3) == NiTypeTest(0.3)
-    @test (~NiTypeTest)(it) == 0.5
     it = chfield(it, Val(:g), 0.2)
-    @test_throws InvertibilityError (~NiTypeTest)(it)
     @test almost_same(NiTypeTest(0.5+1e-15), NiTypeTest(0.5))
     @test !almost_same(NiTypeTest(1.0), NiTypeTest(1))
     it = NiTypeTest(0.5)

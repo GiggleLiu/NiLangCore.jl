@@ -9,14 +9,6 @@ end
     :(@invcheck f(x) xval; x)
 end
 
-# TODEP
-function (_::Type{Inv{T}})(x) where T <: RevType
-    kval = invkernel(x)
-    invtype_reconstructed = T(kval)
-    @invcheck invtype_reconstructed x
-    kval
-end
-
 """
     @iconstruct function TYPE(args...) ... end
 

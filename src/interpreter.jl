@@ -37,7 +37,6 @@ function interpret_ex(ex)
         :(begin $(body...) end) => begin
             :(begin $(interpret_body(body)...) end)
         end
-        :(@maybe $line $subex) => :(@maybe $(interpret_ex(subex)))
         :(@safe $line $subex) => subex
         :(@anc $line $x = $tp) => :(@anc $x = $tp)
         :(@deanc $line $x = $tp) => :(@deanc $x = $tp)

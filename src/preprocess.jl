@@ -87,7 +87,6 @@ function precom_ex(ex, info)
             delete!(info.ancs, x)
             ex
         end
-        :(@maybe $line $subex) => :(@maybe $(precom_ex(subex, info)))
         :(@safe $line $subex) => :(@safe $subex)
         :(@routine $line $name $expr) => begin
             precode = precom_ex(expr, info)
