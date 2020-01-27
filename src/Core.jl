@@ -73,7 +73,6 @@ end
 The base type for reversible types.
 """
 abstract type RevType end
-function invkernel end
 
 """
     chfield(x, field, val)
@@ -106,10 +105,9 @@ isreversible(::Type{<:RevType}) = true
 isreversible(::RevType) = true
 
 # TODEP
-# Bundle is a wrapper of data type, its invkernel is its value.
+# Bundle is a wrapper of data type
 # instructions on Bundle will not change the original behavior of wrapped data type.
 abstract type Bundle{t} <: RevType end
-invkernel(b::Bundle) = value(b)
 
 Base.isapprox(x::Bundle, y; kwargs...) = isapprox(value(x), y; kwargs...)
 Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(value(x), value(y); kwargs...)

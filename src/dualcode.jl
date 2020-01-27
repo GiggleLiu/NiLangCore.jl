@@ -75,7 +75,6 @@ function dual_ex(ex)
         :(for $i=$start:$step:$stop; $(body...); end) => begin
             Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(body)...))
         end
-        :(@maybe $line $subex) => :(@maybe $(dual_ex(subex)))
         :(@anc $line $x = $val) => :(@deanc $x = $val)
         :(@deanc $line $x = $val) => :(@anc $x = $val)
         :(@safe $line $subex) => :(@safe $subex)

@@ -1,6 +1,6 @@
 export @anc, @deanc
 export RevType, Bundle, Partial
-export invkernel, chfield, value
+export chfield, value
 
 ############# ancillas ################
 """

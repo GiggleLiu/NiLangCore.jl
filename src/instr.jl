@@ -29,22 +29,6 @@ macro dual(f, invf)
     ))
 end
 
-# TODEP
-export @ignore
-macro ignore(exs...)
-    res = :()
-    for ex in exs
-        res = :($res; $(@match ex begin
-            :($f($(args...))) => :(
-                function $f($(args...)) $(Expr(:return, Expr(:tuple, get_argname.(args)...))) end;
-                function $(NiLangCore.dual_fname(f))($(args...)) $(Expr(:return, Expr(:tuple, get_argname.(args)...))) end
-                )
-            _ => error("expect a function call expression, got $ex")
-        end))
-    end
-    return esc(res)
-end
-
 """
     @selfdual f
 

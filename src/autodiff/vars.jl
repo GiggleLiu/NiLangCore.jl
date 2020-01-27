@@ -21,7 +21,6 @@ Get the gradient field of `var`.
 """
 function grad end
 @fieldview grad(gv::GVar) = gv.g
-NiLangCore.invkernel(gv::GVar) = gv.x
 
 grad(gv::T) where T = zero(T)
 grad(gv::AbstractArray{T}) where T = grad.(gv)
