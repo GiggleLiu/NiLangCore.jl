@@ -44,7 +44,7 @@ Base.:-(x::GVar) = GVar(-x.x, -x.g)
 
 ## variable mapping
 GVar(x) = GVar(x, zero(x))
-(_::Type{Inv{GVar}})(x::GVar) = (@invcheck iszero(grad(x)); x.x)
+(_::Type{Inv{GVar}})(x::GVar) = (@invcheck grad(x) 0.0; x.x)
 function (_::Type{Inv{GVar}})(x::GVar{<:GVar,<:GVar})
     Partial{:x}(x)
 end
