@@ -66,16 +66,16 @@ macro assignback(ex)
             symres = gensym()
             ex = :($symres = $f($(args...)))
             if startwithdot(f)
-                esc(Expr(ex, bcast_assign_vars(notkey(args), symres), nothing))
+                esc(Expr(ex, bcast_assign_vars(notkey(args), symres)))
             else
-                esc(Expr(:block, ex, assign_vars(notkey(args), symres), nothing))
+                esc(Expr(:block, ex, assign_vars(notkey(args), symres)))
             end
         end
         # TODO: support multiple input
         :($f.($(args...))) => begin
             symres = gensym()
             ex = :($symres = $f.($(args...)))
-            esc(Expr(:block, ex, bcast_assign_vars(notkey(args), symres), nothing))
+            esc(Expr(:block, ex, bcast_assign_vars(notkey(args), symres)))
         end
         _ => error("got $ex")
     end

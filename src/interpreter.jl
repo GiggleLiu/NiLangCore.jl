@@ -2,7 +2,8 @@
 function interpret_body(body::AbstractVector)
     out = []
     for ex in body
-        ex !== nothing && push!(out, interpret_ex(ex))
+        ex_ = interpret_ex(ex)
+        ex_ !== nothing && push!(out, ex_)
     end
     return out
 end
