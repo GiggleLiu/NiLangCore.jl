@@ -44,7 +44,7 @@ function _gen_iconstructor(mc, fname, args, ts, body)
 
     head = :($fname($(trueargs...)) where {$(ts...)})
     tail = :($fname($(get_argname.([trueargs..., assigns...])...)))
-    fdef1 = Expr(:function, head, quote $(interpret_body(body)...); return $tail end)
+    fdef1 = Expr(:function, head, Expr(:block, interpret_body(body)..., :(return $tail)))
 
     dfname = :(_::Type{Inv{$fname}})
     obj = gensym()
@@ -59,11 +59,11 @@ function _gen_iconstructor(mc, fname, args, ts, body)
     end
     loaddata = Expr(:block, loads...)
     dualhead = :($dfname($([invtrueargs[1:end-1]..., :($(invtrueargs[end])::$fname)]...)) where {$(ts...)})
-    fdef2 = Expr(:function, dualhead, quote $fieldvalues = NiLangCore.type2tuple($obj); $loaddata; $(interpret_body(dual_body(body))...); return $(get_argname(trueargs[end])) end)
+    fdef2 = Expr(:function, dualhead, Expr(:block, :($fieldvalues = NiLangCore.type2tuple($obj)), loaddata, interpret_body(dual_body(body))..., :(return $(get_argname(trueargs[end])))))
 
     # implementations
     ftype = get_ftype(fname)
-    :($fdef1; $fdef2)
+    Expr(:block, fdef1, fdef2)
 end
 
 function args_and_assigns(args)
