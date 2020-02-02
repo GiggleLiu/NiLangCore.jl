@@ -8,7 +8,7 @@ using Test
     end
 
     @i function tt(a, b)
-        out <= 0.0
+        out <| 0.0
         test1(a, b, out)
         (~test1)(a, b, out)
         a ⊕ b
@@ -134,7 +134,7 @@ end
 @testset "ancilla" begin
     one, ten = 1, 10
     @i function looper(x, y)
-        z <= 0
+        z <| 0
         x ⊕ y
         z ⊕ one
         z ⊖ one
@@ -147,7 +147,7 @@ end
     @test x[] == 0.0
 
     @i function looper(x, y)
-        z <= 0
+        z <| 0
         x ⊕ y
         z ⊕ one
         z ⊖ ten

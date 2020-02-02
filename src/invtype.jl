@@ -40,7 +40,7 @@ end
 
 function _gen_iconstructor(mc, fname, args, ts, body)
     trueargs, assigns = args_and_assigns(args)
-    body = [[:($(a.args[1]) <= $(a.args[2])) for a in assigns]..., body...]
+    body = [[:($(a.args[1]) <| $(a.args[2])) for a in assigns]..., body...]
 
     head = :($fname($(trueargs...)) where {$(ts...)})
     tail = :($fname($(get_argname.([trueargs..., assigns...])...)))
@@ -75,8 +75,8 @@ function args_and_assigns(args)
     end
     for arg in args[length(newargs)+1:end]
         @match arg begin
-            :($a <= $b) => push!(assigns, :($a = $b))
-            _ => error("got invalid input argument: $(arg), should be `x <= val`.")
+            :($a <| $b) => push!(assigns, :($a = $b))
+            _ => error("got invalid input argument: $(arg), should be `x <| val`.")
         end
     end
     newargs, assigns

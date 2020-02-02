@@ -21,8 +21,8 @@ function interpret_ex(ex)
         :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...))) |> rmlines
         :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...))) |> rmlines
         :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...))) |> rmlines
-        :($x <= $tp) => :(NiLangCore.@anc $x = $tp)
-        :($x => $tp) => :(NiLangCore.@deanc $x = $tp)
+        :($x <| $tp) => :(NiLangCore.@anc $x = $tp)
+        :($x |> $tp) => :(NiLangCore.@deanc $x = $tp)
         :($f($(args...))) => :(@assignback $f($(args...))) |> rmlines
         :($f.($(args...))) => :(@assignback $f.($(args...))) |> rmlines
 

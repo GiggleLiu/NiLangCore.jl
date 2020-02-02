@@ -34,10 +34,10 @@ end
 DVar{GT}(x, g) where GT = DVar(x, g, zero(GT))
 
 # currently variable types can not be infered
-@iconstruct function CVar(xx, gg<=zero(xx))
+@iconstruct function CVar(xx, gg <| zero(xx))
 end
 
-@iconstruct function DVar{Float64}(xx, gg<=zero(xx)) where {T}
+@iconstruct function DVar{Float64}(xx, gg <| zero(xx)) where {T}
     gg += identity(xx)
     CVar(gg)
 end

@@ -24,7 +24,7 @@ end
 
 function flushancs(out, info)
     for (x, tp) in info.ancs
-        push!(out, :($x => $tp))
+        push!(out, :($x |> $tp))
     end
     return out
 end
@@ -48,11 +48,11 @@ end
 
 function precom_ex(ex, info)
     @match ex begin
-        :($x <= $val) => begin
+        :($x <| $val) => begin
             info.ancs[x] = val
             ex
         end
-        :($x => $val) => begin
+        :($x |> $val) => begin
             delete!(info.ancs, x)
             ex
         end
@@ -88,12 +88,12 @@ function precom_ex(ex, info)
             Expr(:for, :($i=$(precom_range(range))), Expr(:block, precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...))
         end
         :(@anc $line $x = $val) => begin
-            @warn "`@anc x = expr` is deprecated, please use `x <= expr` for loading an ancilla."
-            precom_ex(:($x <= $val), info)
+            @warn "`@anc x = expr` is deprecated, please use `x <| expr` for loading an ancilla."
+            precom_ex(:($x <| $val), info)
         end
         :(@deanc $line $x = $val) => begin
             @warn "`@deanc x = expr` is deprecated, please use `x => expr` for deallocating an ancilla."
-            precom_ex(:($x => $val), info)
+            precom_ex(:($x |> $val), info)
         end
         :(@safe $line $subex) => :(@safe $subex)
         :(@routine $line $name $expr) => begin
