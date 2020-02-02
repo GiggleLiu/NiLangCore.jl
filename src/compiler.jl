@@ -12,8 +12,6 @@ end
 """translate to normal julia code."""
 function interpret_ex(ex)
     @match ex begin
-        :($f($(args...))) => :(@assignback $f($(args...))) |> rmlines
-        :($f.($(args...))) => :(@assignback $f.($(args...))) |> rmlines
         :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...))) |> rmlines
         :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...))) |> rmlines
         :($a .+= $f.($(args...))) => :(@assignback PlusEq($f).($a, $(args...))) |> rmlines
@@ -23,6 +21,10 @@ function interpret_ex(ex)
         :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...))) |> rmlines
         :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...))) |> rmlines
         :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...))) |> rmlines
+        :($x <= $tp) => :(NiLangCore.@anc $x = $tp)
+        :($x => $tp) => :(NiLangCore.@deanc $x = $tp)
+        :($f($(args...))) => :(@assignback $f($(args...))) |> rmlines
+        :($f.($(args...))) => :(@assignback $f.($(args...))) |> rmlines
 
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
@@ -39,8 +41,6 @@ function interpret_ex(ex)
             Expr(:block, interpret_body(body)...)
         end
         :(@safe $line $subex) => subex
-        :(@anc $line $x = $tp) => :(@anc $x = $tp)
-        :(@deanc $line $x = $tp) => :(@deanc $x = $tp)
         :(return $(args...)) => nothing
         ::LineNumberNode => ex
         _ => error("statement is not supported for invertible lang! got $ex")

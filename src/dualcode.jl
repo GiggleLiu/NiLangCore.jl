@@ -40,6 +40,8 @@ Get the dual expression of `ex`.
 """
 function dual_ex(ex)
     @match ex begin
+        :($x => $val) => :($x <= $val)
+        :($x <= $val) => :($x => $val)
         :($f($(args...))) => begin
             if startwithdot(f)
                 :($(dotgetdual(f)).($(args...)))
@@ -75,8 +77,6 @@ function dual_ex(ex)
         :(for $i=$start:$step:$stop; $(body...); end) => begin
             Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(body)...))
         end
-        :(@anc $line $x = $val) => :(@deanc $x = $val)
-        :(@deanc $line $x = $val) => :(@anc $x = $val)
         :(@safe $line $subex) => :(@safe $subex)
         :(begin $(body...) end) => Expr(:block, dual_body(body)...)
         ::LineNumberNode => ex

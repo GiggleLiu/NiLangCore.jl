@@ -17,8 +17,8 @@ end
     include("vars.jl")
 end
 
-@testset "interpreter.jl" begin
-    include("interpreter.jl")
+@testset "compiler.jl" begin
+    include("compiler.jl")
 end
 
 @testset "autodiff.jl" begin

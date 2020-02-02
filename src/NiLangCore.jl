@@ -13,7 +13,7 @@ include("vars.jl")
 include("instr.jl")
 include("dualcode.jl")
 include("preprocess.jl")
-include("interpreter.jl")
+include("compiler.jl")
 include("checks.jl")
 
 include("autodiff/autodiff.jl")
