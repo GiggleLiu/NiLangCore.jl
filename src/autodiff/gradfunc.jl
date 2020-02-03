@@ -24,7 +24,7 @@ Base.display(bf::NGrad) = print(bf)
 @i function (g::Grad)(args...; kwargs...)
     @safe @assert count(x -> x isa Loss, args) == 1
     iloss <| 0
-    @routine getiloss begin
+    @routine begin
         for i=1:length(args)
             if (tget(args,i) isa Loss, iloss==i)
                 iloss += identity(i)
@@ -38,5 +38,5 @@ Base.display(bf::NGrad) = print(bf)
     grad(tget(args,iloss)) += identity(1.0)
     (~g.f)(args...; kwargs...)
 
-    ~@routine getiloss
+    ~@routine
 end

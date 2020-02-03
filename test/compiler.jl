@@ -227,20 +227,10 @@ end
 
 @testset "routines" begin
     @i function test(out, x)
-        @routine r1 begin
+        @routine begin
             out += identity(x)
         end
-        @routine r1
-    end
-    out, x = 0.0, 1.0
-    @instr test(out, x)
-    @test out == 2.0
-
-    @i function test(out, x)
-        @routine r1 begin
-            out += identity(x)
-        end
-        ~@routine r1
+        ~@routine
     end
     out, x = 0.0, 1.0
     @instr test(out, x)

@@ -2,9 +2,9 @@ export precom
 
 struct PreInfo
     ancs::Dict{Symbol, Any}
-    routines::Dict{Symbol, Any}
+    routines::Vector{Any}
 end
-PreInfo() = PreInfo(Dict{Symbol,Symbol}(), Dict{Symbol,Any}())
+PreInfo() = PreInfo(Dict{Symbol,Symbol}(), [])
 
 function precom(ex)
     if ex.head == :macrocall
@@ -77,7 +77,7 @@ function precom_ex(ex, info)
         end
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
-            Expr(:while, :(($pre, $post)), Expr(:block, precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...))
+            Expr(:while, :(($pre, $post)), Expr(:block, precom_body(body, PreInfo())...))
         end
         :(begin $(body...) end) => begin
             Expr(:block, precom_body(body, info)...)
@@ -85,7 +85,7 @@ function precom_ex(ex, info)
         # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
-            Expr(:for, :($i=$(precom_range(range))), Expr(:block, precom_body(body, PreInfo(Dict{Symbol,Symbol}(), info.routines))...))
+            Expr(:for, :($i=$(precom_range(range))), Expr(:block, precom_body(body, PreInfo())...))
         end
         :(@anc $line $x = $val) => begin
             @warn "`@anc x = expr` is deprecated, please use `x <| expr` for loading an ancilla."
@@ -97,12 +97,19 @@ function precom_ex(ex, info)
         end
         :(@safe $line $subex) => :(@safe $subex)
         :(@routine $line $name $expr) => begin
+            @warn "`@routine name begin ... end` is deprecated, please use `@routine begin ... end`"
+            precom_ex(:(@routine $expr), info)
+        end
+        :(~(@routine $line $name)) => begin
+            @warn "`~@routine name` is deprecated, please use `~@routine`"
+            precom_ex(:(~(@routine)), info)
+        end
+        :(@routine $line $expr) => begin
             precode = precom_ex(expr, info)
-            info.routines[name] = precode
+            push!(info.routines, precode)
             precode
         end
-        :(@routine $line $name) => info.routines[name]
-        :(~(@routine $line $name)) => dual_ex(info.routines[name])
+        :(~(@routine $line)) => dual_ex(pop!(info.routines))
         :(~$expr) => dual_ex(precom_ex(expr, info))
         :($f($(args...))) => :($f($(args...)))
         :($f.($(args...))) => :($f.($(args...)))
