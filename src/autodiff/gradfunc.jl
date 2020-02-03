@@ -35,7 +35,7 @@ Base.display(bf::NGrad) = print(bf)
 
     g.f(args...; kwargs...)
     GVar.(args)
-    grad(tget(args,iloss)) += identity(1.0)
+    grad(tget(args,iloss)) += identity(1)
     (~g.f)(args...; kwargs...)
 
     ~@routine
