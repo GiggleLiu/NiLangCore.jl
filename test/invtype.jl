@@ -34,17 +34,17 @@ end
 DVar{GT}(x, g) where GT = DVar(x, g, zero(GT))
 
 # currently variable types can not be infered
-@iconstruct function CVar(xx, gg <| zero(xx))
+@iconstruct function CVar(gg ← zero(xx), xx)
 end
 
-@iconstruct function DVar{Float64}(xx, gg <| zero(xx)) where {T}
+@iconstruct function DVar{Float64}(xx, gg ← zero(xx)) where {T}
     gg += identity(xx)
     CVar(gg)
 end
 
 @testset "revtype" begin
-    @test type2tuple(CVar(1.0)) == (1.0, 0.0)
-    @test CVar(0.5) == CVar(0.5, 0.0)
+    @test type2tuple(CVar(1.0)) == (0.0, 1.0)
+    @test CVar(0.5) == CVar(0.0, 0.5)
     @test (~CVar)(CVar(0.5)) == 0.5
     @test_throws InvertibilityError (~CVar)(CVar(0.5, 0.4))
     @test (~DVar{Float64})(DVar{Float64}(0.5)) == 0.5

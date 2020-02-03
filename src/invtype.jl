@@ -39,27 +39,24 @@ end
 end
 
 function _gen_iconstructor(mc, fname, args, ts, body)
-    trueargs, assigns = args_and_assigns(args)
-    body = [[:($(a.args[1]) <| $(a.args[2])) for a in assigns]..., body...]
+    preargs, assigns, postargs = args_and_assigns(args)
+    body = [assigns..., body...]
 
-    head = :($fname($(trueargs...)) where {$(ts...)})
-    tail = :($fname($(get_argname.([trueargs..., assigns...])...)))
+    head = :($fname($(preargs...)) where {$(ts...)})
+    tail = :($fname($(postargs...)))
     fdef1 = Expr(:function, head, Expr(:block, interpret_body(body)..., :(return $tail)))
 
     dfname = :(_::Type{Inv{$fname}})
     obj = gensym()
     fieldvalues = gensym()
-    invtrueargs = [trueargs[1:end-1]..., obj]
-    loads = Any[:($(get_argname(trueargs[end])) = $fieldvalues[1])]
-    for (i,arg) in enumerate(assigns)
-        @match arg begin
-            :($a = $b) => push!(loads, :($a = $fieldvalues[$(i+1)]))
-            _ => error("unkown assign $arg")
-        end
+    invtrueargs = [preargs[1:end-1]..., obj]
+    loads = []
+    for (i,arg) in enumerate(postargs)
+        push!(loads, :($arg = $fieldvalues[$i]))
     end
     loaddata = Expr(:block, loads...)
     dualhead = :($dfname($([invtrueargs[1:end-1]..., :($(invtrueargs[end])::$fname)]...)) where {$(ts...)})
-    fdef2 = Expr(:function, dualhead, Expr(:block, :($fieldvalues = NiLangCore.type2tuple($obj)), loaddata, interpret_body(dual_body(body))..., :(return $(get_argname(trueargs[end])))))
+    fdef2 = Expr(:function, dualhead, Expr(:block, :($fieldvalues = NiLangCore.type2tuple($obj)), loaddata, interpret_body(dual_body(body))..., :(return $(get_argname(preargs[end])))))
 
     # implementations
     ftype = get_ftype(fname)
@@ -67,17 +64,33 @@ function _gen_iconstructor(mc, fname, args, ts, body)
 end
 
 function args_and_assigns(args)
+    preargs = []
     assigns = []
-    if args[1] isa Expr && args[1].head == :parameters
-        newargs = [args[1], args[2]]
-    else
-        newargs = [args[1]]
-    end
-    for arg in args[length(newargs)+1:end]
+    postargs = []
+    count = 0
+    for arg in args
         @match arg begin
-            :($a <| $b) => push!(assigns, :($a = $b))
-            _ => error("got invalid input argument: $(arg), should be `x <| val`.")
+            :($a ← $b) => begin
+                push!(assigns, arg)
+                push!(postargs, get_argname(a))
+            end
+            Expr(:parameters, kwargs...) => begin
+                push!(preargs, arg)
+                push!(postargs, arg)
+            end
+            ::Symbol || :($x::$tp) => begin
+                if count == 1
+                    error("got more than one primitary argument!")
+                end
+                count += 1
+                push!(preargs, arg)
+                push!(postargs, get_argname(arg))
+            end
+            _ => error("got invalid input argument: $(arg), should be a normal argument or `x ← val`.")
         end
     end
-    newargs, assigns
+    if count == 0
+        error("no primitary argument found!")
+    end
+    preargs, assigns, postargs
 end

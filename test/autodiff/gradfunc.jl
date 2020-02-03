@@ -68,7 +68,7 @@ end
     end
 
     @i function tt(a, b)
-        out <| 0.0
+        out ← 0.0
         test1(a, b, out)
         (~test1)(a, b, out)
         a ⊕ b

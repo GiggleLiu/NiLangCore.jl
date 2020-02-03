@@ -40,8 +40,8 @@ Get the dual expression of `ex`.
 """
 function dual_ex(ex)
     @match ex begin
-        :($x |> $val) => :($x <| $val)
-        :($x <| $val) => :($x |> $val)
+        :($x → $val) => :($x ← $val)
+        :($x ← $val) => :($x → $val)
         :($f($(args...))) => begin
             if startwithdot(f)
                 :($(dotgetdual(f)).($(args...)))
