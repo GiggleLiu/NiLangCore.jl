@@ -21,7 +21,7 @@ julia> struct DVar{T}
            g::T
        end
 
-julia> @iconstruct function DVar(xx, gg=zero(xx))
+julia> @iconstruct function DVar(xx, gg ← zero(xx))
            gg += identity(xx)
        end
 
@@ -93,31 +93,31 @@ end
 export @icast
 """
 ```jldoctest; setup=:(using NiLangCore, Test)
-julia> struct CVar{T}
+julia> struct PVar{T}
            g::T
            x::T
        end
 
-julia> struct DVar{T}
+julia> struct SVar{T}
            x::T
            g::T
        end
 
-julia> @icast CVar(g, x) => DVar(x, k) begin
+julia> @icast PVar(g, x) => SVar(x, k) begin
           g → zero(x)
           k ← zero(x)
           k += identity(x)
-      end
+       end
 
-julia> @test CVar((DVar(CVar(0.0, 0.5)))) == CVar(0.0, 0.5)
+julia> @test PVar((SVar(PVar(0.0, 0.5)))) == PVar(0.0, 0.5)
 Test Passed
 
-julia> @icast x::Float64 => DVar(x, gg) begin
+julia> @icast x::Base.Float64 => SVar(x, gg) begin
            gg ← zero(x)
            gg += identity(x)
        end
 
-julia> @test Float64(DVar(0.5)) == 0.5
+julia> @test Float64(SVar(0.5)) == 0.5
 Test Passed
 ```
 """
