@@ -49,3 +49,34 @@ end
     @test_throws InvertibilityError (~CVar)(CVar(0.5, 0.4))
     @test (~DVar{Float64})(DVar{Float64}(0.5)) == 0.5
 end
+
+struct PVar{T}
+    g::T
+    x::T
+end
+
+struct SVar{T}
+    x::T
+    g::T
+end
+
+@icast PVar(g, x) => SVar(x, k) begin
+    g → zero(x)
+    k ← zero(x)
+    k += identity(x)
+end
+
+@icast x::Float64 => SVar(x, gg) begin
+    gg ← zero(x)
+    gg += identity(x)
+end
+
+@testset "@icast" begin
+    @test PVar((SVar(PVar(0.0, 0.5)))) == PVar(0.0, 0.5)
+    @test Float64(SVar(0.5)) == 0.5
+    @i function test(x)
+        (Float64=>SVar)(x)
+    end
+    @test test(0.5) == (SVar(0.5),)
+    @test (~test)(test(0.5)...) == (0.5,)
+end

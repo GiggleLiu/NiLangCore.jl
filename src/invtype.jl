@@ -48,15 +48,10 @@ function _gen_iconstructor(mc, fname, args, ts, body)
 
     dfname = :(_::Type{Inv{$fname}})
     obj = gensym()
-    fieldvalues = gensym()
+    loaddata = _unpack_struct(obj, postargs)
     invtrueargs = [preargs[1:end-1]..., obj]
-    loads = []
-    for (i,arg) in enumerate(postargs)
-        push!(loads, :($arg = $fieldvalues[$i]))
-    end
-    loaddata = Expr(:block, loads...)
     dualhead = :($dfname($([invtrueargs[1:end-1]..., :($(invtrueargs[end])::$fname)]...)) where {$(ts...)})
-    fdef2 = Expr(:function, dualhead, Expr(:block, :($fieldvalues = NiLangCore.type2tuple($obj)), loaddata, interpret_body(dual_body(body))..., :(return $(get_argname(preargs[end])))))
+    fdef2 = Expr(:function, dualhead, Expr(:block, loaddata, interpret_body(dual_body(body))..., :(return $(get_argname(preargs[end])))))
 
     # implementations
     ftype = get_ftype(fname)
@@ -94,3 +89,78 @@ function args_and_assigns(args)
     end
     preargs, assigns, postargs
 end
+
+export @icast
+"""
+```jldoctest; setup=:(using NiLangCore, Test)
+julia> struct CVar{T}
+           g::T
+           x::T
+       end
+
+julia> struct DVar{T}
+           x::T
+           g::T
+       end
+
+julia> @icast CVar(g, x) => DVar(x, k) begin
+          g → zero(x)
+          k ← zero(x)
+          k += identity(x)
+      end
+
+julia> @test CVar((DVar(CVar(0.0, 0.5)))) == CVar(0.0, 0.5)
+Test Passed
+
+julia> @icast x::Float64 => DVar(x, gg) begin
+           gg ← zero(x)
+           gg += identity(x)
+       end
+
+julia> @test Float64(DVar(0.5)) == 0.5
+Test Passed
+```
+"""
+macro icast(ex, body)
+    if !(body isa Expr && body.head == :block)
+        error("the second argument must be a `begin ... end` statement.")
+    end
+    @match ex begin
+        :($a => $b) => begin
+            t1, args1 = _match_typecast(a)
+            t2, args2 = _match_typecast(b)
+            ancs = Dict{Any,Any}()
+            for arg in _asvector(args1)
+                ancs[arg] = nothing
+            end
+            info = PreInfo(ancs, [])
+            body = precom_body(body.args, info)
+            for arg in _asvector(args2)
+                delete!(info.ancs, arg)
+            end
+            isempty(info.ancs) || throw("variable information discarded/unknown variable: $(info.ancs)")
+            x = gensym()
+            fdef1 = Expr(:function, :($t1($x::$t2)), Expr(:block, _unpack_struct(x, args2), interpret_body(dual_body(body))..., a))
+            fdef2 = Expr(:function, :($t2($x::$t1)), Expr(:block, _unpack_struct(x, args1), interpret_body(body)..., b))
+            esc(Expr(:block, fdef1, fdef2, nothing))
+        end
+        _ => error("the first argument must be a pair like `x => y`.")
+    end
+end
+
+_match_typecast(ex) = @match ex begin
+    :($tp($(args...))) => (tp, args)
+    :($x::$tp) => (tp, x)
+    _ => error("type specification should be `T(args...)` or `x::T`.")
+end
+
+function _unpack_struct(obj, args)
+    if args isa AbstractVector
+        Expr(:(=), Expr(:tuple, args...), :(NiLangCore.type2tuple($obj)))
+    else
+        Expr(:(=), args, obj)
+    end
+end
+
+_asvector(x::AbstractVector) = x
+_asvector(x) = [x]

@@ -23,6 +23,7 @@ function interpret_ex(ex)
         :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...))) |> rmlines
         :($x ← $tp) => :(NiLangCore.@anc $x = $tp)
         :($x → $tp) => :(NiLangCore.@deanc $x = $tp)
+        :(($t1=>$t2)($x)) => :(@assignback $t2($x))
         :($f($(args...))) => :(@assignback $f($(args...))) |> rmlines
         :($f.($(args...))) => :(@assignback $f.($(args...))) |> rmlines
 
