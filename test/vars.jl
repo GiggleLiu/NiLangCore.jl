@@ -3,8 +3,9 @@ using Test, NiLangCore
 @testset "anc" begin
     NiLangCore.@anc x = 0.0
     @test x === 0.0
-    @test (NiLangCore.@deanc x = 0.0) isa Any
-    x += 1
+    NiLangCore.@deanc x = 0.0
+    @test x isa Nothing
+    x = 1.0
     @test_throws InvertibilityError (NiLangCore.@deanc x = 0.0)
     @assign value(x) 0.2
     @test x == 0.2

@@ -104,16 +104,6 @@ chfield(x, ::Type{T}, v) where {T<:RevType} = (~T)(v)
 isreversible(::Type{<:RevType}) = true
 isreversible(::RevType) = true
 
-# TODEP
-# Bundle is a wrapper of data type
-# instructions on Bundle will not change the original behavior of wrapped data type.
-abstract type Bundle{t} <: RevType end
-
-Base.isapprox(x::Bundle, y; kwargs...) = isapprox(value(x), y; kwargs...)
-Base.isapprox(x::Bundle, y::Bundle; kwargs...) = isapprox(value(x), value(y); kwargs...)
-Base.isapprox(x, y::Bundle; kwargs...) = isapprox(x, value(y); kwargs...)
-
-
 ######## Inv
 export Inv
 """

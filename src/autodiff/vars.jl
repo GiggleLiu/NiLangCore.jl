@@ -1,11 +1,11 @@
 ######## GVar, a bundle that records gradient
 """
-    GVar{T,GT} <: Bundle{T}
+    GVar{T,GT} <: IWrapper{T}
     GVar(x)
 
 Attach a gradient field to `x`.
 """
-struct GVar{T,GT} <: Bundle{T}
+struct GVar{T,GT} <: IWrapper{T}
     x::T
     g::GT
 end
@@ -19,8 +19,9 @@ Base.zero(::Type{<:GVar{T}}) where T = GVar(zero(T))
 
 Get the gradient field of `var`.
 """
-function grad end
 @fieldview grad(gv::GVar) = gv.g
+@fieldview value(gv::GVar) = gv.x
+chfield(x::GVar, ::typeof(value), xval::GVar) = GVar(xval, x.g)  # TODO: fix the problem causing this patch, the field type can not change?!
 
 grad(gv::T) where T = zero(T)
 grad(gv::AbstractArray{T}) where T = grad.(gv)
@@ -60,42 +61,23 @@ Base.show(io::IO, ::MIME"plain/text", gv::GVar) = Base.show(io, gv)
 # interfaces
 
 """
-    Loss{T}<:Bundle{T}
+    Loss{T} <: IWrapper{T}
     Loss(x)
 
 Wrapper used to mark the loss variable.
 """
-struct Loss{T}<:Bundle{T} x::T end
-Loss(x::Loss{T}) where T = x # to avoid ambiguity error
-Loss{T}(x::Loss{T}) where T = x
-(_::Type{Inv{Loss}})(x) = x.x
+@pure_wrapper Loss
 grad(x::Loss) = grad(x.x)
-Base.eps(::Type{<:Loss{T}}) where T = Base.eps(T)
-Base.show(io::IO, gv::Loss) = print(io, "Loss($(gv.x))")
-Base.show(io::IO, ::MIME"plain/text", gv::Loss) = Base.show(io, gv)
-Base.:-(x::Loss) = Loss(-x.x)
 
 """
-    NoGrad{T}<:Bundle{T}
+    NoGrad{T} <: IWrapper{T}
     NoGrad(x)
 
 A `NoGrad(x)` is equivalent to `GVar^{-1}(x)`, which cancels the `GVar` wrapper.
 """
-struct NoGrad{T}<:Bundle{T} x::T end
-NoGrad(x::NoGrad{T}) where T = x # to avoid ambiguity error
-NoGrad{T}(x::NoGrad{T}) where T = x
-Base.eps(::Type{<:NoGrad{T}}) where T = Base.eps(T)
-Base.show(io::IO, gv::NoGrad) = print(io, "NoGrad($(gv.x))")
-Base.show(io::IO, ::MIME"plain/text", gv::NoGrad) = Base.show(io, gv)
-Base.:-(x::NoGrad) = NoGrad(-x.x)
+@pure_wrapper NoGrad
 GVar(x::NoGrad) = x.x
 (_::Type{Inv{GVar}})(x) = NoGrad(x)
-
-for TP in [:GVar, :Loss, :NoGrad]
-    @eval value(gv::$TP) = gv.x
-    @eval chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
-end
-chfield(x::GVar, ::typeof(value), xval::GVar) = GVar(xval, x.g)
 
 """
     @nograd f(args...)

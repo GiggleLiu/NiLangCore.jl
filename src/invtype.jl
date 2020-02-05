@@ -1,6 +1,6 @@
 using Base.Cartesian
 
-export @iconstruct
+export @iwrap
 
 @generated function chfield(x, ::Val{FIELD}, xval) where FIELD
     :(@with x.$FIELD = xval)
@@ -10,7 +10,7 @@ end
 end
 
 """
-    @iconstruct function TYPE(args...) ... end
+    @iwrap function TYPE(args...) ... end
 
 Create a reversible constructor.
 
@@ -21,7 +21,7 @@ julia> struct DVar{T}
            g::T
        end
 
-julia> @iconstruct function DVar(xx, gg ← zero(xx))
+julia> @iwrap function DVar(xx, gg ← zero(xx))
            gg += identity(xx)
        end
 
@@ -29,16 +29,16 @@ julia> @test (~DVar)(DVar(0.5)) == 0.5
 Test Passed
 ```
 """
-macro iconstruct(ex)
+macro iwrap(ex)
     mc, fname, args, ts, body = precom(ex)
-    esc(_gen_iconstructor(mc, fname, args, ts, body))
+    esc(_gen_iwrapper(mc, fname, args, ts, body))
 end
 
 @generated function type2tuple(x::T) where T
     Expr(:tuple, [:(x.$v) for v in fieldnames(T)]...)
 end
 
-function _gen_iconstructor(mc, fname, args, ts, body)
+function _gen_iwrapper(mc, fname, args, ts, body)
     preargs, assigns, postargs = args_and_assigns(args)
     body = [assigns..., body...]
 

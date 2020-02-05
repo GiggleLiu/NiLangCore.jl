@@ -1,5 +1,5 @@
-export @anc, @deanc
-export RevType, Bundle, Partial
+export @anc, @deanc, @pure_wrapper
+export RevType, IWrapper, Partial
 export chfield, value
 
 ############# ancillas ################
@@ -11,7 +11,7 @@ else throw an `InvertibilityError`.
 """
 macro deanc(ex)
     @match ex begin
-        :($x = $val) => :(deanc($(esc(x)), $(esc(val))))
+        :($x = $val) => Expr(:block, :(deanc($(esc(x)), $(esc(val)))), :($(esc(x)) = nothing))
         _ => error("please use like `@deanc x = val`")
     end
 end
@@ -50,7 +50,7 @@ GVar(2.0, 0.0)
 macro fieldview(ex)
     @match ex begin
         :($f($obj::$tp) = begin $line; $obj.$prop end) => esc(quote
-            $f($obj::$tp) = begin $line; $obj.$prop end
+            Base.@__doc__ $f($obj::$tp) = begin $line; $obj.$prop end
             NiLangCore.chfield($obj::$tp, ::typeof($f), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)
         end)
         _ => error("expect expression `f(obj::type) = obj.prop`, got $ex")
@@ -83,15 +83,49 @@ NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
 NiLangCore.chfield(x::T, ::typeof(adjoint), y::T) where T = adjoint(y)
 
 """
-    Partial{FIELD, T} <: RevType
+    IWrapper{T} <: RevType
+
+IWrapper{T} is a wrapper of for data of type T.
+It will forward `>, <, >=, <=, ≈` operations.
+"""
+abstract type IWrapper{T} <: RevType end
+
+Base.isapprox(x::IWrapper, y; kwargs...) = isapprox(value(x), y; kwargs...)
+Base.isapprox(x::IWrapper, y::IWrapper; kwargs...) = isapprox(value(x), value(y); kwargs...)
+Base.isapprox(x, y::IWrapper; kwargs...) = isapprox(x, value(y); kwargs...)
+Base.eps(::Type{<:IWrapper{T}}) where T = Base.eps(T)
+
+for op in [:>, :<, :>=, :<=, :isless]
+    @eval Base.$op(a::IWrapper, b::IWrapper) = $op(value(a), value(b))
+    @eval Base.$op(a::IWrapper, b) = $op(value(a), b)
+    @eval Base.$op(a, b::IWrapper) = $op(a, value(b))
+end
+
+macro pure_wrapper(tp)
+    TP = esc(tp)
+    quote
+        Base.@__doc__ struct $TP{T} <: IWrapper{T} x::T end
+        $TP(x::$TP{T}) where T = x # to avoid ambiguity error
+        $TP{T}(x::$TP{T}) where T = x
+        (_::Type{Inv{$TP}})(x) = x.x
+        @fieldview NiLangCore.value(x::$TP) = x.x
+        Base.zero(x::$TP) = $TP(zero(T))
+        Base.show(io::IO, gv::$TP) = print(io, "$($TP)($(gv.x))")
+        Base.show(io::IO, ::MIME"plain/text", gv::$TP) = Base.show(io, gv)
+        Base.:-(x::$TP) = $TP(-x.x)
+    end
+end
+
+"""
+Partial{FIELD, T, T2} <: IWrapper{T2}
 
 Take a field `FIELD` without dropping information.
 This operation can be undone by calling `~Partial{FIELD}`.
 """
-struct Partial{FIELD, T} <: RevType
+struct Partial{FIELD, T, T2} <: IWrapper{T2}
     x::T
 end
-Partial{FIELD}(x::T) where {T,FIELD} = Partial{FIELD,T}(x)
+Partial{FIELD}(x::T) where {T,FIELD} = Partial{FIELD,T,typeof(getfield(x,FIELD))}(x)
 
 @generated function (_::Type{Inv{Partial{FIELD}}})(x::Partial{FIELD}) where {FIELD}
     :(x.x)
