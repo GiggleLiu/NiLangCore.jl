@@ -34,10 +34,10 @@ end
 DVar{GT}(x, g) where GT = DVar(x, g, zero(GT))
 
 # currently variable types can not be infered
-@iwrap function CVar(gg ← zero(xx), xx)
+@iconstruct function CVar(gg ← zero(xx), xx)
 end
 
-@iwrap function DVar{Float64}(xx, gg ← zero(xx)) where {T}
+@iconstruct function DVar{Float64}(xx, gg ← zero(xx)) where {T}
     gg += identity(xx)
     CVar(gg)
 end
@@ -77,6 +77,25 @@ end
     @i function test(x)
         (Float64=>SVar)(x)
     end
-    @test test(0.5) == (SVar(0.5),)
-    @test (~test)(test(0.5)...) == (0.5,)
+    @test test(0.5) == SVar(0.5)
+    @test (~test)(test(0.5)) == 0.5
+end
+
+@i struct B{T}
+    x::T
+    g::T
+    function B(x::T, g::T) where T
+        new{T}(x, g)
+    end
+    # TODO: fix the type inference!
+    @i function B(x::T) where T
+        g ← zero(x)
+        g += identity(1)
+        x ← new{T}(x, g)
+    end
+end
+
+@testset "reversible type" begin
+    @test B(0.5) == B(0.5, 1.0)
+    @test (~B)(B(0.5)) === 0.5
 end

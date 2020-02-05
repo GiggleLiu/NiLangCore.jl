@@ -1,6 +1,6 @@
 using Base.Cartesian
 
-export @iwrap
+export @iconstruct
 
 @generated function chfield(x, ::Val{FIELD}, xval) where FIELD
     :(@with x.$FIELD = xval)
@@ -10,7 +10,7 @@ end
 end
 
 """
-    @iwrap function TYPE(args...) ... end
+    @iconstruct function TYPE(args...) ... end
 
 Create a reversible constructor.
 
@@ -21,7 +21,7 @@ julia> struct DVar{T}
            g::T
        end
 
-julia> @iwrap function DVar(xx, gg ← zero(xx))
+julia> @iconstruct function DVar(xx, gg ← zero(xx))
            gg += identity(xx)
        end
 
@@ -29,21 +29,22 @@ julia> @test (~DVar)(DVar(0.5)) == 0.5
 Test Passed
 ```
 """
-macro iwrap(ex)
-    mc, fname, args, ts, body = precom(ex)
-    esc(_gen_iwrapper(mc, fname, args, ts, body))
+macro iconstruct(ex)
+    esc(_gen_iconstructor(ex))
 end
 
 @generated function type2tuple(x::T) where T
     Expr(:tuple, [:(x.$v) for v in fieldnames(T)]...)
 end
 
-function _gen_iwrapper(mc, fname, args, ts, body)
+function _gen_iconstructor(ex, postname=nothing)
+    mc, fname, args, ts, body = precom(ex)
     preargs, assigns, postargs = args_and_assigns(args)
     body = [assigns..., body...]
 
+    typedef = :(struct postargs end) |> rmlines
     head = :($fname($(preargs...)) where {$(ts...)})
-    tail = :($fname($(postargs...)))
+    tail = :($(postname === nothing ? fname : postname)($(postargs...)))
     fdef1 = Expr(:function, head, Expr(:block, interpret_body(body)..., :(return $tail)))
 
     dfname = :(_::Type{Inv{$fname}})
@@ -67,7 +68,7 @@ function args_and_assigns(args)
         @match arg begin
             :($a ← $b) => begin
                 push!(assigns, arg)
-                push!(postargs, get_argname(a))
+                push!(postargs, a)
             end
             Expr(:parameters, kwargs...) => begin
                 push!(preargs, arg)
@@ -79,7 +80,7 @@ function args_and_assigns(args)
                 end
                 count += 1
                 push!(preargs, arg)
-                push!(postargs, get_argname(arg))
+                push!(postargs, arg)
             end
             _ => error("got invalid input argument: $(arg), should be a normal argument or `x ← val`.")
         end
@@ -92,6 +93,11 @@ end
 
 export @icast
 """
+    @icast TDEF1 => TDEF2 begin ... end
+
+Define type cast between `TDEF1` and `TDEF2`.
+Type `TDEF1` or `TDEF2` can be `T(args...)` or `x::T` like.
+
 ```jldoctest; setup=:(using NiLangCore, Test)
 julia> struct PVar{T}
            g::T

@@ -21,8 +21,16 @@ function interpret_ex(ex)
         :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...))) |> rmlines
         :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...))) |> rmlines
         :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...))) |> rmlines
-        :($x ← $tp) => :(NiLangCore.@anc $x = $tp)
-        :($x → $tp) => :(NiLangCore.@deanc $x = $tp)
+        :($x ← new{$(_...)}($(args...))) ||
+        :($x ← new($(args...))) => begin
+            :($x = $(ex.args[3]))
+        end
+        :($x → new{$(_...)}($(args...))) ||
+        :($x → new($(args...))) => begin
+            :($(Expr(:tuple, args...)) = NiLangCore.type2tuple($x))
+        end
+        :($x ← $tp) => :($x = $tp)
+        :($x → $tp) => Expr(:block, :(NiLangCore.deanc($x, $tp)), :($x = nothing)) # assign to nothing to prevent using
         :(($t1=>$t2)($x)) => :(@assignback $t2($x))
         :($f($(args...))) => :(@assignback $f($(args...))) |> rmlines
         :($f.($(args...))) => :(@assignback $f.($(args...))) |> rmlines
@@ -112,11 +120,30 @@ export @i
 Define a reversible function. See `test/interpreter.jl` for examples.
 """
 macro i(ex)
-    mc, fname, args, ts, body = precom(ex)
-    _gen_ifunc(mc, fname, args, ts, body)
+    if ex isa Expr && ex.head == :struct
+        esc(_gen_istruct(ex))
+    else
+        esc(_gen_ifunc(ex))
+    end
 end
 
-function _gen_ifunc(mc, fname, args, ts, body)
+function _gen_istruct(ex)
+    invlist = []
+    for (i, st) in enumerate(ex.args[3].args)
+        @match st begin
+            :(@i $line $funcdef) => begin
+                fdefs = _gen_ifunc(funcdef).args
+                ex.args[3].args[i] = fdefs[1]
+                append!(invlist, fdefs[2:end])
+            end
+            _ => st
+        end
+    end
+    Expr(:block, ex, invlist...)
+end
+
+function _gen_ifunc(ex)
+    mc, fname, args, ts, body = precom(ex)
     fname = _replace_opmx(fname)
 
     # implementations
@@ -132,8 +159,10 @@ function _gen_ifunc(mc, fname, args, ts, body)
     dualhead = :($dfname($(args...)) where {$(ts...)})
     fdef2 = Expr(:function, dualhead, Expr(:block, interpret_body(dual_body(body))..., invfuncfoot(args)))
     #ex = :(Base.@__doc__ $fdef1; if $ftype != $dftype; $fdef2; end)
-    ex = Expr(:block, :(Base.@__doc__ $fdef1), Expr(:if, :($ftype != $dftype), fdef2))
-    esc(Expr(:block, ex, _funcdef(:isreversible, ftype) |> rmlines))
+    ex = Expr(:block, :(Base.@__doc__ $fdef1),
+        Expr(:if, :($ftype != $dftype), fdef2),
+        _funcdef(:isreversible, ftype) |> rmlines
+        )
 end
 
 function notkey(args)
@@ -145,7 +174,16 @@ function notkey(args)
 end
 
 function invfuncfoot(args)
-    :(return ($(get_argname.(notkey(args))...),))
+    args = get_argname.(notkey(args))
+    if length(args) == 1
+        if args[1] isa Expr && args[1].head == :(...)
+            :(return $(args[1].args[1]))
+        else
+            :(return $(args[1]))
+        end
+    else
+        :(return ($(args...),))
+    end
 end
 
 _replace_opmx(ex) = @match ex begin

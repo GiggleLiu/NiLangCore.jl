@@ -48,6 +48,32 @@ end
 
 function precom_ex(ex, info)
     @match ex begin
+        :($x ← new{$(_...)}($(args...))) ||
+        :($x ← new($(args...))) => begin
+            for arg in args
+                # no need to deallocate `arg`.
+                if arg != x
+                    delete!(info.ancs, arg)
+                end
+            end
+            if !(x in args)
+                info.ancs[x] = ex.args[3]
+            end
+            ex
+        end
+        :($x → new{$(_...)}($(args...))) ||
+        :($x → new($(args...))) => begin
+            for (i, arg) in enumerate(args)
+                # no need to deallocate `arg`.
+                if arg != x
+                    info.ancs[arg] = :(getfield($x, $i))
+                end
+            end
+            if !(x in args)
+                delete!(info.ancs, x)
+            end
+            ex
+        end
         :($x ← $val) => begin
             info.ancs[x] = val
             ex

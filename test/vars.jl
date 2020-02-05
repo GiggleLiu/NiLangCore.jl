@@ -41,3 +41,12 @@ end
     @test chfield(x, value, 4) == Partial{:im}(3+4im)
     (~Partial{:im})(x) == 3+2im
 end
+
+@testset "pure wrapper" begin
+    @pure_wrapper A
+    a = A(0.5)
+    @test a isa A
+    @test (~A)(a) === 0.5
+    @test -A(0.5) == A(-0.5)
+    @test A(1+0.5im)' == A(1-0.5im)
+end

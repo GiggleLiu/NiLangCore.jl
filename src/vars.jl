@@ -101,6 +101,26 @@ for op in [:>, :<, :>=, :<=, :isless]
     @eval Base.$op(a, b::IWrapper) = $op(a, value(b))
 end
 
+"""
+    @pure_wrapper TYPE
+
+Create a reversible wrapper type `TYPE{T} <: IWrapper{T}` that plays a role of simple wrapper.
+
+```jldoctest; setup=:(using NiLangCore)
+julia> @pure_wrapper A
+
+julia> A(0.5)
+A(0.5)
+
+julia> (~A)(A(0.5))
+0.5
+
+julia> -A(0.5)
+A(-0.5)
+
+julia> A(0.5) < A(0.6)
+true
+"""
 macro pure_wrapper(tp)
     TP = esc(tp)
     quote
@@ -113,6 +133,7 @@ macro pure_wrapper(tp)
         Base.show(io::IO, gv::$TP) = print(io, "$($TP)($(gv.x))")
         Base.show(io::IO, ::MIME"plain/text", gv::$TP) = Base.show(io, gv)
         Base.:-(x::$TP) = $TP(-x.x)
+        Base.adjoint(x::$TP) = $TP(x.x')
     end
 end
 
@@ -146,6 +167,8 @@ end
 function Base.zero(x::Type{<:Partial{FIELD,T}}) where {FIELD, T}
     Partial{FIELD}(Base.zero(T))
 end
+Base.show(io::IO, gv::Partial{FIELD}) where FIELD = print(io, "$(gv.x).$FIELD")
+Base.show(io::IO, ::MIME"plain/text", gv::Partial) = Base.show(io, gv)
 
 export tget
 
