@@ -10,9 +10,11 @@ function debcast(f)
     Symbol(string(f)[2:end])
 end
 
-get_ftype(fname::Symbol) = :(typeof($fname))
-function get_ftype(fname::Expr)
-    fname.head == :(::) && return fname.args[2]
+function get_ftype(fname)
+    @match fname begin
+        :($x::$tp) => tp
+        _ => :($fname isa Type ? Type{$fname} : typeof($fname))
+    end
 end
 
 get_argname(arg::Symbol) = arg

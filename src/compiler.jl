@@ -116,8 +116,42 @@ export @i
 
 """
     @i function fname(args..., kwargs...) ... end
+    @i struct sname ... end
 
-Define a reversible function. See `test/interpreter.jl` for examples.
+Define a reversible function/type.
+
+```jldoctest; setup=:(using NiLangCore)
+julia> @i function test(out!, x)
+           out! += identity(x)
+       end
+
+julia> test(0.2, 0.8)
+(1.0, 0.8)
+
+julia> @i struct CVar{T}
+           g::T
+           x::T
+           function CVar{T}(x::T, g::T) where T
+               new{T}(x, g)
+           end
+           function CVar(x::T, g::T) where T
+               new{T}(x, g)
+           end
+           # warning: infered type `T` should be used in `← new` statement only.
+           @i function CVar(xx::T) where T
+               gg ← zero(xx)
+               gg += identity(1)
+               xx ← new{T}(gg, xx)
+           end
+       end
+
+julia> CVar(0.2)
+CVar{Float64}(1.0, 0.2)
+
+julia> (~CVar)(CVar(0.2))
+0.2
+```
+See `test/compiler.jl` and `test/invtype.jl` for more examples.
 """
 macro i(ex)
     if ex isa Expr && ex.head == :struct
