@@ -23,20 +23,18 @@ Base.display(bf::NGrad) = print(bf)
 
 @i function (g::Grad)(args...; kwargs...)
     @safe @assert count(x -> x isa Loss, args) == 1
-    @anc iloss = 0
-    @routine getiloss begin
-        for i=1:length(args)
-            if (tget(args,i) isa Loss, iloss==i)
-                iloss += identity(i)
-                (~Loss)(tget(args,i))
-            end
+    iloss ← 0
+    @routine for i=1:length(args)
+        if (tget(args,i) isa Loss, iloss==i)
+            iloss += identity(i)
+            (~Loss)(tget(args,i))
         end
     end
 
     g.f(args...; kwargs...)
     GVar.(args)
-    grad(tget(args,iloss)) += identity(1.0)
+    grad(tget(args,iloss)) += identity(1)
     (~g.f)(args...; kwargs...)
 
-    ~@routine getiloss
+    ~@routine
 end

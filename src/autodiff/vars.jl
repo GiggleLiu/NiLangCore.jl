@@ -1,13 +1,43 @@
+"""
+    NoGrad{T} <: IWrapper{T}
+    NoGrad(x)
+
+A `NoGrad(x)` is equivalent to `GVar^{-1}(x)`, which cancels the `GVar` wrapper.
+"""
+@pure_wrapper NoGrad
+
 ######## GVar, a bundle that records gradient
 """
-    GVar{T,GT} <: Bundle{T}
+    GVar{T,GT} <: IWrapper{T}
     GVar(x)
 
 Attach a gradient field to `x`.
 """
-struct GVar{T,GT} <: Bundle{T}
+@i struct GVar{T,GT} <: IWrapper{T}
     x::T
     g::GT
+    function GVar{T,GT}(x::T, g::GT) where {T,GT}
+        new{T,GT}(x, g)
+    end
+    function GVar(x::T, g::GT) where {T,GT}
+        new{T,GT}(x, g)
+    end
+    @i function GVar(x::T) where T
+        g ← zero(x)
+        x ← new{T,T}(x, g)
+    end
+
+    @i function GVar(x::Integer)
+    end
+    @i function GVar(x::AbstractArray)
+        GVar.(x)
+    end
+    @i function GVar(x::Tuple)
+        GVar.(x)
+    end
+    @i function GVar(x::NoGrad)
+        (~NoGrad)(x)
+    end
 end
 Base.copy(b::GVar) = GVar(b.x, copy(b.g))
 Base.zero(x::GVar) = GVar(Base.zero(x.x), Base.zero(x.g))
@@ -19,8 +49,10 @@ Base.zero(::Type{<:GVar{T}}) where T = GVar(zero(T))
 
 Get the gradient field of `var`.
 """
-function grad end
 @fieldview grad(gv::GVar) = gv.g
+@fieldview value(gv::GVar) = gv.x
+# TODO: fix the problem causing this patch, the field type can not change?!
+chfield(x::GVar, ::typeof(value), xval::GVar) = GVar(xval, x.g)
 
 grad(gv::T) where T = zero(T)
 grad(gv::AbstractArray{T}) where T = grad.(gv)
@@ -38,64 +70,25 @@ end
 #NiLangCore.almost_same(a::GVar, b::GVar) = NiLangCore.almost_same(value(a), value(b))
 
 # constructors and deconstructors
-GVar(x::Integer) = x
-(_::Type{Inv{GVar}})(x::Integer) = x
 Base.:-(x::GVar) = GVar(-x.x, -x.g)
 
 ## variable mapping
-GVar(x) = GVar(x, zero(x))
-(_::Type{Inv{GVar}})(x::GVar) = (@invcheck grad(x) 0.0; x.x)
 function (_::Type{Inv{GVar}})(x::GVar{<:GVar,<:GVar})
     Partial{:x}(x)
 end
-
-GVar(x::AbstractArray) = GVar.(x)
-(f::Type{Inv{GVar}})(x::AbstractArray) = f.(x)
-
-GVar(x::Tuple) = GVar.(x)
-(_::Type{Inv{GVar}})(x::Tuple) = (~GVar).(x)
 
 Base.show(io::IO, gv::GVar) = print(io, "GVar($(gv.x), $(gv.g))")
 Base.show(io::IO, ::MIME"plain/text", gv::GVar) = Base.show(io, gv)
 # interfaces
 
 """
-    Loss{T}<:Bundle{T}
+    Loss{T} <: IWrapper{T}
     Loss(x)
 
 Wrapper used to mark the loss variable.
 """
-struct Loss{T}<:Bundle{T} x::T end
-Loss(x::Loss{T}) where T = x # to avoid ambiguity error
-Loss{T}(x::Loss{T}) where T = x
-(_::Type{Inv{Loss}})(x) = x.x
+@pure_wrapper Loss
 grad(x::Loss) = grad(x.x)
-Base.eps(::Type{<:Loss{T}}) where T = Base.eps(T)
-Base.show(io::IO, gv::Loss) = print(io, "Loss($(gv.x))")
-Base.show(io::IO, ::MIME"plain/text", gv::Loss) = Base.show(io, gv)
-Base.:-(x::Loss) = Loss(-x.x)
-
-"""
-    NoGrad{T}<:Bundle{T}
-    NoGrad(x)
-
-A `NoGrad(x)` is equivalent to `GVar^{-1}(x)`, which cancels the `GVar` wrapper.
-"""
-struct NoGrad{T}<:Bundle{T} x::T end
-NoGrad(x::NoGrad{T}) where T = x # to avoid ambiguity error
-NoGrad{T}(x::NoGrad{T}) where T = x
-Base.eps(::Type{<:NoGrad{T}}) where T = Base.eps(T)
-Base.show(io::IO, gv::NoGrad) = print(io, "NoGrad($(gv.x))")
-Base.show(io::IO, ::MIME"plain/text", gv::NoGrad) = Base.show(io, gv)
-Base.:-(x::NoGrad) = NoGrad(-x.x)
-GVar(x::NoGrad) = x.x
-(_::Type{Inv{GVar}})(x) = NoGrad(x)
-
-for TP in [:GVar, :Loss, :NoGrad]
-    @eval value(gv::$TP) = gv.x
-    @eval chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
-end
-chfield(x::GVar, ::typeof(value), xval::GVar) = GVar(xval, x.g)
 
 """
     @nograd f(args...)

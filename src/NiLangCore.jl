@@ -7,13 +7,13 @@ include("lens.jl")
 
 include("utils.jl")
 include("Core.jl")
-include("invtype.jl")
 include("vars.jl")
+include("invtype.jl")
 
 include("instr.jl")
 include("dualcode.jl")
 include("preprocess.jl")
-include("interpreter.jl")
+include("compiler.jl")
 include("checks.jl")
 
 include("autodiff/autodiff.jl")

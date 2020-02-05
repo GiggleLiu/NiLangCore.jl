@@ -10,9 +10,11 @@ function debcast(f)
     Symbol(string(f)[2:end])
 end
 
-get_ftype(fname::Symbol) = :(typeof($fname))
-function get_ftype(fname::Expr)
-    fname.head == :(::) && return fname.args[2]
+function get_ftype(fname)
+    @match fname begin
+        :($x::$tp) => tp
+        _ => :($fname isa Type ? Type{$fname} : typeof($fname))
+    end
 end
 
 get_argname(arg::Symbol) = arg
@@ -80,7 +82,7 @@ almost_same(x::T, y::T; kwargs...) where T<:AbstractArray = all(almost_same.(x, 
 rmlines(ex::Expr) = begin
     hd = ex.head
     if hd == :macrocall
-        Expr(:macrocall, ex.args[1], ex.args[2], ex.args[3] |> rmlines)
+        Expr(:macrocall, ex.args[1], nothing, ex.args[3] |> rmlines)
     else
         tl = map(rmlines, filter(!islinenumbernode, ex.args))
         Expr(hd, tl...)

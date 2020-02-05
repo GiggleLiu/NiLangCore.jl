@@ -13,7 +13,7 @@ function dual_fname(op)
         :($x::XorEq{$tp}) => :($x::XorEq{$tp})
         :($x::$tp) => :($x::Inv{<:$tp})
         #_ => :(_::Inv{typeof($op)})
-        _ => :($(gensym())::typeof(~$op))
+        _ => :($(gensym())::($op isa Type ? Type{Inv{$op}} : typeof(~$op)))
     end
 end
 
@@ -40,6 +40,9 @@ Get the dual expression of `ex`.
 """
 function dual_ex(ex)
     @match ex begin
+        :($x → $val) => :($x ← $val)
+        :($x ← $val) => :($x → $val)
+        :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
         :($f($(args...))) => begin
             if startwithdot(f)
                 :($(dotgetdual(f)).($(args...)))
@@ -75,8 +78,6 @@ function dual_ex(ex)
         :(for $i=$start:$step:$stop; $(body...); end) => begin
             Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(body)...))
         end
-        :(@anc $line $x = $val) => :(@deanc $x = $val)
-        :(@deanc $line $x = $val) => :(@anc $x = $val)
         :(@safe $line $subex) => :(@safe $subex)
         :(begin $(body...) end) => Expr(:block, dual_body(body)...)
         ::LineNumberNode => ex

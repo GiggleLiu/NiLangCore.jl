@@ -3,7 +3,7 @@ export ngradient, gradient
 
 isvar(x) = false
 isvar(x::AbstractFloat) = true
-isvar(x::Bundle{<:AbstractFloat}) = true
+isvar(x::Loss{<:AbstractFloat}) = true
 isvar(x::AbstractArray{T}) where T<:AbstractFloat = true
 
 function tset(vfunc::Function, tp::Tuple, iloss)
