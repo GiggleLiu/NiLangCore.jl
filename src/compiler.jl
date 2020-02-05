@@ -155,10 +155,12 @@ See `test/compiler.jl` and `test/invtype.jl` for more examples.
 """
 macro i(ex)
     if ex isa Expr && ex.head == :struct
-        esc(_gen_istruct(ex))
+        ex = _gen_istruct(ex)
     else
-        esc(_gen_ifunc(ex))
+        ex = _gen_ifunc(ex)
     end
+    ex.args[1] = :(Base.@__doc__ $(ex.args[1]))
+    esc(ex)
 end
 
 function _gen_istruct(ex)
@@ -193,7 +195,7 @@ function _gen_ifunc(ex)
     dualhead = :($dfname($(args...)) where {$(ts...)})
     fdef2 = Expr(:function, dualhead, Expr(:block, interpret_body(dual_body(body))..., invfuncfoot(args)))
     #ex = :(Base.@__doc__ $fdef1; if $ftype != $dftype; $fdef2; end)
-    ex = Expr(:block, :(Base.@__doc__ $fdef1),
+    ex = Expr(:block, fdef1,
         Expr(:if, :($ftype != $dftype), fdef2),
         _funcdef(:isreversible, ftype) |> rmlines
         )

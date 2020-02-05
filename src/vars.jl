@@ -128,7 +128,8 @@ macro pure_wrapper(tp)
         $TP(x::$TP{T}) where T = x # to avoid ambiguity error
         $TP{T}(x::$TP{T}) where T = x
         (_::Type{Inv{$TP}})(x) = x.x
-        @fieldview NiLangCore.value(x::$TP) = x.x
+        NiLangCore.value(x::$TP) = x.x
+        NiLangCore.chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
         Base.zero(x::$TP) = $TP(zero(T))
         Base.show(io::IO, gv::$TP) = print(io, "$($TP)($(gv.x))")
         Base.show(io::IO, ::MIME"plain/text", gv::$TP) = Base.show(io, gv)
