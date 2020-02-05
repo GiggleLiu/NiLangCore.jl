@@ -13,7 +13,7 @@ end
 function get_ftype(fname)
     @match fname begin
         :($x::$tp) => tp
-        _ => :($fname isa Type ? Type{$fname} : typeof($fname))
+        _ => :(NiLangCore._typeof($fname))
     end
 end
 
@@ -90,3 +90,6 @@ rmlines(ex::Expr) = begin
 end
 rmlines(@nospecialize(a)) = a
 islinenumbernode(@nospecialize(x)) = x isa LineNumberNode
+
+_typeof(x) = typeof(x)
+_typeof(x::Type{T}) where T = Type{T}

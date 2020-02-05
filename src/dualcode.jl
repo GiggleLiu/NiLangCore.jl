@@ -13,7 +13,7 @@ function dual_fname(op)
         :($x::XorEq{$tp}) => :($x::XorEq{$tp})
         :($x::$tp) => :($x::Inv{<:$tp})
         #_ => :(_::Inv{typeof($op)})
-        _ => :($(gensym())::($op isa Type ? Type{Inv{$op}} : typeof(~$op)))
+        _ => :($(gensym())::NiLangCore._typeof(~$op))
     end
 end
 
