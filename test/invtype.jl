@@ -93,11 +93,16 @@ end
 end
 
 @testset "@icast" begin
-    @test PVar((SVar(PVar(0.0, 0.5)))) == PVar(0.0, 0.5)
-    @test Float64(SVar(0.5)) == 0.5
+    @test convert(PVar, convert(SVar, PVar(0.0, 0.5))) == PVar(0.0, 0.5)
+    @test convert(Float64, convert(SVar,0.5)) == 0.5
     @i function test(x)
         (Float64=>SVar)(x)
     end
-    @test test(0.5) == SVar(0.5)
+    @test test(0.5) == convert(SVar, 0.5)
     @test (~test)(test(0.5)) == 0.5
+    @i function test(x)
+        (Float64=>SVar).(x)
+    end
+    @test test([0.5, 0.6]) == [convert(SVar,0.5), convert(SVar,0.6)]
+    @test (~test)(test([0.5, 0.6])) == [0.5, 0.6]
 end

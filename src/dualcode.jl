@@ -43,6 +43,7 @@ function dual_ex(ex)
         :($x → $val) => :($x ← $val)
         :($x ← $val) => :($x → $val)
         :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
+        :(($t1=>$t2).($x)) => :(($t2=>$t1).($x))
         :($f($(args...))) => begin
             if startwithdot(f)
                 :($(dotgetdual(f)).($(args...)))

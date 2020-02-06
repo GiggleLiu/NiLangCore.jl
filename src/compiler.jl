@@ -31,7 +31,8 @@ function interpret_ex(ex)
         end
         :($x ← $tp) => :($x = $tp)
         :($x → $tp) => Expr(:block, :(NiLangCore.deanc($x, $tp)), :($x = nothing)) # assign to nothing to prevent using
-        :(($t1=>$t2)($x)) => :(@assignback $t2($x))
+        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)))
+        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)))
         :($f($(args...))) => :(@assignback $f($(args...))) |> rmlines
         :($f.($(args...))) => :(@assignback $f.($(args...))) |> rmlines
 

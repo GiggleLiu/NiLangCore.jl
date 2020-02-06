@@ -68,8 +68,8 @@ macro icast(ex, body)
             end
             isempty(info.ancs) || throw("variable information discarded/unknown variable: $(info.ancs)")
             x = gensym()
-            fdef1 = Expr(:function, :($t1($x::$t2)), Expr(:block, _unpack_struct(x, args2), interpret_body(dual_body(body))..., a))
-            fdef2 = Expr(:function, :($t2($x::$t1)), Expr(:block, _unpack_struct(x, args1), interpret_body(body)..., b))
+            fdef1 = Expr(:function, :(Base.convert(::Type{$t1}, $x::$t2)), Expr(:block, _unpack_struct(x, args2), interpret_body(dual_body(body))..., a))
+            fdef2 = Expr(:function, :(Base.convert(::Type{$t2}, $x::$t1)), Expr(:block, _unpack_struct(x, args1), interpret_body(body)..., b))
             esc(Expr(:block, fdef1, fdef2, nothing))
         end
         _ => error("the first argument must be a pair like `x => y`.")
