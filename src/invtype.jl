@@ -20,7 +20,7 @@ export @icast
 Define type cast between `TDEF1` and `TDEF2`.
 Type `TDEF1` or `TDEF2` can be `T(args...)` or `x::T` like.
 
-```jldoctest; setup=:(using NiLangCore, Test)
+```jldoctest; setup=:(using NiLangCore)
 julia> struct PVar{T}
            g::T
            x::T
@@ -37,16 +37,28 @@ julia> @icast PVar(g, x) => SVar(x, k) begin
           k += identity(x)
        end
 
-julia> @test PVar((SVar(PVar(0.0, 0.5)))) == PVar(0.0, 0.5)
-Test Passed
+julia> x = PVar(0.0, 0.5)
+PVar{Float64}(0.0, 0.5)
+
+julia> @instr (PVar=>SVar)(x)
+SVar{Float64}(0.5, 0.5)
+
+julia> @instr (SVar=>PVar)(x)
+PVar{Float64}(0.0, 0.5)
 
 julia> @icast x::Base.Float64 => SVar(x, gg) begin
            gg ← zero(x)
            gg += identity(x)
        end
 
-julia> @test Float64(SVar(0.5)) == 0.5
-Test Passed
+julia> x = 0.5
+0.5
+
+julia> @instr (Float64=>SVar)(x)
+SVar{Float64}(0.5, 0.5)
+
+julia> @instr (SVar=>Float64)(x)
+0.5
 ```
 """
 macro icast(ex, body)
