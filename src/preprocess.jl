@@ -135,7 +135,9 @@ function precom_ex(ex, info)
             push!(info.routines, precode)
             precode
         end
-        :(~(@routine $line)) => dual_ex(pop!(info.routines))
+        :(~(@routine $line)) => begin
+            precom_ex(dual_ex(pop!(info.routines)), info)
+        end
         :(~$expr) => dual_ex(precom_ex(expr, info))
         :($f($(args...))) => :($f($(args...)))
         :($f.($(args...))) => :($f.($(args...)))
