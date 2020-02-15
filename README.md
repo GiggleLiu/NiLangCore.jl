@@ -22,12 +22,6 @@ julia> function SUB(a!::Number, b::Number)
            a! - b, b
        end
 SUB (generic function with 3 methods)
-
-julia> # define autodiff rule
-       @i function SUB(a!::GVar, b::GVar)
-           ADD(grad(b), grad(a!))
-           value(a!) -= identity(value(b))
-       end
 ```
 
 2. Define a reversible function
@@ -35,10 +29,6 @@ julia> # define autodiff rule
 julia> @i function test(a, b)
            SUB(a, b)
        end
-
-julia> # obtain the gradient
-       test'(Loss(0.5), 0.3)
-(Loss(GVar(0.5, 1.0)), GVar(0.3, -1.0))
 ```
 
 ## Reversible IR
