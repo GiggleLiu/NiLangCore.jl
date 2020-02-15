@@ -20,7 +20,3 @@ end
 @testset "compiler.jl" begin
     include("compiler.jl")
 end
-
-@testset "autodiff.jl" begin
-    include("autodiff/autodiff.jl")
-end

@@ -16,7 +16,4 @@ include("preprocess.jl")
 include("compiler.jl")
 include("checks.jl")
 
-include("autodiff/autodiff.jl")
-export ADCore
-
 end # module
