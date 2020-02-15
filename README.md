@@ -11,7 +11,7 @@ Requires Julia version >= 1.3.
 ## Examples
 1. Define a pair of dual instructions
 ```julia
-julia> using NiLangCore, NiLangCore.ADCore
+julia> using NiLangCore
 
 julia> function ADD(a!::Number, b::Number)
            a! + b, b
@@ -34,7 +34,7 @@ julia> @i function test(a, b)
 ## Reversible IR
 
 ```julia
-julia> using NiLangCore, NiLangCore.ADCore
+julia> using NiLangCore
 
 julia> @code_reverse x += f(y)
 :(x -= f(y))

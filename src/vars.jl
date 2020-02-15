@@ -39,12 +39,15 @@ export @fieldview
 Create a function fieldview that can be accessed by a reversible program
 
 ```jldoctest; setup=:(using NiLangCore)
-julia> using NiLangCore.ADCore
+julia> struct GVar{T, GT}
+           x::T
+           g::GT
+       end
 
 julia> @fieldview xx(x::GVar) = x.x
 
-julia> chfield(GVar(1.0), xx, 2.0)
-GVar(2.0, 0.0)
+julia> chfield(GVar(1.0, 0.0), xx, 2.0)
+GVar{Float64,Float64}(2.0, 0.0)
 ```
 """
 macro fieldview(ex)

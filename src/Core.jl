@@ -89,13 +89,17 @@ julia> chfield(1+2im, Val(:im), 5)
 or a function
 
 ```jldoctest; setup=:(using NiLangCore)
-julia> using NiLangCore.ADCore: GVar, grad
+julia> using NiLangCore
 
-julia> x = GVar(1.0)
-GVar(1.0, 0.0)
+julia> struct GVar{T, GT}
+           x::T
+           g::GT
+       end
 
-julia> chfield(x, grad, 0.5)
-GVar(1.0, 0.5)
+julia> @fieldview xx(x::GVar) = x.x
+
+julia> chfield(GVar(1.0, 0.0), xx, 2.0)
+GVar{Float64,Float64}(2.0, 0.0)
 ```
 """
 function chfield end

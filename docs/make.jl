@@ -1,7 +1,7 @@
-using Documenter, NiLangCore, NiLangCore.ADCore
+using Documenter, NiLangCore
 
 makedocs(;
-    modules=[NiLangCore, NiLangCore.ADCore],
+    modules=[NiLangCore],
     format=Documenter.HTML(),
     pages=[
         "Home" => "index.md",
