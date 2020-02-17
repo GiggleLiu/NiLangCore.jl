@@ -50,3 +50,17 @@ end
     @test -A(0.5) == A(-0.5)
     @test A(1+0.5im)' == A(1-0.5im)
 end
+
+@testset ">, <" begin
+    @pure_wrapper A
+    a = A(0.5)
+    @test unwrap(A(a)) == 0.5
+    @test A(a) < 0.6
+    @test A(a) <= 0.6
+    @test A(a) >= 0.4
+    @test a ≈ 0.5
+    @test a == 0.5
+    @test a > 0.4
+    @test isless(a, 0.6)
+end
+    

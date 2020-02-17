@@ -75,8 +75,8 @@ function whilestatement(precond, postcond, body)
         Expr(:while,
             precond,
             Expr(:block, body...),
-            ),
-        :(@invcheck $postcond)
+            :(@invcheck $postcond)
+        ),
     )
 end
 

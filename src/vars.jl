@@ -1,6 +1,6 @@
 export @anc, @deanc, @pure_wrapper
 export RevType, IWrapper, Partial
-export chfield, value
+export chfield, value, unwrap
 
 ############# ancillas ################
 """
@@ -93,15 +93,15 @@ It will forward `>, <, >=, <=, ≈` operations.
 """
 abstract type IWrapper{T} <: RevType end
 
-Base.isapprox(x::IWrapper, y; kwargs...) = isapprox(value(x), y; kwargs...)
-Base.isapprox(x::IWrapper, y::IWrapper; kwargs...) = isapprox(value(x), value(y); kwargs...)
-Base.isapprox(x, y::IWrapper; kwargs...) = isapprox(x, value(y); kwargs...)
 Base.eps(::Type{<:IWrapper{T}}) where T = Base.eps(T)
 
-for op in [:>, :<, :>=, :<=, :isless]
-    @eval Base.$op(a::IWrapper, b::IWrapper) = $op(value(a), value(b))
-    @eval Base.$op(a::IWrapper, b) = $op(value(a), b)
-    @eval Base.$op(a, b::IWrapper) = $op(a, value(b))
+unwrap(x::IWrapper) = unwrap(value(x))
+unwrap(x) = x
+
+for op in [:>, :<, :>=, :<=, :isless, :(==), :isapprox]
+    @eval Base.$op(a::IWrapper, b::IWrapper) = $op(unwrap(a), unwrap(b))
+    @eval Base.$op(a::IWrapper, b) = $op(unwrap(a), b)
+    @eval Base.$op(a, b::IWrapper) = $op(a, unwrap(b))
 end
 
 """
