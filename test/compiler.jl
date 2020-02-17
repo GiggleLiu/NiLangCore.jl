@@ -126,6 +126,15 @@ end
         end
     end
     @test_throws InvertibilityError looper2(x, y)
+
+    @i function looper2(x, y)
+        while (x<100, x>0)
+            z ← 0
+            x ⊕ y
+            z += identity(1)
+        end
+    end
+    @test_throws InvertibilityError looper2(x, y)
 end
 
 @testset "ancilla" begin

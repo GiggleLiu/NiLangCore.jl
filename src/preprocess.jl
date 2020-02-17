@@ -97,7 +97,8 @@ function precom_ex(ex, info)
         end
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
-            Expr(:while, :(($pre, $post)), Expr(:block, precom_body(body, PreInfo())...))
+            info = PreInfo()
+            Expr(:while, :(($pre, $post)), Expr(:block, flushancs(precom_body(body, info), info)...))
         end
         :(begin $(body...) end) => begin
             Expr(:block, precom_body(body, info)...)
@@ -105,7 +106,8 @@ function precom_ex(ex, info)
         # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
-            Expr(:for, :($i=$(precom_range(range))), Expr(:block, precom_body(body, PreInfo())...))
+            info = PreInfo()
+            Expr(:for, :($i=$(precom_range(range))), Expr(:block, flushancs(precom_body(body, info), info)...))
         end
         :(@anc $line $x = $val) => begin
             @warn "`@anc x = expr` is deprecated, please use `x ← expr` for loading an ancilla."
