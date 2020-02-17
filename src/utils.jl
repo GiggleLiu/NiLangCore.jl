@@ -33,8 +33,9 @@ end
 function match_function(ex)
     @match ex begin
         :(function $(fname)($(args...)) $(body...) end) ||
-        :($fname($(args...)) = $(body...)) => (fname, args, [], body)
-        Expr(:function, :($fname($(args...)) where {$(ts...)}), xbody) => (fname, args, ts, xbody.args)
+        :($fname($(args...)) = $(body...)) => (nothing, fname, args, [], body)
+        Expr(:function, :($fname($(args...)) where {$(ts...)}), xbody) => (nothing, fname, args, ts, xbody.args)
+        Expr(:macrocall, mcname, line, fdef) => ([mcname, line], match_function(fdef)[2:end]...)
         _ => error("must input a function, got $ex")
     end
 end

@@ -66,7 +66,7 @@ end
     x = 3
     y = 4
     out = 0
-    @i function test1(a, b, out)
+    @i @inline function test1(a, b, out)
         add(a, b)
         if (a > 2, a > 2)
             out += a*b

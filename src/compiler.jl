@@ -190,11 +190,12 @@ function _gen_ifunc(ex)
     dfname = NiLangCore.dual_fname(fname)
     dftype = get_ftype(dfname)
     fdef1 = Expr(:function, head, Expr(:block, interpret_body(body)..., invfuncfoot(args)))
-    if mc !== nothing
-        # TODO: support macro before function
-    end
     dualhead = :($dfname($(args...)) where {$(ts...)})
     fdef2 = Expr(:function, dualhead, Expr(:block, interpret_body(dual_body(body))..., invfuncfoot(args)))
+    if mc !== nothing
+        fdef1 = Expr(:macrocall, mc[1], mc[2], fdef1)
+        fdef2 = Expr(:macrocall, mc[1], mc[2], fdef2)
+    end
     #ex = :(Base.@__doc__ $fdef1; if $ftype != $dftype; $fdef2; end)
     ex = Expr(:block, fdef1,
         Expr(:if, :($ftype != $dftype), fdef2),

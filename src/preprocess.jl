@@ -7,13 +7,7 @@ end
 PreInfo() = PreInfo(Dict{Symbol,Symbol}(), [])
 
 function precom(ex)
-    if ex.head == :macrocall
-        mc = ex.args[1]
-        ex = ex.args[3]
-    else
-        mc = nothing
-    end
-    fname, args, ts, body = match_function(ex)
+    mc, fname, args, ts, body = match_function(ex)
     info = PreInfo()
     mc, fname, args, ts, flushancs(precom_body(body, info), info)
 end

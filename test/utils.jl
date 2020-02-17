@@ -3,25 +3,28 @@ using NiLangCore: get_argname, get_ftype, match_function
 
 @testset "match function" begin
     ex = match_function(:(function f(x) x end))
-    @test ex[1] == :f
-    @test ex[2] == [:x]
-    @test ex[3] == []
-    @test length(ex[4]) == 2
-    ex = match_function(:(function f(x; y) x end))
-    @test ex[1] == :f
-    @test ex[2] == [Expr(:parameters, :y), :x]
-    @test length(ex[4]) == 2
-    @test ex[3] == []
+    @test ex[1] == nothing
+    @test ex[2] == :f
+    @test ex[3] == [:x]
+    @test ex[4] == []
+    @test length(ex[5]) == 2
+    ex = match_function(:(@inline function f(x; y) x end))
+    @test ex[1][1] == Symbol("@inline")
+    @test ex[1][2] isa LineNumberNode
+    @test ex[2] == :f
+    @test ex[3] == [Expr(:parameters, :y), :x]
+    @test length(ex[5]) == 2
+    @test ex[4] == []
     ex = match_function(:(function f(x::T) where T x end))
-    @test ex[1] == :f
-    @test ex[2] == [:(x::T)]
-    @test length(ex[4]) == 2
-    @test ex[3] == [:T]
+    @test ex[2] == :f
+    @test ex[3] == [:(x::T)]
+    @test length(ex[5]) == 2
+    @test ex[4] == [:T]
     ex = match_function(:(f(x)=x))
-    @test ex[1] == :f
-    @test ex[2] == [:x]
-    @test length(ex[4]) == 2
-    @test ex[3] == []
+    @test ex[2] == :f
+    @test ex[3] == [:x]
+    @test length(ex[5]) == 2
+    @test ex[4] == []
 end
 
 @testset "argname and type" begin
