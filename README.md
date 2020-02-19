@@ -22,6 +22,8 @@ julia> function SUB(a!::Number, b::Number)
            a! - b, b
        end
 SUB (generic function with 3 methods)
+
+julia> @dual ADD SUB
 ```
 
 2. Define a reversible function
