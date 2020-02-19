@@ -201,7 +201,8 @@ _str(::PlusEq) = '⊕'
 _str(::MinusEq) = '⊖'
 _str(::XorEq) = '⊙'
 Base.display(o::OPMX) = print(_str(o), "(", o.f, ")")
-Base.show(io::IO, o::OPMX) = print(io, _str(o), o.f)
+Base.show_function(io::IO, o::OPMX, compact::Bool) = print(io, "$(_str(o))($(o.f))")
+Base.show_function(io::IO, ::MIME"plain/text", o::OPMX, compact::Bool) = Base.show(io, o)
 isreversible(::OPMX) = true
 
 export ⊕, ⊖, ⊙

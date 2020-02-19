@@ -95,6 +95,11 @@ abstract type IWrapper{T} <: RevType end
 
 Base.eps(::Type{<:IWrapper{T}}) where T = Base.eps(T)
 
+"""
+    unwrap(x)
+
+Unwrap a wrapper instance (recursively) to get the original value.
+"""
 unwrap(x::IWrapper) = unwrap(value(x))
 unwrap(x) = x
 
