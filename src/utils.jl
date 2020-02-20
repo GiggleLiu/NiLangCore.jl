@@ -2,7 +2,7 @@ const GLOBAL_ATOL = Ref(1e-8)
 # Compile utilities
 startwithdot(sym::Symbol) = string(sym)[1] == '.'
 startwithdot(sym::Expr) = false
-startwithdot(sym::Function) = false
+startwithdot(sym) = false
 endwithpang(sym::Symbol) = string(sym)[end] == '!'
 endwithpang(sym::Expr) = false
 removedot(sym::Symbol) = startwithdot(sym) ? Symbol(string(sym)[2:end]) : sym
