@@ -1,10 +1,11 @@
 export precom
+using DataStructures: OrderedDict
 
 struct PreInfo
-    ancs::Dict{Symbol, Any}
+    ancs::OrderedDict{Symbol, Any}
     routines::Vector{Any}
 end
-PreInfo() = PreInfo(Dict{Symbol,Symbol}(), [])
+PreInfo() = PreInfo(OrderedDict{Symbol,Symbol}(), [])
 
 function precom(ex)
     mc, fname, args, ts, body = match_function(ex)
@@ -17,7 +18,8 @@ function precom_body(body::AbstractVector, info)
 end
 
 function flushancs(out, info)
-    for (x, tp) in info.ancs
+    for i in 1:length(info.ancs)
+        (x, tp) = pop!(info.ancs)
         push!(out, :($x → $tp))
     end
     return out
