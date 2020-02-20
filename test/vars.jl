@@ -46,6 +46,7 @@ end
     @pure_wrapper A
     a = A(0.5)
     @test a isa A
+    @test zero(a) == A(0.0)
     @test (~A)(a) === 0.5
     @test -A(0.5) == A(-0.5)
     @test A(1+0.5im)' == A(1-0.5im)

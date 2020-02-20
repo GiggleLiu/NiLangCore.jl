@@ -138,7 +138,7 @@ macro pure_wrapper(tp)
         (_::Type{Inv{$TP}})(x) = x.x
         NiLangCore.value(x::$TP) = x.x
         NiLangCore.chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
-        Base.zero(x::$TP) = $TP(zero(T))
+        Base.zero(x::$TP) = $TP(zero(x.x))
         Base.show(io::IO, gv::$TP) = print(io, "$($TP)($(gv.x))")
         Base.show(io::IO, ::MIME"plain/text", gv::$TP) = Base.show(io, gv)
         Base.:-(x::$TP) = $TP(-x.x)
