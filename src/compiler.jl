@@ -51,6 +51,7 @@ function interpret_ex(ex)
             Expr(:block, interpret_body(body)...)
         end
         :(@safe $line $subex) => subex
+        :(@inbounds $line $subex) => :(@inbounds $(interpret_ex(subex)))
         :(return $(args...)) => nothing
         ::LineNumberNode => ex
         _ => error("statement is not supported for invertible lang! got $ex")

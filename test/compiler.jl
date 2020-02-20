@@ -224,6 +224,15 @@ end
     @test check_inv(test, (0.1, 2.0, -2.5); verbose=true)
 end
 
+@testset "@ibounds" begin
+    @i function test(x, y)
+        for i=1:length(x)
+            @inbounds x[i] += identity(y[i])
+        end
+    end
+    @test test([1,2], [2,3]) == ([3,5], [2,3])
+end
+
 @testset "kwargs" begin
     @i function test(out, x; y)
         out += x * (-y)

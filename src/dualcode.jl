@@ -82,6 +82,7 @@ function dual_ex(ex)
             Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(body)...))
         end
         :(@safe $line $subex) => :(@safe $subex)
+        :(@inbounds $line $subex) => :(@inbounds $(dual_ex(subex)))
         :(begin $(body...) end) => Expr(:block, dual_body(body)...)
         ::LineNumberNode => ex
         ::Nothing => ex

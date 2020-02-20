@@ -118,6 +118,7 @@ function precom_ex(ex, info)
             precom_ex(:($x → $val), info)
         end
         :(@safe $line $subex) => :(@safe $subex)
+        :(@inbounds $line $subex) => :(@inbounds $(precom_ex(subex, info)))
         :(@routine $line $name $expr) => begin
             @warn "`@routine name begin ... end` is deprecated, please use `@routine begin ... end`"
             precom_ex(:(@routine $expr), info)
