@@ -265,3 +265,20 @@ end
     @instr test(out, x)
     @test out == -5.0
 end
+
+@testset "invcheck" begin
+    @i function test(out, x)
+        anc ← 0
+        @invcheckoff for i=1:x[]
+            x[] -= identity(1)
+        end
+        @invcheckoff while (anc<3, anc<3)
+            anc += identity(1)
+        end
+        out += identity(anc)
+        @invcheckoff anc → 0
+    end
+    res = test(0, Ref(7))
+    @test res[1] == 3
+    @test res[2][] == 0
+end

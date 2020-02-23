@@ -22,20 +22,7 @@ Return `true` if `f` is an `instruction` that can not be decomposed anymore.
 isprimitive(f) = false
 
 # inv check
-export invcheckon, InvertibilityError, @invcheck
-const _invcheckon = Ref(true)
-
-"""
-    invcheckon(val::Bool)
-    invcheckon() -> Bool
-
-If `val` is provided, set the invertibility check status to `val`.
-This is a global switch, turning off may increase the performance.
-
-If `val` is not provided, query the invertibility check status.
-"""
-invcheckon(val::Bool) = _invcheckon[] = val
-invcheckon() = _invcheckon[]
+export InvertibilityError, @invcheck
 
 """
     InvertibilityError <: Exception
@@ -54,13 +41,11 @@ end
 Pass the check it if `ex` is true or `x ≈ val`.
 """
 macro invcheck(ex)
-    esc(Expr(:if, :(invcheckon()),
-        :($ex || throw(InvertibilityError($(QuoteNode(ex))))),
-    ))
+    esc(:($ex || throw(InvertibilityError($(QuoteNode(ex))))))
 end
 
 macro invcheck(x, val)
-    esc(rmlines(:(if invcheckon() && !(NiLangCore.almost_same($x, $val))
+    esc(rmlines(:(if !(NiLangCore.almost_same($x, $val))
         throw(InvertibilityError("$($(QuoteNode(x))) (=$($x)) ≂̸ $($(QuoteNode(val))) (=$($val))"))
     end)))
 end
