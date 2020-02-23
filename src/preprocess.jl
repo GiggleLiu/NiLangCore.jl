@@ -119,9 +119,10 @@ function precom_ex(ex, info)
             @warn "`@deanc x = expr` is deprecated, please use `x → expr` for deallocating an ancilla."
             precom_ex(:($x → $val), info)
         end
-        :(@safe $line $subex) => :(@safe $subex)
-        :(@inbounds $line $subex) => :(@inbounds $(precom_ex(subex, info)))
-        :(@invcheckoff $line $subex) => :(@invcheckoff $(precom_ex(subex, info)))
+        :(@safe $line $subex) => ex
+        :(@cuda $line $(args...)) => ex
+        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, precom_ex(subex, info))
+        :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, precom_ex(subex, info))
         :(@routine $line $name $expr) => begin
             @warn "`@routine name begin ... end` is deprecated, please use `@routine begin ... end`"
             precom_ex(:(@routine $expr), info)

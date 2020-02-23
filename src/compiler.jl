@@ -63,13 +63,29 @@ function compile_ex(ex, info)
             Expr(:block, compile_body(body, info)...)
         end
         :(@safe $line $subex) => subex
-        :(@inbounds $line $subex) => :(@inbounds $(compile_ex(subex, info)))
+        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, compile_ex(subex, info))
         :(@invcheckoff $line $subex) => begin
             state = info.invcheckon[]
             info.invcheckon[] = false
             ex = compile_ex(subex, info)
             info.invcheckon[] = state
             ex
+        end
+        :(@cuda $line $(args...)) => begin
+            fcall = @match args[end] begin
+                :($f($(args...))) => Expr(:call,
+                    Expr(:->,
+                        Expr(:tuple, args...),
+                        Expr(:block,
+                            :($f($(args...))),
+                            nothing
+                        )
+                    ),
+                    args...
+                )
+                _ => error("expect a function after @cuda, got $(args[end])")
+            end
+            Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., fcall)
         end
         :(return $(args...)) => nothing
         ::LineNumberNode => ex
