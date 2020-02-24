@@ -81,8 +81,10 @@ function dual_ex(ex)
         :(for $i=$start:$step:$stop; $(body...); end) => begin
             Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(body)...))
         end
-        :(@safe $line $subex) => :(@safe $subex)
-        :(@inbounds $line $subex) => :(@inbounds $(dual_ex(subex)))
+        :(@safe $line $subex) => Expr(:macrocall, Symbol("@safe"), line, subex)
+        :(@cuda $line $(args...)) => Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., dual_ex(args[end]))
+        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, dual_ex(subex))
+        :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, dual_ex(subex))
         :(begin $(body...) end) => Expr(:block, dual_body(body)...)
         ::LineNumberNode => ex
         ::Nothing => ex

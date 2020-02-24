@@ -1,5 +1,5 @@
 using NiLangCore
-using NiLangCore: interpret_ex, dual_ex, precom_ex
+using NiLangCore: compile_ex, dual_ex, precom_ex
 
 using Test
 import Base: +, -
@@ -66,14 +66,14 @@ end
 end
 
 #=
-@testset "interpret_ex" begin
+@testset "compile_ex" begin
     info = ()
-    @test interpret_ex(:(f(x, y)), info) == :(@instr f(x, y))
-    @test interpret_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :(@instr ⊕(+)(out, x, y))
-    @test interpret_ex(:(x .+ y), info) == :(@instr x .+ y)
-    @test interpret_ex(:(f.(x, y)), info) == :(@instr f.(x, y))
-    @test interpret_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :(@instr ⊕(+).(out, x, y))
-    @test interpret_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :(@instr ⊕(swap).(out, x, y))
+    @test compile_ex(:(f(x, y)), info) == :(@instr f(x, y))
+    @test compile_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :(@instr ⊕(+)(out, x, y))
+    @test compile_ex(:(x .+ y), info) == :(@instr x .+ y)
+    @test compile_ex(:(f.(x, y)), info) == :(@instr f.(x, y))
+    @test compile_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :(@instr ⊕(+).(out, x, y))
+    @test compile_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :(@instr ⊕(swap).(out, x, y))
 end
 =#
 

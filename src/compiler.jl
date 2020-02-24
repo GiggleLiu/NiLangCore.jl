@@ -1,8 +1,13 @@
+struct CompileInfo
+    invcheckon::Ref{Bool}
+end
+CompileInfo() = CompileInfo(Ref(true))
+
 #using .NGG: rmlines
-function interpret_body(body::AbstractVector)
+function compile_body(body::AbstractVector, info)
     out = []
     for ex in body
-        ex_ = interpret_ex(ex)
+        ex_ = compile_ex(ex, info)
         ex_ !== nothing && push!(out, ex_)
     end
     return out
@@ -10,17 +15,17 @@ end
 
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
-function interpret_ex(ex)
+function compile_ex(ex, info)
     @match ex begin
-        :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...))) |> rmlines
-        :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...))) |> rmlines
-        :($a .+= $f.($(args...))) => :(@assignback PlusEq($f).($a, $(args...))) |> rmlines
-        :($a -= $f($(args...))) => :(@assignback MinusEq($f)($a, $(args...))) |> rmlines
-        :($a .-= $f($(args...))) => :(@assignback MinusEq($(debcast(f))).($a, $(args...))) |> rmlines
-        :($a .-= $f.($(args...))) => :(@assignback MinusEq($f).($a, $(args...))) |> rmlines
-        :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...))) |> rmlines
-        :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...))) |> rmlines
-        :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...))) |> rmlines
+        :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .+= $f.($(args...))) => :(@assignback PlusEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a -= $f($(args...))) => :(@assignback MinusEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .-= $f($(args...))) => :(@assignback MinusEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .-= $f.($(args...))) => :(@assignback MinusEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
             :($x = $(ex.args[3]))
@@ -30,70 +35,115 @@ function interpret_ex(ex)
             :($(Expr(:tuple, args...)) = NiLangCore.type2tuple($x))
         end
         :($x ← $tp) => :($x = $tp)
-        :($x → $tp) => Expr(:block, :(NiLangCore.deanc($x, $tp)), :($x = nothing)) # assign to nothing to prevent using
-        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)))
-        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)))
-        :($f($(args...))) => :(@assignback $f($(args...))) |> rmlines
-        :($f.($(args...))) => :(@assignback $f.($(args...))) |> rmlines
+        :($x → $tp) => begin
+            if info.invcheckon[]
+                #Expr(:block, :(NiLangCore.deanc($x, $tp)), :($x = nothing)) # assign to nothing to prevent using
+                :(NiLangCore.deanc($x, $tp))
+            else
+                nothing
+            end
+        end
+        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
+        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
+        :($f($(args...))) => :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
+        :($f.($(args...))) => :(@assignback $f.($(args...)) $(info.invcheckon[])) |> rmlines
 
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
-            ifstatement(pre, post, interpret_body(truebranch), interpret_body(falsebranch))
+            ifstatement(pre, post, compile_body(truebranch, info), compile_body(falsebranch, info), info)
         end
         :(while ($pre, $post); $(body...); end) => begin
-            whilestatement(pre, post, interpret_body(body))
+            whilestatement(pre, post, compile_body(body, info), info)
         end
         # TODO: allow ommit step.
         :(for $i=$start:$step:$stop; $(body...); end) => begin
-            forstatement(i, start, step, stop, interpret_body(body))
+            forstatement(i, start, step, stop, compile_body(body, info), info)
         end
         :(begin $(body...) end) => begin
-            Expr(:block, interpret_body(body)...)
+            Expr(:block, compile_body(body, info)...)
         end
         :(@safe $line $subex) => subex
-        :(@inbounds $line $subex) => :(@inbounds $(interpret_ex(subex)))
+        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, compile_ex(subex, info))
+        :(@invcheckoff $line $subex) => begin
+            state = info.invcheckon[]
+            info.invcheckon[] = false
+            ex = compile_ex(subex, info)
+            info.invcheckon[] = state
+            ex
+        end
+        :(@cuda $line $(args...)) => begin
+            fcall = @match args[end] begin
+                :($f($(args...))) => Expr(:call,
+                    Expr(:->,
+                        Expr(:tuple, args...),
+                        Expr(:block,
+                            :($f($(args...))),
+                            nothing
+                        )
+                    ),
+                    args...
+                )
+                _ => error("expect a function after @cuda, got $(args[end])")
+            end
+            Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., fcall)
+        end
         :(return $(args...)) => nothing
         ::LineNumberNode => ex
         _ => error("statement is not supported for invertible lang! got $ex")
     end
 end
 
-function ifstatement(precond, postcond, truebranch, falsebranch)
+function ifstatement(precond, postcond, truebranch, falsebranch, info)
     var = gensym()
-    Expr(:block,
+    ex = Expr(:block,
         :($var = $precond),
         Expr(:if, var,
             Expr(:block, truebranch...),
             Expr(:block, falsebranch...),
-            ),
-        :(@invcheck $postcond $var)
+            )
     )
+    if info.invcheckon[]
+        push!(ex.args,
+            :(@invcheck $postcond $var)
+        )
+    end
+    ex
 end
 
-function whilestatement(precond, postcond, body)
-    Expr(:block,
-        :(@invcheck !($postcond)),
+function whilestatement(precond, postcond, body, info)
+    ex = Expr(:block,
         Expr(:while,
             precond,
             Expr(:block, body...),
-            :(@invcheck $postcond)
         ),
     )
+    if info.invcheckon[]
+        pushfirst!(ex.args, :(@invcheck !($postcond)))
+        push!(ex.args[end].args[end].args,
+            :(@invcheck $postcond)
+        )
+    end
+    ex
 end
 
-function forstatement(i, start, step, stop, body)
+function forstatement(i, start, step, stop, body, info)
     start_, step_, stop_ = gensym(), gensym(), gensym()
     ex = Expr(:block,
-        :($start_ = $start[]),
-        :($step_ = $step[]),
-        :($stop_ = $stop[]),
+        :($start_ = $start),
+        :($step_ = $step),
+        :($stop_ = $stop),
         Expr(:for, :($i=$start_:$step_:$stop_),
             Expr(:block, body...)
-            ),
-        :(@invcheck $start_  $start[]),
-        :(@invcheck $step_  $step[]),
-        :(@invcheck $stop_  $stop[])
+            )
     )
+    if info.invcheckon[]
+        append!(ex.args,
+            [:(@invcheck $start_  $start),
+            :(@invcheck $step_  $step),
+            :(@invcheck $stop_  $stop)]
+        )
+    end
+    ex
 end
 
 export @code_interpret
@@ -111,7 +161,7 @@ julia> prettify(@code_interpret x += exp(3.0))
 ```
 """
 macro code_interpret(ex)
-    QuoteNode(NiLangCore.interpret_ex(ex))
+    QuoteNode(NiLangCore.compile_ex(ex, CompileInfo()))
 end
 
 export @i
@@ -190,9 +240,9 @@ function _gen_ifunc(ex)
     head = :($fname($(args...)) where {$(ts...)})
     dfname = NiLangCore.dual_fname(fname)
     dftype = get_ftype(dfname)
-    fdef1 = Expr(:function, head, Expr(:block, interpret_body(body)..., invfuncfoot(args)))
+    fdef1 = Expr(:function, head, Expr(:block, compile_body(body, CompileInfo())..., invfuncfoot(args)))
     dualhead = :($dfname($(args...)) where {$(ts...)})
-    fdef2 = Expr(:function, dualhead, Expr(:block, interpret_body(dual_body(body))..., invfuncfoot(args)))
+    fdef2 = Expr(:function, dualhead, Expr(:block, compile_body(dual_body(body), CompileInfo())..., invfuncfoot(args)))
     if mc !== nothing
         fdef1 = Expr(:macrocall, mc[1], mc[2], fdef1)
         fdef2 = Expr(:macrocall, mc[1], mc[2], fdef2)
@@ -239,7 +289,7 @@ function interpret_func(ex)
             ftype = get_ftype(fname)
             esc(:(
             function $fname($(args...))
-                $(interpret_body(body)...)
+                $(compile_body(body)...)
                 return ($(args...),)
             end;
             $(_funcdef(:isreversible, ftype))
@@ -268,5 +318,5 @@ export @instr
 Execute a reversible instruction.
 """
 macro instr(ex)
-    esc(NiLangCore.interpret_ex(precom_ex(ex, NiLangCore.PreInfo())))
+    esc(NiLangCore.compile_ex(precom_ex(ex, NiLangCore.PreInfo()), CompileInfo()))
 end
