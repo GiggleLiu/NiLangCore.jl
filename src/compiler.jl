@@ -17,15 +17,15 @@ end
 """translate to normal julia code."""
 function compile_ex(ex, info)
     @match ex begin
-        :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...))) |> rmlines
-        :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...))) |> rmlines
-        :($a .+= $f.($(args...))) => :(@assignback PlusEq($f).($a, $(args...))) |> rmlines
-        :($a -= $f($(args...))) => :(@assignback MinusEq($f)($a, $(args...))) |> rmlines
-        :($a .-= $f($(args...))) => :(@assignback MinusEq($(debcast(f))).($a, $(args...))) |> rmlines
-        :($a .-= $f.($(args...))) => :(@assignback MinusEq($f).($a, $(args...))) |> rmlines
-        :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...))) |> rmlines
-        :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...))) |> rmlines
-        :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...))) |> rmlines
+        :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .+= $f.($(args...))) => :(@assignback PlusEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a -= $f($(args...))) => :(@assignback MinusEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .-= $f($(args...))) => :(@assignback MinusEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .-= $f.($(args...))) => :(@assignback MinusEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
             :($x = $(ex.args[3]))
@@ -43,10 +43,10 @@ function compile_ex(ex, info)
                 nothing
             end
         end
-        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)))
-        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)))
-        :($f($(args...))) => :(@assignback $f($(args...))) |> rmlines
-        :($f.($(args...))) => :(@assignback $f.($(args...))) |> rmlines
+        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
+        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
+        :($f($(args...))) => :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
+        :($f.($(args...))) => :(@assignback $f.($(args...)) $(info.invcheckon[])) |> rmlines
 
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin

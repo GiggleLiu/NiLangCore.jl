@@ -19,7 +19,7 @@ end
 deanc(x, val) = @invcheck x val
 
 """
-    @deanc x = expr
+    @anc x = expr
 
 Create an ancilla `x` with initial value `expr`,
 """
@@ -83,7 +83,7 @@ for VTYPE in [:AbstractArray, :Ref]
     @eval chfield(tp::$VTYPE, i::Int, val) = chfield(tp, (i,), val)
 end
 NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
-NiLangCore.chfield(x::T, ::typeof(adjoint), y::T) where T = adjoint(y)
+NiLangCore.chfield(x::T, ::typeof(adjoint), y) where T = adjoint(y)
 
 """
     IWrapper{T} <: RevType

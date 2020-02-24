@@ -55,46 +55,46 @@ export @assignback
 
 # TODO: include control flows.
 """
-    @assignback f(args...)
+    @assignback f(args...) [invcheck]
 
-Assign input variables with output values: `args... = f(args...)`.
+Assign input variables with output values: `args... = f(args...)`, turn off invertibility error check if the second argument is false.
 """
-macro assignback(ex)
+macro assignback(ex, invcheck=true)
     ex = precom_ex(ex, PreInfo())
     @match ex begin
         :($f($(args...))) => begin
             symres = gensym()
             ex = :($symres = $f($(args...)))
             if startwithdot(f)
-                esc(Expr(ex, bcast_assign_vars(notkey(args), symres)))
+                esc(Expr(ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
             else
-                esc(Expr(:block, ex, assign_vars(notkey(args), symres)))
+                esc(Expr(:block, ex, assign_vars(notkey(args), symres; invcheck=invcheck)))
             end
         end
         # TODO: support multiple input
         :($f.($(args...))) => begin
             symres = gensym()
             ex = :($symres = $f.($(args...)))
-            esc(Expr(:block, ex, bcast_assign_vars(notkey(args), symres)))
+            esc(Expr(:block, ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
         end
         _ => error("got $ex")
     end
 end
 
 """
-    assign_vars(args, symres)
+    assign_vars(args, symres; invcheck)
 
 Get the expression of assigning `symres` to `args`.
 """
-function assign_vars(args, symres)
+function assign_vars(args, symres; invcheck)
     exprs = []
     for (i,arg) in enumerate(args)
         exi = @match arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                assign_ex(ag, :(NiLangCore.tailn(NiLangCore.wrap_tuple($symres), Val($i-1))))
+                assign_ex(ag, :(NiLangCore.tailn(NiLangCore.wrap_tuple($symres), Val($i-1))); invcheck=invcheck)
             end
-            _ => assign_ex(arg, :(NiLangCore.wrap_tuple($symres)[$i]))
+            _ => assign_ex(arg, :(NiLangCore.wrap_tuple($symres)[$i]); invcheck=invcheck)
         end
         exi !== nothing && push!(exprs, exi)
     end
@@ -105,11 +105,11 @@ wrap_tuple(x) = (x,)
 wrap_tuple(x::Tuple) = x
 
 """The broadcast version of `assign_vars`"""
-function bcast_assign_vars(args, symres)
+function bcast_assign_vars(args, symres; invcheck)
     if length(args) == 1
         @match args[1] begin
             :($args...) => :($args = ([getindex.($symres, j) for j=1:length($symres[1])]...,))
-            _ => assign_ex(args[1], symres)
+            _ => assign_ex(args[1], symres; invcheck=invcheck)
         end
     else
         ex = :()
@@ -119,7 +119,7 @@ function bcast_assign_vars(args, symres)
                     i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
                     :($ag = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
                 end
-                _ => assign_ex(arg, :(getindex.($symres, $i)))
+                _ => assign_ex(arg, :(getindex.($symres, $i)); invcheck=invcheck)
             end
             exi !== nothing && (ex = :($ex; $exi))
         end
@@ -128,33 +128,48 @@ function bcast_assign_vars(args, symres)
 end
 
 
-function assign_ex(arg::Symbol, res)
-    _isconst(arg) ? :(@invcheck $arg $res) : :($arg = $res)
+function _invcheck(docheck, arg, res)
+    if docheck
+        :(@invcheck $arg $res)
+    else
+        nothing
+    end
 end
-assign_ex(arg::Union{Number,String}, res) = :(@invcheck $arg $res)
-assign_ex(arg::Expr, res) = @match arg begin
-    :($x.$k) => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)))))
-    :($f($x)) => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, $f, $res)))))
-    :($f.($x)) => :($(assign_ex(x, :(chfield.($x, Ref($f), $res)))))
-    :($x') => :($(_isconst(x) ? :(@invcheck $arg $res) : assign_ex(x, :(chfield($x, adjoint, $res)))))
+function assign_ex(arg::Symbol, res; invcheck)
+    if _isconst(arg)
+        _invcheck(invcheck, arg, res)
+    else
+        :($arg = $res)
+    end
+end
+assign_ex(arg::Union{Number,String}, res; invcheck) = _invcheck(invcheck, arg, res)
+assign_ex(arg::Expr, res; invcheck) = @match arg begin
+    :(tget($a, $(x...))) => begin
+        assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)); invcheck=invcheck)
+    end
+    :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
+    :($f($x)) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
+    :($f($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
+    :($f.($x)) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
+    :($f.($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
+    :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)); invcheck=invcheck)
     :($a[$(x...)]) => begin
         :($a[$(x...)] = $res)
     end
     # tuple must be index through tget
-    :(tget($a, $(x...))) => begin
-        assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)))
-    end
     :(($(args...),)) => begin
         ex = :()
         for i=1:length(args)
-            ex = :($ex; $(assign_ex(args[i], :($res[$i]))))
+            ex = :($ex; $(assign_ex(args[i], :($res[$i]); invcheck=invcheck)))
         end
         ex
     end
-    _ => :(@invcheck $arg $res)
+    _ => _invcheck(invcheck, arg, res)
 end
 
+_isconst(x) = false
 _isconst(x::Symbol) = x in [:im, :π]
+_isconst(::QuoteNode) = true
 _isconst(x::Union{Number,String}) = true
 _isconst(x::Expr) = @match x begin
     :($f($(args...))) => all(_isconst, args)
@@ -169,12 +184,13 @@ tailn(t::Tuple, ::Val{0}) = t
 export @assign
 
 """
-    @assign a b
+    @assign a b [invcheck]
 
 Perform the assign `a = b` in a reversible program.
+Turn off invertibility check if the `invcheck` is false.
 """
-macro assign(a, b)
-    esc(assign_ex(a, b))
+macro assign(a, b, invcheck=true)
+    esc(assign_ex(a, b; invcheck=invcheck))
 end
 
 # TODEP
