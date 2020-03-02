@@ -146,21 +146,21 @@ function forstatement(i, start, step, stop, body, info)
     ex
 end
 
-export @code_interpret
+export @code_julia
 
 """
-    @code_interpret ex
+    @code_julia ex
 
 Get the interpreted expression of `ex`.
 
 ```jldoctest; setup=:(using NiLangCore)
 julia> using MacroTools
 
-julia> prettify(@code_interpret x += exp(3.0))
+julia> prettify(@code_julia x += exp(3.0))
 :(@assignback (PlusEq(exp))(x, 3.0))
 ```
 """
-macro code_interpret(ex)
+macro code_julia(ex)
     QuoteNode(NiLangCore.compile_ex(ex, CompileInfo()))
 end
 
@@ -252,6 +252,62 @@ function _gen_ifunc(ex)
         Expr(:if, :($ftype != $dftype), fdef2),
         _funcdef(:isreversible, ftype) |> rmlines
         )
+end
+
+export nilang_ir
+"""
+    nilang_ir(ex; reversed::Bool=false)
+
+Get the NiLang reversible IR from the function expression `ex`,
+return the reversed function if `reversed` is `true`.
+
+This IR is not directly executable on Julia, please use
+`macroexpand(Main, :(@i function .... end))` to get the julia expression of a reversible function.
+
+```jldoctest; setup=:(using NiLangCore, MacroTools)
+julia> ex = :(@inline function f(x!::T, y) where T
+               anc ← zero(T)
+               @routine anc += identity(x!)
+               x! += y * anc
+               ~@routine
+           end);
+
+julia> nilang_ir(ex) |> MacroTools.prettify
+:(@inline function f(x!::T, y) where T
+          anc ← zero(T)
+          anc += identity(x!)
+          x! += y * anc
+          anc -= identity(x!)
+          anc → zero(T)
+      end)
+
+julia> nilang_ir(ex; reversed=true) |> MacroTools.prettify
+:(@inline function (~f)(x!::T, y) where T
+          anc ← zero(T)
+          anc += identity(x!)
+          x! -= y * anc
+          anc -= identity(x!)
+          anc → zero(T)
+      end)
+```
+"""
+function nilang_ir(ex; reversed::Bool=false)
+    mc, fname, args, ts, body = precom(ex)
+    fname = _replace_opmx(fname)
+
+    # implementations
+    if reversed
+        dfname = :(~$fname) # use fake head for readability
+        head = :($dfname($(args...)) where {$(ts...)})
+        body = dual_body(body)
+    else
+        head = :($fname($(args...)) where {$(ts...)})
+    end
+    fdef = Expr(:function, head, Expr(:block, body...))
+    if mc !== nothing
+        fdef = Expr(:macrocall, mc[1], mc[2], fdef)
+    end
+    fdef
 end
 
 function notkey(args)

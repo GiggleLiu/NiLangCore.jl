@@ -282,3 +282,33 @@ end
     @test res[1] == 3
     @test res[2][] == 0
 end
+
+@testset "nilang ir" begin
+    ex = :(
+        @inline function f(x!::T, y) where T
+            anc ← zero(T)
+            @routine anc += identity(x!)
+            x! += y * anc
+            ~@routine
+        end
+    )
+    ex2 = :(
+    @inline function f(x!::T, y) where T
+          anc ← zero(T)
+          anc += identity(x!)
+          x! += y * anc
+          anc -= identity(x!)
+          anc → zero(T)
+    end)
+
+    ex3 = :(
+    @inline function (~f)(x!::T, y) where T
+          anc ← zero(T)
+          anc += identity(x!)
+          x! -= y * anc
+          anc -= identity(x!)
+          anc → zero(T)
+    end)
+    @test nilang_ir(ex) |> NiLangCore.rmlines == ex2 |> NiLangCore.rmlines
+    @test nilang_ir(ex; reversed=true) |> NiLangCore.rmlines == ex3 |> NiLangCore.rmlines
+end

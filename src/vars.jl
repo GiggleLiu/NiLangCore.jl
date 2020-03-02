@@ -1,4 +1,4 @@
-export @anc, @deanc, @pure_wrapper
+export @pure_wrapper
 export RevType, IWrapper, Partial
 export chfield, value, unwrap
 
@@ -128,6 +128,7 @@ A(-0.5)
 
 julia> A(0.5) < A(0.6)
 true
+```
 """
 macro pure_wrapper(tp)
     TP = esc(tp)
