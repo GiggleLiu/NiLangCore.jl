@@ -102,16 +102,16 @@ export Inv
 The inverse of a function.
 """
 struct Inv{FT} <: Function
-    _f::FT
+    f::FT
 end
-Inv(f::Inv) = f._f
+Inv(f::Inv) = f.f
 isreversible(::Inv) = true
 Base.:~(f::Function) = Inv(f)
 Base.:~(::Type{Inv{T}}) where T = T  # for type, it is a destructor
 Base.:~(::Type{T}) where T = Inv{T}  # for type, it is a destructor
-Base.show(io::IO, b::Inv) = print(io, "~$(b._f)")
+Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
 Base.display(bf::Inv) where f = print(bf)
-Base.getproperty(iv::Inv, prop::Symbol) = prop == :_f ? getfield(iv, :_f) : getproperty(iv._f, prop)
+unwrap(x::Inv) = unwrap(x.f)
 
 ######### Infer
 export PlusEq, MinusEq, XorEq

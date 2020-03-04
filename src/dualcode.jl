@@ -14,6 +14,7 @@ function dual_fname(op)
         :($x::PlusEq) => :($x::MinusEq)
         :($x::XorEq{$tp}) => :($x::XorEq{$tp})
         :($x::$tp) => :($x::Inv{<:$tp})
+        :(~$x) => x
         #_ => :(_::Inv{typeof($op)})
         _ => :($(gensym())::NiLangCore._typeof(~$op))
     end
@@ -119,6 +120,7 @@ end
 getdual(f) = @match f begin
     :(⊕($f)) => :(⊖($f))
     :(⊖($f)) => :(⊕($f))
+    :(~$f) => f
     _ => :(~$f)
 end
 dotgetdual(f::Symbol) = getdual(removedot(f))
