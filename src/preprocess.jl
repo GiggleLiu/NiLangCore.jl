@@ -91,7 +91,11 @@ function precom_ex(ex, info)
         # TODO: allow no postcond, or no else
         :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
             post = post == :~ ? pre : post
-            Expr(:if, :(($pre, $post)), Expr(:block, precom_body(truebranch, info)...), Expr(:block, precom_body(falsebranch, info)...))
+            info = PreInfo()
+            tbranch = flushancs(precom_body(truebranch, info), info)
+            info = PreInfo()
+            fbranch = flushancs(precom_body(falsebranch, info), info)
+            Expr(:if, :(($pre, $post)), Expr(:block, tbranch...), Expr(:block, fbranch...))
         end
         :(if ($pre, $post); $(truebranch...); end) => begin
             post = post == :~ ? pre : post
