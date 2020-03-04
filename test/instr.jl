@@ -33,6 +33,17 @@ end
 @selfdual XOR
 #@nograd XOR
 
+@testset "boolean" begin
+    x = false
+    @instr x ⊻= identity(true)
+    @test x
+    @instr x ⊻= true || false
+    @test !x
+    @instr x ⊻= true && false
+    @instr x ⊻= !false
+    @test x
+end
+
 @testset "@dual" begin
     @test isreversible(add)
     @test isreversible(sub)

@@ -168,6 +168,9 @@ isreflexive(::XorEq) = true
 
 const OPMX{FT} = Union{PlusEq{FT}, MinusEq{FT}, XorEq{FT}}
 
+logical_or(a, b) = a || b
+logical_and(a, b) = a && b
+
 """
 accumulate result into x.
 """

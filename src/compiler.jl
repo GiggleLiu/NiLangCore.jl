@@ -24,6 +24,8 @@ function compile_ex(ex, info)
         :($a .-= $f($(args...))) => :(@assignback MinusEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
         :($a .-= $f.($(args...))) => :(@assignback MinusEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
         :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a ⊻= $x || $y) => :(@assignback XorEq(NiLangCore.logical_or)($a, $x, $y) $(info.invcheckon[])) |> rmlines
+        :($a ⊻= $x && $y) => :(@assignback XorEq(NiLangCore.logical_and)($a, $x, $y) $(info.invcheckon[])) |> rmlines
         :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
         :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
         :($x ← new{$(_...)}($(args...))) ||

@@ -168,7 +168,7 @@ assign_ex(arg::Expr, res; invcheck) = @match arg begin
 end
 
 _isconst(x) = false
-_isconst(x::Symbol) = x in [:im, :π]
+_isconst(x::Symbol) = x in [:im, :π, :true, :false]
 _isconst(::QuoteNode) = true
 _isconst(x::Union{Number,String}) = true
 _isconst(x::Expr) = @match x begin

@@ -29,14 +29,29 @@ function precom_opm(f, out, arg2)
     if f in [:(+=), :(-=)]
         @match arg2 begin
             :($subf($(subargs...))) => Expr(f, out, arg2)
-            #_ => Expr(f, out, :(identity($arg2)))
             _ => error("unknown expression after assign $(QuoteNode(arg2))")
         end
     elseif f in [:(.+=), :(.-=)]
         @match arg2 begin
             :($subf.($(subargs...))) => Expr(f, out, arg2)
             :($subf($(subargs...))) => Expr(f, out, arg2)
-            #_ => Expr(f, out, :(identity.($arg2)))
+            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+        end
+    end
+end
+
+function precom_ox(f, out, arg2)
+    if f == :(⊻=)
+        @match arg2 begin
+            :($subf($(subargs...))) ||
+            :($a || $b) ||
+            :($a && $b) => Expr(f, out, arg2)
+            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+        end
+    elseif f == :(.⊻=)
+        @match arg2 begin
+            :($subf.($(subargs...))) => Expr(f, out, arg2)
+            :($subf($(subargs...))) => Expr(f, out, arg2)
             _ => error("unknown expression after assign $(QuoteNode(arg2))")
         end
     end
@@ -80,8 +95,10 @@ function precom_ex(ex, info)
         end
         :($a += $b) => precom_opm(:+=, a, b)
         :($a -= $b) => precom_opm(:-=, a, b)
+        :($a ⊻= $b) => precom_ox(:⊻=, a, b)
         :($a .+= $b) => precom_opm(:.+=, a, b)
         :($a .-= $b) => precom_opm(:.-=, a, b)
+        :($a .⊻= $b) => precom_ox(:.⊻=, a, b)
         :($a ⊕ $b) => :($a += identity($b))
         :($a .⊕ $b) => :($a .+= identity.($b))
         :($a ⊖ $b) => :($a -= identity($b))
