@@ -84,6 +84,7 @@ function dual_ex(ex)
         end
         :(@safe $line $subex) => Expr(:macrocall, Symbol("@safe"), line, subex)
         :(@cuda $line $(args...)) => Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., dual_ex(args[end]))
+        :(@launchkernel $line $(args...)) => Expr(:macrocall, Symbol("@launchkernel"), line, args[1:end-1]..., dual_ex(args[end]))
         :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, dual_ex(subex))
         :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, dual_ex(subex))
         :(begin $(body...) end) => Expr(:block, dual_body(body)...)

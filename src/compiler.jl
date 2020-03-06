@@ -89,7 +89,13 @@ function compile_ex(ex, info)
             end
             Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., fcall)
         end
-        :(return $(args...)) => nothing
+        :(@launchkernel $line $device $thread $ndrange $f($(args...))) => begin
+            res = gensym()
+            Expr(:block,
+                :($res = $f($device, $thread)($(args...); ndrange=$ndrange)),
+                :(wait($res))
+            )
+        end
         ::LineNumberNode => ex
         _ => error("statement is not supported for invertible lang! got $ex")
     end
@@ -324,12 +330,12 @@ function invfuncfoot(args)
     args = get_argname.(notkey(args))
     if length(args) == 1
         if args[1] isa Expr && args[1].head == :(...)
-            :(return $(args[1].args[1]))
+            args[1].args[1]
         else
-            :(return $(args[1]))
+            args[1]
         end
     else
-        :(return ($(args...),))
+        :(($(args...),))
     end
 end
 
@@ -348,7 +354,7 @@ function interpret_func(ex)
             esc(:(
             function $fname($(args...))
                 $(compile_body(body)...)
-                return ($(args...),)
+                ($(args...),)
             end;
             $(_funcdef(:isreversible, ftype))
             ))

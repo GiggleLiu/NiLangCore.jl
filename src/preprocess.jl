@@ -142,6 +142,7 @@ function precom_ex(ex, info)
         end
         :(@safe $line $subex) => ex
         :(@cuda $line $(args...)) => ex
+        :(@launchkernel $line $(args...)) => ex
         :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, precom_ex(subex, info))
         :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, precom_ex(subex, info))
         :(@routine $line $name $expr) => begin
