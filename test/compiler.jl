@@ -237,7 +237,7 @@ end
     @i function test(out, x; y)
         out += x * (-y)
     end
-    @test check_inv(test, (0.1, 2.0); kwargs=(:y=>0.5,), verbose=true)
+    @test check_inv(test, (0.1, 2.0); y=0.5, verbose=true)
 end
 
 @testset "routines" begin

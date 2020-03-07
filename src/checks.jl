@@ -11,11 +11,11 @@ function world_similar(a, b; atol::Real=1e-8, verbose::Bool=false)
 end
 
 """
-    check_inv(f, args; kwargs=(), atol::Real=1e-8, verbose::Bool=false)
+    check_inv(f, args; atol::Real=1e-8, verbose::Bool=false, kwargs...)
 
 Return true if `f(args..., kwargs...)` is reversible.
 """
-function check_inv(f, args; kwargs=(), atol::Real=1e-8, verbose::Bool=false)
+function check_inv(f, args; atol::Real=1e-8, verbose::Bool=false, kwargs...)
     args0 = deepcopy(args)
     args = wrap_tuple(f(args...; kwargs...))
     args = wrap_tuple((~f)(args...; kwargs...))
