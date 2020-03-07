@@ -312,3 +312,28 @@ end
     @test nilang_ir(ex) |> NiLangCore.rmlines == ex2 |> NiLangCore.rmlines
     @test nilang_ir(ex; reversed=true) |> NiLangCore.rmlines == ex3 |> NiLangCore.rmlines
 end
+
+@testset "protectf" begin
+    struct C<:Function end
+    # protected
+    @i function (a::C)(x)
+        @safe @show a
+        if (protectf(a) isa Inv, ~)
+            add(x, 1.0)
+        else
+            sub(x, 1.0)
+        end
+    end
+    a = C()
+    @test (~a)(a(1.0)) == 1.0
+    # not protected
+    @i function (a::C)(x)
+        @safe @show a
+        if (a isa Inv, ~)
+            add(x, 1.0)
+        else
+            sub(x, 1.0)
+        end
+    end
+    @test (~a)(a(1.0)) == -1.0
+end

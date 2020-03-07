@@ -1,5 +1,6 @@
 # Properties
 export isreversible, isreflexive, isprimitive
+export protectf
 """
     isreversible(f)
 
@@ -111,7 +112,8 @@ Base.:~(::Type{Inv{T}}) where T = T  # for type, it is a destructor
 Base.:~(::Type{T}) where T = Inv{T}  # for type, it is a destructor
 Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
 Base.display(bf::Inv) where f = print(bf)
-unwrap(x::Inv) = unwrap(x.f)
+protectf(x) = x
+protectf(x::Inv) = x.f
 
 ######### Infer
 export PlusEq, MinusEq, XorEq
