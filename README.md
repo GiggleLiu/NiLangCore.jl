@@ -47,8 +47,8 @@ julia> @code_reverse x .+= f.(y)
 julia> @code_reverse x ⊻= f(y)
 :(x ⊻= f(y))
 
-julia> @code_reverse @anc x = zero(T)
-:(#= /home/leo/.julia/dev/NiLangCore/src/dualcode.jl:79 =# @deanc x = zero(T))
+julia> @code_reverse x ← zero(T)
+:(x → zero(T))
 
 julia> @code_reverse begin y += f(x) end
 quote
@@ -85,8 +85,3 @@ julia> @code_reverse for i=start:step:stop y += f(x) end
 julia> @code_reverse @safe println(x)
 :(#= /home/leo/.julia/dev/NiLangCore/src/dualcode.jl:81 =# @safe println(x))
 ```
-
-Additional macro tools includes
-
-* `@code_preprocess`, preprocess user input to a legal reversible IR.
-* `@code_interpret`, interpret reversible IR to native Julia code.
