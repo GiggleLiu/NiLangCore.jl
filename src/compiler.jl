@@ -42,7 +42,7 @@ function compile_ex(ex, info)
                 #Expr(:block, :(NiLangCore.deanc($x, $tp)), :($x = nothing)) # assign to nothing to prevent using
                 :(NiLangCore.deanc($x, $tp))
             else
-                nothing
+                :(NiLangCore.deanc_nocheck($x, $tp))
             end
         end
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
