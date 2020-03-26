@@ -16,6 +16,9 @@ end
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
 function compile_ex(ex, info)
+    if ex isa Expr && ex.head == :if
+        return compile_if(copy(ex), info)
+    end
     @match ex begin
         :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
         :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
@@ -51,9 +54,6 @@ function compile_ex(ex, info)
         :($f.($(args...))) => :(@assignback $f.($(args...)) $(info.invcheckon[])) |> rmlines
 
         # TODO: allow no postcond, or no else
-        :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
-            ifstatement(pre, post, compile_body(truebranch, info), compile_body(falsebranch, info), info)
-        end
         :(while ($pre, $post); $(body...); end) => begin
             whilestatement(pre, post, compile_body(body, info), info)
         end
@@ -101,19 +101,33 @@ function compile_ex(ex, info)
     end
 end
 
-function ifstatement(precond, postcond, truebranch, falsebranch, info)
+function compile_if(ex, info)
+    pres = []
+    posts = []
+    ex = analyse_if(ex, info, pres, posts)
+    Expr(:block, pres..., ex, posts...)
+end
+
+function analyse_if(ex, info, pres, posts)
     var = gensym()
-    ex = Expr(:block,
-        :($var = $precond),
-        Expr(:if, var,
-            Expr(:block, truebranch...),
-            Expr(:block, falsebranch...),
-            )
-    )
+    if ex.head == :if
+        pre, post = ex.args[1].args
+        ex.args[1] = var
+    elseif ex.head == :elseif
+        pre, post = ex.args[1].args[2].args
+        ex.args[1].args[2] = var
+    end
+    push!(pres, :($var = $pre))
     if info.invcheckon[]
-        push!(ex.args,
-            :(@invcheck $postcond $var)
-        )
+        push!(posts, Expr(:macrocall, Symbol("@invcheck"), nothing, var, post))
+    end
+    ex.args[2] = Expr(:block, compile_body(ex.args[2].args, info)...)
+    if length(ex.args) == 3
+        if ex.args[3].head == :elseif
+            ex.args[3] = analyse_if(ex.args[3], info, pres, posts)
+        elseif ex.args[3].head == :block
+            ex.args[3] = Expr(:block, compile_body(ex.args[3].args, info)...)
+        end
     end
     ex
 end

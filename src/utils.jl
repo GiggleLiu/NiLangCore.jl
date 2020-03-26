@@ -84,7 +84,7 @@ almost_same(x::T, y::T; kwargs...) where T<:AbstractArray = all(almost_same.(x, 
 rmlines(ex::Expr) = begin
     hd = ex.head
     if hd == :macrocall
-        Expr(:macrocall, ex.args[1], nothing, ex.args[3] |> rmlines)
+        Expr(:macrocall, ex.args[1], nothing, rmlines.(ex.args[3:end])...)
     else
         tl = map(rmlines, filter(!islinenumbernode, ex.args))
         Expr(hd, tl...)

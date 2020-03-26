@@ -337,3 +337,29 @@ end
     end
     @test (~a)(a(1.0)) == -1.0
 end
+
+@testset "ifelse statement" begin
+    @i function f(x, y)
+        if (x > 0, ~)
+            y += identity(1)
+        elseif (x < 0, ~)
+            y += identity(2)
+        else
+            y += identity(3)
+        end
+    end
+    @test f(1, 0) == (1, 1)
+    @test f(-2, 0) == (-2, 2)
+    @test f(0, 0) == (0, 3)
+
+    @i function f2(x, y)
+        if (x > 0, x < 0)
+            y += identity(1)
+        elseif (x < 0, x < 0)
+            y += identity(2)
+        else
+            y += identity(3)
+        end
+    end
+    @test_throws InvertibilityError f2(-1, 0)
+end

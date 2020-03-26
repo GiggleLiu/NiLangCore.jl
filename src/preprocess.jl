@@ -58,6 +58,9 @@ function precom_ox(f, out, arg2)
 end
 
 function precom_ex(ex, info)
+    if ex isa Expr && ex.head == :if
+        return precom_if(copy(ex))
+    end
     @match ex begin
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
@@ -105,19 +108,6 @@ function precom_ex(ex, info)
         :($a .⊖ $b) => :($a .-= identity.($b))
         :($a ⊙ $b) => :($a ⊻= identity($b))
         :($a .⊙ $b) => :($a .⊻= identity.($b))
-        # TODO: allow no postcond, or no else
-        :(if ($pre, $post); $(truebranch...); else; $(falsebranch...); end) => begin
-            post = post == :~ ? pre : post
-            info = PreInfo()
-            tbranch = flushancs(precom_body(truebranch, info), info)
-            info = PreInfo()
-            fbranch = flushancs(precom_body(falsebranch, info), info)
-            Expr(:if, :(($pre, $post)), Expr(:block, tbranch...), Expr(:block, fbranch...))
-        end
-        :(if ($pre, $post); $(truebranch...); end) => begin
-            post = post == :~ ? pre : post
-            precom_ex(Expr(:if, :(($pre, $post)), Expr(:block, truebranch...), Expr(:block)), info)
-        end
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
             info = PreInfo()
@@ -174,6 +164,32 @@ precom_range(range) = @match range begin
     :($start:$step:$stop) => range
     :($start:$stop) => :($start:1:$stop)
     _ => error("not supported for loop style $range.")
+end
+
+function precom_if(ex)
+    _expand_cond(cond) = @match cond begin
+        :(($pre, ~)) => :(($pre, $pre))
+        :(($pre, $post)) => :(($pre, $post))
+        _ => error("must provide post condition, use `~` to specify a dummy one.")
+    end
+    if ex.head == :if
+        ex.args[1] = _expand_cond(ex.args[1])
+    elseif ex.head == :elseif
+        ex.args[1].args[2] = _expand_cond(ex.args[1].args[2])
+    end
+    info = PreInfo()
+    ex.args[2] = Expr(:block, flushancs(precom_body(ex.args[2].args, info), info)...)
+    if length(ex.args) == 3
+        if ex.args[3].head == :elseif
+            ex.args[3] = precom_if(ex.args[3])
+        elseif ex.args[3].head == :block
+            info = PreInfo()
+            ex.args[3] = Expr(:block, flushancs(precom_body(ex.args[3].args, info), info)...)
+        else
+            error("unknown statement following `if` $ex.")
+        end
+    end
+    ex
 end
 
 export @code_preprocess
