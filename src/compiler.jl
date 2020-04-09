@@ -13,24 +13,37 @@ function compile_body(body::AbstractVector, info)
     return out
 end
 
+function _instr(opm, (@nospecialize f), out, args, info, ldot, rdot)
+    if length(args) > 0 && args[1] isa Expr && args[1].head == :parameters
+        _args = Any[args[1], out, args[2:end]...]
+    else
+        _args = Any[out, args...]
+    end
+    if ldot && !rdot
+        f = debcast(f)
+    end
+    if ldot
+        :(@assignback $opm($f).($(_args...)) $(info.invcheckon[])) |> rmlines
+    else
+        :(@assignback $opm($f)($(_args...)) $(info.invcheckon[])) |> rmlines
+    end
+end
+
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
 function compile_ex(ex, info)
-    if ex isa Expr && ex.head == :if
-        return compile_if(copy(ex), info)
-    end
     @match ex begin
-        :($a += $f($(args...))) => :(@assignback PlusEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
-        :($a .+= $f($(args...))) => :(@assignback PlusEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
-        :($a .+= $f.($(args...))) => :(@assignback PlusEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
-        :($a -= $f($(args...))) => :(@assignback MinusEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
-        :($a .-= $f($(args...))) => :(@assignback MinusEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
-        :($a .-= $f.($(args...))) => :(@assignback MinusEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
-        :($a ⊻= $f($(args...))) => :(@assignback XorEq($f)($a, $(args...)) $(info.invcheckon[])) |> rmlines
-        :($a ⊻= $x || $y) => :(@assignback XorEq(NiLangCore.logical_or)($a, $x, $y) $(info.invcheckon[])) |> rmlines
-        :($a ⊻= $x && $y) => :(@assignback XorEq(NiLangCore.logical_and)($a, $x, $y) $(info.invcheckon[])) |> rmlines
-        :($a .⊻= $f($(args...))) => :(@assignback XorEq($(debcast(f))).($a, $(args...)) $(info.invcheckon[])) |> rmlines
-        :($a .⊻= $f.($(args...))) => :(@assignback XorEq($f).($a, $(args...)) $(info.invcheckon[])) |> rmlines
+        :($a += $f($(args...))) => _instr(PlusEq, f, a, args, info, false, false)
+        :($a .+= $f($(args...))) => _instr(PlusEq, f, a, args, info, true, false)
+        :($a .+= $f.($(args...))) => _instr(PlusEq, f, a, args, info, true, true)
+        :($a -= $f($(args...))) => _instr(MinusEq, f, a, args, info, false, false)
+        :($a .-= $f($(args...))) => _instr(MinusEq, f, a, args, info, true, false)
+        :($a .-= $f.($(args...))) => _instr(MinusEq, f, a, args, info, true, true)
+        :($a ⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, false, false)
+        :($a ⊻= $x || $y) => _instr(XorEq, NiLangCore.logical_or, a, Any[x, y], info, false, false)
+        :($a ⊻= $x && $y) => _instr(XorEq, NiLangCore.logical_and, a, Any[x, y], info, false, false)
+        :($a .⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, true, false)
+        :($a .⊻= $f.($(args...))) => _instr(XorEq, f, a, args, info, true, true)
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
             :($x = $(ex.args[3]))
@@ -52,8 +65,7 @@ function compile_ex(ex, info)
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
         :($f($(args...))) => :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
         :($f.($(args...))) => :(@assignback $f.($(args...)) $(info.invcheckon[])) |> rmlines
-
-        # TODO: allow no postcond, or no else
+        Expr(:if, _...) => compile_if(copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
             whilestatement(pre, post, compile_body(body, info), info)
         end

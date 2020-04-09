@@ -58,9 +58,6 @@ function precom_ox(f, out, arg2)
 end
 
 function precom_ex(ex, info)
-    if ex isa Expr && ex.head == :if
-        return precom_if(copy(ex))
-    end
     @match ex begin
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
@@ -108,6 +105,7 @@ function precom_ex(ex, info)
         :($a .⊖ $b) => :($a .-= identity.($b))
         :($a ⊙ $b) => :($a ⊻= identity($b))
         :($a .⊙ $b) => :($a .⊻= identity.($b))
+        Expr(:if, _...) => precom_if(copy(ex))
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
             info = PreInfo()

@@ -42,9 +42,6 @@ end
 Get the dual expression of `ex`.
 """
 function dual_ex(ex)
-    if ex isa Expr && ex.head == :if
-        return dual_if(copy(ex))
-    end
     @match ex begin
         :($x → $val) => :($x ← $val)
         :($x ← $val) => :($x → $val)
@@ -74,6 +71,7 @@ function dual_ex(ex)
         :($a .-= $b) => :($a .+= $b)
         :($a ⊻= $b) => :($a ⊻= $b)
         :($a .⊻= $b) => :($a .⊻= $b)
+        Expr(:if, _...) => dual_if(copy(ex))
         :(while ($pre, $post); $(body...); end) => begin
             Expr(:while, :(($post, $pre)), Expr(:block, dual_body(body)...))
         end

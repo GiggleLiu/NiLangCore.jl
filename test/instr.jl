@@ -118,3 +118,11 @@ end
     @instr x ⊕ log(2*π)/2
     @test x == 0.5 + π + 3*log(π)/2 + log(2π)/2
 end
+
+@testset "+= keyword functions" begin
+    g(x; y=2) = x^y
+    z = 0.0
+    x = 2.0
+    @instr z += g(x; y=4)
+    @test z == 16.0
+end
