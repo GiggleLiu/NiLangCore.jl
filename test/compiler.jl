@@ -363,3 +363,13 @@ end
     end
     @test_throws InvertibilityError f2(-1, 0)
 end
+
+@testset "skip!" begin
+    x = 0.4
+    @instr (@skip! 3) += identity(x)
+    @test x == 0.4
+    y = 0.3
+    @instr x += identity(@keep y)
+    @test x == 0.7
+    @test y == 0.3
+end

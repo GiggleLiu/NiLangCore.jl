@@ -51,6 +51,17 @@ macro selfdual(f)
     ))
 end
 
+export @keep
+macro keep(ex)
+    esc(ex)
+end
+
+export @skip!
+macro skip!(ex)
+    esc(ex)
+end
+
+
 export @assignback
 
 # TODO: include control flows.
@@ -144,6 +155,7 @@ function assign_ex(arg::Symbol, res; invcheck)
 end
 assign_ex(arg::Union{Number,String}, res; invcheck) = _invcheck(invcheck, arg, res)
 assign_ex(arg::Expr, res; invcheck) = @match arg begin
+    :(@skip! $line $x) => nothing
     :(tget($a, $(x...))) => begin
         assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)); invcheck=invcheck)
     end
@@ -173,6 +185,7 @@ _isconst(::QuoteNode) = true
 _isconst(x::Union{Number,String}) = true
 _isconst(x::Expr) = @match x begin
     :($f($(args...))) => all(_isconst, args)
+    :(@keep $line $ex) => true
     _ => false
 end
 

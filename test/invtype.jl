@@ -2,7 +2,7 @@ using NiLangCore
 using NiLangCore: type2tuple
 using Test
 
-struct NiTypeTest{T} <: RevType
+struct NiTypeTest{T} <: IWrapper{T}
     x::T
     g::T
 end

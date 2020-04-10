@@ -126,3 +126,8 @@ end
     @instr z += g(x; y=4)
     @test z == 16.0
 end
+
+@testset "keep value" begin
+    @test @keep 2 == 2
+    @test NiLangCore._isconst(:(@keep grad(x)))
+end

@@ -49,7 +49,6 @@ end
     @test zero(a) == A(0.0)
     @test (~A)(a) === 0.5
     @test -A(0.5) == A(-0.5)
-    @test A(1+0.5im)' == A(1-0.5im)
 end
 
 @testset ">, <" begin
@@ -64,4 +63,3 @@ end
     @test a > 0.4
     @test isless(a, 0.6)
 end
-    

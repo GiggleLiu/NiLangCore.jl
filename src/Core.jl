@@ -51,15 +51,6 @@ macro invcheck(x, val)
     end)))
 end
 
-# TODEP
-# Inv Type
-"""
-    RevType
-
-The base type for reversible types.
-"""
-abstract type RevType end
-
 """
     chfield(x, field, val)
 
@@ -89,10 +80,6 @@ GVar{Float64,Float64}(2.0, 0.0)
 ```
 """
 function chfield end
-
-chfield(x, ::Type{T}, v) where {T<:RevType} = (~T)(v)
-isreversible(::Type{<:RevType}) = true
-isreversible(::RevType) = true
 
 ######## Inv
 export Inv
@@ -181,7 +168,7 @@ accumulate result into x.
 #(inf::XorEq)(out!, args...) = (chfield(out!, value, value(out!) ⊻ inf.f(value.(args)...)), args...)
 
 for (TP, OP) in [(:PlusEq, :+), (:MinusEq, :-), (:XorEq, :⊻)]
-    @eval (inf::$TP)(out!::Number, args::Number...; kwargs...) = $OP(out!, inf.f(args...; kwargs...)), args...
+    @eval (inf::$TP)(out!::Real, args...; kwargs...) = $OP(out!, inf.f(args...; kwargs...)), args...
 end
 
 Base.:~(op::PlusEq) = MinusEq(op.f)

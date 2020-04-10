@@ -1,5 +1,5 @@
 export @pure_wrapper
-export RevType, IWrapper, Partial
+export IWrapper, Partial
 export chfield, value, unwrap
 
 ############# ancillas ################
@@ -87,14 +87,22 @@ NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
 NiLangCore.chfield(x::T, ::typeof(adjoint), y) where T = adjoint(y)
 
 """
-    IWrapper{T} <: RevType
+    IWrapper{T} <: Real
 
 IWrapper{T} is a wrapper of for data of type T.
 It will forward `>, <, >=, <=, ≈` operations.
 """
-abstract type IWrapper{T} <: RevType end
-
+abstract type IWrapper{T} <: Real end
+chfield(x, ::Type{T}, v) where {T<:IWrapper} = (~T)(v)
 Base.eps(::Type{<:IWrapper{T}}) where T = Base.eps(T)
+@generated function almost_same(a::T, b::T; kwargs...) where T<:IWrapper
+    nf = fieldcount(a)
+    quote
+        res = true
+        @nexprs $nf i-> res = res && almost_same(getfield(a, i), getfield(b, i); kwargs...)
+        res
+    end
+end
 
 """
     unwrap(x)
@@ -106,8 +114,10 @@ unwrap(x) = x
 
 for op in [:>, :<, :>=, :<=, :isless, :(==), :isapprox]
     @eval Base.$op(a::IWrapper, b::IWrapper) = $op(unwrap(a), unwrap(b))
-    @eval Base.$op(a::IWrapper, b) = $op(unwrap(a), b)
-    @eval Base.$op(a, b::IWrapper) = $op(a, unwrap(b))
+    @eval Base.$op(a::IWrapper, b::Real) = $op(unwrap(a), b)
+    @eval Base.$op(a::IWrapper, b::AbstractFloat) = $op(unwrap(a), b)
+    @eval Base.$op(a::Real, b::IWrapper) = $op(a, unwrap(b))
+    @eval Base.$op(a::AbstractFloat, b::IWrapper) = $op(a, unwrap(b))
 end
 
 """
@@ -144,7 +154,6 @@ macro pure_wrapper(tp)
         Base.show(io::IO, gv::$TP) = print(io, "$($TP)($(gv.x))")
         Base.show(io::IO, ::MIME"plain/text", gv::$TP) = Base.show(io, gv)
         Base.:-(x::$TP) = $TP(-x.x)
-        Base.adjoint(x::$TP) = $TP(x.x')
     end
 end
 
@@ -156,8 +165,15 @@ This operation can be undone by calling `~Partial{FIELD}`.
 """
 struct Partial{FIELD, T, T2} <: IWrapper{T2}
     x::T
+    function Partial{FIELD,T,T2}(x::T) where {T,T2,FIELD}
+        new{FIELD,T,T2}(x)
+    end
+    function Partial{FIELD,T,T2}(x::T) where {T<:Complex,T2,FIELD}
+        new{FIELD,T,T2}(x)
+    end
 end
 Partial{FIELD}(x::T) where {T,FIELD} = Partial{FIELD,T,typeof(getfield(x,FIELD))}(x)
+Partial{FIELD}(x::T) where {T<:Complex,FIELD} = Partial{FIELD,T,typeof(getfield(x,FIELD))}(x)
 
 @generated function (_::Type{Inv{Partial{FIELD}}})(x::Partial{FIELD}) where {FIELD}
     :(x.x)
