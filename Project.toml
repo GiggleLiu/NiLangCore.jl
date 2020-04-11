@@ -1,7 +1,7 @@
 name = "NiLangCore"
 uuid = "575d3204-02a4-11ea-3f62-238caa8bf11e"
 authors = ["JinGuo Liu", "thautwarm"]
-version = "0.4.4"
+version = "0.5.0"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
