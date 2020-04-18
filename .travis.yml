@@ -4,7 +4,7 @@ os:
   - linux
   - osx
 julia:
-  - 1.3
+  - 1.4
   - nightly
 matrix:
   allow_failures:
@@ -17,7 +17,7 @@ after_success:
 jobs:
   include:
     - stage: "DocTest"
-      julia: 1.3 # we only do doc test on latest stable release
+      julia: 1.4 # we only do doc test on latest stable release
       os: linux
       script:
         - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
