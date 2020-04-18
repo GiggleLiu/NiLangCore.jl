@@ -188,6 +188,144 @@ end
     @test check_inv(test2, (x, y, out))
 end
 
+@testset "broadcast arr" begin
+    @i function f5(x, y, z, a, b)
+        x += y + z
+        b += a + x
+    end
+    @i function f4(x, y, z, a)
+        x += y + z
+        a += y + x
+    end
+    @i function f3(x, y, z)
+        y += x + z
+    end
+    @i function f2(x, y)
+        y += identity(x)
+    end
+    @i function f1(x)
+        l ← zero(x)
+        l += identity(x)
+        x -= 2 * identity(l)
+        l += identity(x)
+    end
+    a = randn(10)
+    b = randn(10)
+    c = randn(10)
+    d = randn(10)
+    e = randn(10)
+    aa = copy(a)
+    @instr f1.(aa)
+    @test aa ≈ -a
+    aa = copy(a)
+    bb = copy(b)
+    @instr f2.(aa, bb)
+    @test aa ≈ a
+    @test bb ≈ b + a
+
+    aa = copy(a)
+    bb = copy(b)
+    cc = copy(c)
+    @instr f3.(aa, bb, cc)
+    @test aa ≈ a
+    @test bb ≈ b + a + c
+    @test cc ≈ c
+
+    aa = copy(a)
+    bb = copy(b)
+    cc = copy(c)
+    dd = copy(d)
+    @instr f4.(aa, bb, cc, dd)
+    @test aa ≈ a + b + c
+    @test bb ≈ b
+    @test cc ≈ c
+    @test dd ≈ a + 2b + c + d
+
+    aa = copy(a)
+    bb = copy(b)
+    cc = copy(c)
+    dd = copy(d)
+    ee = copy(e)
+    @instr f5.(aa, bb, cc, dd, ee)
+    @test aa ≈ a + b + c
+    @test bb ≈ b
+    @test cc ≈ c
+    @test dd ≈ d
+    @test ee ≈ a + b + c + d + e
+
+    x = randn(5)
+    @test_throws AssertionError @instr x .+= identity.(c)
+end
+
+@testset "broadcast tuple" begin
+    @i function f5(x, y, z, a, b)
+        x += y + z
+        b += a + x
+    end
+    @i function f4(x, y, z, a)
+        x += y + z
+        a += y + x
+    end
+    @i function f3(x, y, z)
+        y += x + z
+    end
+    @i function f2(x, y)
+        y += identity(x)
+    end
+    @i function f1(x)
+        l ← zero(x)
+        l += identity(x)
+        x -= 2 * identity(l)
+        l += identity(x)
+    end
+    a = (1,2)
+    b = (3,1)
+    c = (6,7)
+    d = (1,11)
+    e = (4,1)
+    aa = a
+    @instr f1.(aa)
+    @test aa == -1 .* a
+    aa = a
+    bb = b
+    @instr f2.(aa, bb)
+    @test aa == a
+    @test bb == b .+ a
+
+    aa = a
+    bb = b
+    cc = c
+    @instr f3.(aa, bb, cc)
+    @test aa == a
+    @test bb == b .+ a .+ c
+    @test cc == c
+
+    aa = a
+    bb = b
+    cc = c
+    dd = d
+    @instr f4.(aa, bb, cc, dd)
+    @test aa == a .+ b .+ c
+    @test bb == b
+    @test cc == c
+    @test dd == a .+ 2 .* b .+ c .+ d
+
+    aa = a
+    bb = b
+    cc = c
+    dd = d
+    ee = e
+    @instr f5.(aa, bb, cc, dd, ee)
+    @test aa == a .+ b .+ c
+    @test bb == b
+    @test cc == c
+    @test dd == d
+    @test ee == a .+ b .+ c .+ d .+ e
+
+    x = (2,1,5)
+    @test_throws DimensionMismatch @instr x .+= identity.(c)
+end
+
 @testset "broadcast 2" begin
     # compute (a+b)*b -> out
     @i function test1(a, b)

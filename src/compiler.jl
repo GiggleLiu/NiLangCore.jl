@@ -23,7 +23,7 @@ function _instr(opm, (@nospecialize f), out, args, info, ldot, rdot)
         f = debcast(f)
     end
     if ldot
-        :(@assignback $opm($f).($(_args...)) $(info.invcheckon[])) |> rmlines
+        :(@assignback $ibcast((@skip! $opm($f)), $(_args...))) |> rmlines
     else
         :(@assignback $opm($f)($(_args...)) $(info.invcheckon[])) |> rmlines
     end
@@ -40,8 +40,8 @@ function compile_ex(ex, info)
         :($a .-= $f($(args...))) => _instr(MinusEq, f, a, args, info, true, false)
         :($a .-= $f.($(args...))) => _instr(MinusEq, f, a, args, info, true, true)
         :($a ⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, false, false)
-        :($a ⊻= $x || $y) => _instr(XorEq, NiLangCore.logical_or, a, Any[x, y], info, false, false)
-        :($a ⊻= $x && $y) => _instr(XorEq, NiLangCore.logical_and, a, Any[x, y], info, false, false)
+        :($a ⊻= $x || $y) => _instr(XorEq, logical_or, a, Any[x, y], info, false, false)
+        :($a ⊻= $x && $y) => _instr(XorEq, logical_and, a, Any[x, y], info, false, false)
         :($a .⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, true, false)
         :($a .⊻= $f.($(args...))) => _instr(XorEq, f, a, args, info, true, true)
         :($x ← new{$(_...)}($(args...))) ||
@@ -50,21 +50,20 @@ function compile_ex(ex, info)
         end
         :($x → new{$(_...)}($(args...))) ||
         :($x → new($(args...))) => begin
-            :($(Expr(:tuple, args...)) = NiLangCore.type2tuple($x))
+            :($(Expr(:tuple, args...)) = $type2tuple($x))
         end
         :($x ← $tp) => :($x = $tp)
         :($x → $tp) => begin
             if info.invcheckon[]
-                #Expr(:block, :(NiLangCore.deanc($x, $tp)), :($x = nothing)) # assign to nothing to prevent using
-                :(NiLangCore.deanc($x, $tp))
+                :($deanc($x, $tp))
             else
-                :(NiLangCore.deanc_nocheck($x, $tp))
+                :($deanc_nocheck($x, $tp))
             end
         end
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
         :($f($(args...))) => :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
-        :($f.($(args...))) => :(@assignback $f.($(args...)) $(info.invcheckon[])) |> rmlines
+        :($f.($(args...))) => :(@assignback $ibcast((@skip! $f), $(args...))) |> rmlines
         Expr(:if, _...) => compile_if(copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
             whilestatement(pre, post, compile_body(body, info), info)
@@ -195,7 +194,7 @@ julia> prettify(@code_julia x += exp(3.0))
 ```
 """
 macro code_julia(ex)
-    QuoteNode(NiLangCore.compile_ex(ex, CompileInfo()))
+    QuoteNode(compile_ex(ex, CompileInfo()))
 end
 
 export @i
@@ -272,7 +271,7 @@ function _gen_ifunc(ex)
     ftype = get_ftype(fname)
 
     head = :($fname($(args...)) where {$(ts...)})
-    dfname = NiLangCore.dual_fname(fname)
+    dfname = dual_fname(fname)
     dftype = get_ftype(dfname)
     fdef1 = Expr(:function, head, Expr(:block, compile_body(body, CompileInfo())..., invfuncfoot(args)))
     dualhead = :($dfname($(args...)) where {$(ts...)})
@@ -394,7 +393,7 @@ function _hasmethod1(f::TF, argt) where TF
 end
 
 function _funcdef(f, ftype)
-    :(if !NiLangCore._hasmethod1(NiLangCore.$f, $ftype)
+    :(if !$(_hasmethod1)(NiLangCore.$f, $ftype)
         NiLangCore.$f(::$ftype) = true
     end
      )

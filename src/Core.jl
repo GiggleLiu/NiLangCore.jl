@@ -47,7 +47,7 @@ end
 
 macro invcheck(x, val)
     esc(rmlines(:(
-    if !($x === $val || NiLangCore.almost_same($x, $val))
+    if !($x === $val || $almost_same($x, $val))
         throw(InvertibilityError("$($(QuoteNode(x))) (=$($x)) ≂̸ $($(QuoteNode(val))) (=$($val))"))
     end)))
 end

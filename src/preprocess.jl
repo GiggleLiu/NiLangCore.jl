@@ -208,5 +208,5 @@ julia> prettify(@code_preprocess if (x < 3, ~) x += exp(3.0) end)
 ```
 """
 macro code_preprocess(ex)
-    QuoteNode(NiLangCore.precom_ex(ex, NiLangCore.PreInfo()))
+    QuoteNode(precom_ex(ex, PreInfo()))
 end

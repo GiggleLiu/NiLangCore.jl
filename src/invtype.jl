@@ -96,7 +96,7 @@ end
 
 function _unpack_struct(obj, args)
     if args isa AbstractVector
-        Expr(:(=), Expr(:tuple, args...), :(NiLangCore.type2tuple($obj)))
+        Expr(:(=), Expr(:tuple, args...), :($type2tuple($obj)))
     else
         Expr(:(=), args, obj)
     end

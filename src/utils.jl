@@ -95,3 +95,68 @@ islinenumbernode(@nospecialize(x)) = x isa LineNumberNode
 
 _typeof(x) = typeof(x)
 _typeof(x::Type{T}) where T = Type{T}
+
+@inline function ibcast(f, x)
+    f, f.(x)
+end
+
+@inline function ibcast(f, x, y)
+    res = f.(x, y)
+    f, getindex.(res, 1), getindex.(res, 2)
+end
+
+@inline function ibcast(f, x, y, z)
+    res = f.(x, y, z)
+    f, getindex.(res, 1), getindex.(res, 2), getindex.(res, 3)
+end
+
+@inline function ibcast(f, x, y, z, a)
+    res = f.(x, y, z, a)
+    f, getindex.(res, 1), getindex.(res, 2), getindex.(res, 3), getindex.(res, 4)
+end
+
+@inline function ibcast(f, x, y, z, a, b)
+    res = f.(x, y, z, a, b)
+    f, getindex.(res, 1), getindex.(res, 2), getindex.(res, 3), getindex.(res, 4), getindex.(res, 5)
+end
+
+@inline function ibcast(f, x::AbstractArray)
+    for i=1:length(x)
+        @inbounds x[i] = f(x[i])
+    end
+    f, x
+end
+
+@inline function ibcast(f, x::AbstractArray, y)
+    @assert length(x) == length(y)
+    for i=1:length(x)
+        (x[i], y[i]) = f(x[i], y[i])
+    end
+    f, x, y
+end
+
+@inline function ibcast(f, x::AbstractArray, y, z)
+    @assert length(x) == length(y) == length(z)
+    for i=1:length(x)
+        (x[i], y[i], z[i]) = f(x[i], y[i], z[i])
+    end
+    f, x, y, z
+end
+
+@inline function ibcast(f, x::AbstractArray, y, z, a)
+    @assert length(x) == length(y) == length(z) == length(a)
+    for i=1:length(x)
+        (x[i], y[i], z[i], a[i]) = f(x[i], y[i], z[i], a[i])
+    end
+    f, x, y, z, a
+end
+
+@inline function ibcast(f, x::AbstractArray, y, z, a, b)
+    @assert length(x) == length(y) == length(z) == length(a) == length(b)
+    for i=1:length(x)
+        (x[i], y[i], z[i], a[i], b[i]) = f(x[i], y[i], z[i], a[i], b[i])
+    end
+    f, x, y, z, a, b
+end
+
+ibcast(f, args...) = ArgumentError("Sorry, number of arguments in broadcasting only supported to 5, got $(length(args)).")

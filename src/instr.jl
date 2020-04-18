@@ -103,9 +103,9 @@ function assign_vars(args, symres; invcheck)
         exi = @match arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                assign_ex(ag, :(NiLangCore.tailn(NiLangCore.wrap_tuple($symres), Val($i-1))); invcheck=invcheck)
+                assign_ex(ag, :($tailn($wrap_tuple($symres), Val($i-1))); invcheck=invcheck)
             end
-            _ => assign_ex(arg, :(NiLangCore.wrap_tuple($symres)[$i]); invcheck=invcheck)
+            _ => assign_ex(arg, :($wrap_tuple($symres)[$i]); invcheck=invcheck)
         end
         exi !== nothing && push!(exprs, exi)
     end

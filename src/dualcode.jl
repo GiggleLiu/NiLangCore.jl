@@ -16,7 +16,7 @@ function dual_fname(op)
         :($x::$tp) => :($x::Inv{<:$tp})
         :(~$x) => x
         #_ => :(_::Inv{typeof($op)})
-        _ => :($(gensym())::NiLangCore._typeof(~$op))
+        _ => :($(gensym())::$_typeof(~$op))
     end
 end
 
@@ -125,7 +125,7 @@ julia> @code_reverse x += exp(3.0)
 ```
 """
 macro code_reverse(ex)
-    QuoteNode(NiLangCore.dual_ex(ex))
+    QuoteNode(dual_ex(ex))
 end
 
 dualname(f) = @match f begin

@@ -83,8 +83,8 @@ for VTYPE in [:AbstractArray, :Ref]
     end
     @eval chfield(tp::$VTYPE, i::Int, val) = chfield(tp, (i,), val)
 end
-NiLangCore.chfield(x::T, ::typeof(-), y::T) where T = -y
-NiLangCore.chfield(x::T, ::typeof(adjoint), y) where T = adjoint(y)
+chfield(x::T, ::typeof(-), y::T) where T = -y
+chfield(x::T, ::typeof(adjoint), y) where T = adjoint(y)
 
 """
     IWrapper{T} <: Real
