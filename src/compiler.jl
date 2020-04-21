@@ -70,7 +70,10 @@ function compile_ex(ex, info)
         end
         # TODO: allow ommit step.
         :(for $i=$start:$step:$stop; $(body...); end) => begin
-            forstatement(i, start, step, stop, compile_body(body, info), info)
+            forstatement(i, start, step, stop, compile_body(body, info), info, nothing)
+        end
+        :(@simd $line for $i=$start:$step:$stop; $(body...); end) => begin
+            forstatement(i, start, step, stop, compile_body(body, info), info, Symbol("@simd")=>line)
         end
         :(begin $(body...) end) => begin
             Expr(:block, compile_body(body, info)...)
@@ -159,15 +162,19 @@ function whilestatement(precond, postcond, body, info)
     ex
 end
 
-function forstatement(i, start, step, stop, body, info)
+function forstatement(i, start, step, stop, body, info, mcr)
     start_, step_, stop_ = gensym(), gensym(), gensym()
+
+    exf = Expr(:for, :($i=$start_:$step_:$stop_),
+            Expr(:block, body...))
+    if !(mcr isa Nothing)
+        exf = Expr(:macrocall, mcr.first, mcr.second, exf)
+    end
     ex = Expr(:block,
         :($start_ = $start),
         :($step_ = $step),
         :($stop_ = $stop),
-        Expr(:for, :($i=$start_:$step_:$stop_),
-            Expr(:block, body...)
-            )
+        exf
     )
     if info.invcheckon[]
         append!(ex.args,
