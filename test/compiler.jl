@@ -511,3 +511,12 @@ end
     @test x == 0.7
     @test y == 0.3
 end
+
+@testset "for x in range" begin
+    @i function f(x, y)
+        for item in y
+            x += identity(item)
+        end
+    end
+    @test check_inv(f, (0.0, [1,2,5]))
+end

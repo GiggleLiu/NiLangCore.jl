@@ -56,8 +56,6 @@ function compile_ex(ex, info)
         :($x → $tp) => begin
             if info.invcheckon[]
                 :($deanc($x, $tp))
-            else
-                :($deanc_nocheck($x, $tp))
             end
         end
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
@@ -69,11 +67,14 @@ function compile_ex(ex, info)
             whilestatement(pre, post, compile_body(body, info), info)
         end
         # TODO: allow ommit step.
-        :(for $i=$start:$step:$stop; $(body...); end) => begin
-            forstatement(i, start, step, stop, compile_body(body, info), info, nothing)
+        :(for $i=$range; $(body...); end) => begin
+            forstatement(i, range, compile_body(body, info), info, nothing)
         end
-        :(@simd $line for $i=$start:$step:$stop; $(body...); end) => begin
-            forstatement(i, start, step, stop, compile_body(body, info), info, Symbol("@simd")=>line)
+        :(@simd $line for $i=$range; $(body...); end) => begin
+            forstatement(i, range, compile_body(body, info), info, Symbol("@simd")=>line)
+        end
+        :(@avx $line for $i=$range; $(body...); end) => begin
+            forstatement(i, range, compile_body(body, info), info, Symbol("@avx")=>line)
         end
         :(begin $(body...) end) => begin
             Expr(:block, compile_body(body, info)...)
@@ -162,28 +163,17 @@ function whilestatement(precond, postcond, body, info)
     ex
 end
 
-function forstatement(i, start, step, stop, body, info, mcr)
-    start_, step_, stop_ = gensym(), gensym(), gensym()
-
-    exf = Expr(:for, :($i=$start_:$step_:$stop_),
-            Expr(:block, body...))
+function forstatement(i, range, body, info, mcr)
+    assigns, checkers = compile_range(range)
+    exf = Expr(:for, :($i=$range), Expr(:block, body...))
     if !(mcr isa Nothing)
         exf = Expr(:macrocall, mcr.first, mcr.second, exf)
     end
-    ex = Expr(:block,
-        :($start_ = $start),
-        :($step_ = $step),
-        :($stop_ = $stop),
-        exf
-    )
     if info.invcheckon[]
-        append!(ex.args,
-            [:(@invcheck $start_  $start),
-            :(@invcheck $step_  $step),
-            :(@invcheck $stop_  $stop)]
-        )
+        Expr(:block, assigns..., exf, checkers...)
+    else
+        exf
     end
-    ex
 end
 
 export @code_julia
@@ -415,4 +405,28 @@ Execute a reversible instruction.
 """
 macro instr(ex)
     esc(NiLangCore.compile_ex(precom_ex(ex, NiLangCore.PreInfo()), CompileInfo()))
+end
+
+compile_range(range) = @match range begin
+    :($start:$step:$stop) => begin
+        start_, step_, stop_ = gensym(), gensym(), gensym()
+        Any[:($start_ = $start),
+        :($step_ = $step),
+        :($stop_ = $stop)],
+        Any[:(@invcheck $start_  $start),
+        :(@invcheck $step_  $step),
+        :(@invcheck $stop_  $stop)]
+    end
+    :($start:$stop) => begin
+        start_, stop_ = gensym(), gensym()
+        Any[:($start_ = $start),
+        :($stop_ = $stop)],
+        Any[:(@invcheck $start_  $start),
+        :(@invcheck $stop_  $stop)]
+    end
+    :($list) => begin
+        list_ = gensym()
+        Any[:($list_ = deepcopy($list))],
+        Any[:(@invcheck $list_  $list)]
+    end
 end

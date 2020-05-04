@@ -17,7 +17,6 @@ macro deanc(ex)
 end
 
 deanc(x, val) = @invcheck x val
-deanc_nocheck(x, val) = nothing
 
 """
     @anc x = expr

@@ -133,6 +133,7 @@ function precom_ex(ex, info)
         :(@launchkernel $line $(args...)) => ex
         :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, precom_ex(subex, info))
         :(@simd $line $subex) => Expr(:macrocall, Symbol("@simd"), line, precom_ex(subex, info))
+        :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, precom_ex(subex, info))
         :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, precom_ex(subex, info))
         :(@routine $line $name $expr) => begin
             @warn "`@routine name begin ... end` is deprecated, please use `@routine begin ... end`"
@@ -160,9 +161,7 @@ function precom_ex(ex, info)
 end
 
 precom_range(range) = @match range begin
-    :($start:$step:$stop) => range
-    :($start:$stop) => :($start:1:$stop)
-    _ => error("not supported for loop style $range.")
+    _ => range
 end
 
 function precom_if(ex)
