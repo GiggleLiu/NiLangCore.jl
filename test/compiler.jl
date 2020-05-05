@@ -520,3 +520,32 @@ end
     end
     @test check_inv(f, (0.0, [1,2,5]))
 end
+
+@testset "dual_pipline" begin
+    @i function f(x, y)
+        (x, y) |> ⊕(identity) |> ⊕(identity)
+    end
+    @test f(2,3) == (8, 3)
+    @test (~f)(f(2,3)...) == (2, 3)
+    x, y = 2, 3
+    @instr (x, y) |> f
+    @test (x, y) == (8,3)
+    x, y = 2, 3
+    @instr (x, y) |> f |> ~f
+    @test (x, y) == (2,3)
+    args = (2,3)
+    @instr (args...,) |> f
+    @test args == (8,3)
+    x, y = [2,3,1], [3,5,1]
+    @instr (x, y) .|> f
+    @test (x, y) == ([8, 13, 3],[3, 5, 1])
+    b = [1,3,5]
+    NEG(x) = -x
+    @selfdual NEG
+    @show NEG.(b)
+    @instr (b,) .|> NEG
+    @test b == [-1, -3, -5]
+    x, y = [2,3,1], [3,5,1]
+    @instr (x, y) .|> f .|> ~f
+    @test (x, y) == ([2, 3, 1],[3, 5, 1])
+end

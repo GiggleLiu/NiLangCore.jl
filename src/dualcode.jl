@@ -47,6 +47,8 @@ function dual_ex(ex)
         :($x ← $val) => :($x → $val)
         :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
         :(($t1=>$t2).($x)) => :(($t2=>$t1).($x))
+        :($a |> $b) => dual_pipline(a, b)
+        :($a .|> $b) => dual_dotpipline(a, b)
         :($f($(args...))) => begin
             if startwithdot(f)
                 :($(dotgetdual(f)).($(args...)))
@@ -99,6 +101,16 @@ function dual_ex(ex)
         :() => ex
         _ => error("can not invert target expression $ex")
     end
+end
+
+dual_pipline(a, f) = @match a begin
+    :($aa |> $ff) => :($(dual_pipline(aa, ff)) |> $(getdual(f)))
+    _ => :($a |> $(getdual(f)))
+end
+
+dual_dotpipline(a, f) = @match a begin
+    :($aa .|> $ff) => :($(dual_pipline(aa, ff)) .|> $(getdual(f)))
+    _ => :($a .|> $(getdual(f)))
 end
 
 function dual_if(ex)

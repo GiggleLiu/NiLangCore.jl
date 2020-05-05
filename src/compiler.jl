@@ -59,6 +59,19 @@ function compile_ex(ex, info)
             end
         end
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
+        :(($x |> $f)) => begin
+            vars, fcall = compile_pipline(x, f)
+            symres = gensym()
+            Expr(:block, :($symres = $fcall),
+                 assign_vars(vars, symres; invcheck=info.invcheckon[]))
+        end
+        :(($xs .|> $f)) => begin
+            vars, fcall = compile_dotpipline(xs, f)
+            symres = gensym()
+            @show vars
+            Expr(:block, :($symres = $fcall),
+                 bcast_assign_vars(vars, symres; invcheck=info.invcheckon[]))
+        end
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
         :($f($(args...))) => :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
         :($f.($(args...))) => :(@assignback $ibcast((@skip! $f), $(args...))) |> rmlines
@@ -114,6 +127,33 @@ function compile_ex(ex, info)
         ::LineNumberNode => ex
         _ => error("statement is not supported for invertible lang! got $ex")
     end
+end
+
+compile_pipline(x, f) = @match x begin
+    :(($(xx...),)) => begin
+        xx, :($f($(xx...)))
+    end
+    :($xx |> $ff) => begin
+        vars, newx = compile_pipline(xx, ff)
+        vars, :($f(NiLangCore.wrap_tuple($(newx))...))
+    end
+    _ => error("reversible pipline should start with a tuple, e.g. (x, y) |> f1 |> f2..., got $x")
+end
+
+struct TupleExpanded{FT} <: Function
+    f::FT
+end
+(tf::TupleExpanded)(x) = tf.f(x...)
+
+compile_dotpipline(x, f) = @match x begin
+    :(($(xx...),)) => begin
+        xx, :($f.($(xx...)))
+    end
+    :($xx .|> $ff) => begin
+        vars, newx = compile_dotpipline(xx, ff)
+        vars, :($TupleExpanded($f).($(newx)))
+    end
+    _ => error("reversible pipline broadcasting should start with a tuple, e.g. (x, y) .|> f1 .|> f2..., got $x")
 end
 
 function compile_if(ex, info)
