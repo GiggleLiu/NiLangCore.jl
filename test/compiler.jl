@@ -549,6 +549,12 @@ end
     x, y = [2,3,1], [3,5,1]
     @instr (x, y) .|> f .|> ~f
     @test (x, y) == ([2, 3, 1],[3, 5, 1])
+    x, y = 1, 2
+    SWAP(x,y) = (y, x)
+    @selfdual SWAP
+    @instr (x, y) |> ⊕(identity) |> SWAP
+    @instr ~((x, y) |> ⊕(identity) |> SWAP)
+    @test (x, y) == (1, 2)
 end
 
 @testset "@simd and @threads" begin

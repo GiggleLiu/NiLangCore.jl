@@ -47,8 +47,14 @@ function dual_ex(ex)
         :($x ← $val) => :($x → $val)
         :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
         :(($t1=>$t2).($x)) => :(($t2=>$t1).($x))
-        :($a |> $b) => dual_pipline(a, b)
-        :($a .|> $b) => dual_dotpipline(a, b)
+        :($a |> $b) => begin
+            pipline = get_pipline!(ex, Any[])
+            rev_pipline!(pipline[1], pipline[2:end], dot=false)
+        end
+        :($a .|> $b) => begin
+            pipline = get_dotpipline!(ex, Any[])
+            rev_pipline!(pipline[1], pipline[2:end]; dot=true)
+        end
         :($f($(args...))) => begin
             if startwithdot(f)
                 :($(dotgetdual(f)).($(args...)))
@@ -104,14 +110,31 @@ function dual_ex(ex)
     end
 end
 
-dual_pipline(a, f) = @match a begin
-    :($aa |> $ff) => :($(dual_pipline(aa, ff)) |> $(getdual(f)))
-    _ => :($a |> $(getdual(f)))
+get_pipline!(ex, out!) = @match ex begin
+    :($a |> $f) => begin
+        get_pipline!(a, out!)
+        push!(out!, f)
+        out!
+    end
+    _ => push!(out!, ex)
 end
 
-dual_dotpipline(a, f) = @match a begin
-    :($aa .|> $ff) => :($(dual_pipline(aa, ff)) .|> $(getdual(f)))
-    _ => :($a .|> $(getdual(f)))
+get_dotpipline!(ex, out!) = @match a begin
+    :($a .|> $f) => begin
+        get_dotpipline!(a, out!)
+        push!(out, f)
+        out!
+    end
+    _ => push!(out!, ex)
+end
+
+function rev_pipline!(var, fs; dot)
+    if isempty(fs)
+        return var
+    end
+    token = dot ? :(.|>) : :(|>)
+    nvar = :($token($var, $(getdual(pop!(fs)))))
+    rev_pipline!(nvar, fs; dot=dot)
 end
 
 function dual_if(ex)
