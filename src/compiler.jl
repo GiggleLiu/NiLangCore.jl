@@ -68,7 +68,6 @@ function compile_ex(ex, info)
         :(($xs .|> $f)) => begin
             vars, fcall = compile_dotpipline(xs, f)
             symres = gensym()
-            @show vars
             Expr(:block, :($symres = $fcall),
                  bcast_assign_vars(vars, symres; invcheck=info.invcheckon[]))
         end
