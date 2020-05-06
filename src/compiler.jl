@@ -85,6 +85,9 @@ function compile_ex(ex, info)
         :(@simd $line for $i=$range; $(body...); end) => begin
             forstatement(i, range, compile_body(body, info), info, Symbol("@simd")=>line)
         end
+        :(@threads $line for $i=$range; $(body...); end) => begin
+            forstatement(i, range, compile_body(body, info), info, Symbol("@threads")=>line)
+        end
         :(@avx $line for $i=$range; $(body...); end) => begin
             forstatement(i, range, compile_body(body, info), info, Symbol("@avx")=>line)
         end

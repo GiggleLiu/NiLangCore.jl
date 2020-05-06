@@ -133,6 +133,7 @@ function precom_ex(ex, info)
         :(@launchkernel $line $(args...)) => ex
         :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, precom_ex(subex, info))
         :(@simd $line $subex) => Expr(:macrocall, Symbol("@simd"), line, precom_ex(subex, info))
+        :(@threads $line $subex) => Expr(:macrocall, Symbol("@threads"), line, precom_ex(subex, info))
         :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, precom_ex(subex, info))
         :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, precom_ex(subex, info))
         :(@routine $line $name $expr) => begin

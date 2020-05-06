@@ -1,5 +1,6 @@
 using NiLangCore
 using Test
+using Base.Threads
 
 @testset "i" begin
     @i function test1(a::T, b, out) where T<:Number
@@ -548,4 +549,21 @@ end
     x, y = [2,3,1], [3,5,1]
     @instr (x, y) .|> f .|> ~f
     @test (x, y) == ([2, 3, 1],[3, 5, 1])
+end
+
+@testset "@simd and @threads" begin
+    @i function f(x)
+        @threads for i=1:length(x)
+            x[i] += identity(1)
+        end
+    end
+    x = [1,2,3]
+    @test f(x) == [2,3,4]
+    @i function f(x)
+        @simd for i=1:length(x)
+            x[i] += identity(1)
+        end
+    end
+    x = [1,2,3]
+    @test f(x) == [2,3,4]
 end
