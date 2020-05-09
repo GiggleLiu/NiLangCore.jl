@@ -33,6 +33,8 @@ end
 """translate to normal julia code."""
 function compile_ex(ex, info)
     @match ex begin
+        :($locs => $b) => ex
+        :(@ctrl $line $clocs $locs => $b) => ex
         :($a += $f($(args...))) => _instr(PlusEq, f, a, args, info, false, false)
         :($a .+= $f($(args...))) => _instr(PlusEq, f, a, args, info, true, false)
         :($a .+= $f.($(args...))) => _instr(PlusEq, f, a, args, info, true, true)
