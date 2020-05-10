@@ -1,11 +1,10 @@
 export precom
-using DataStructures: OrderedDict
 
 struct PreInfo
-    ancs::OrderedDict{Symbol, Any}
+    ancs::MyOrderedDict{Symbol, Any}
     routines::Vector{Any}
 end
-PreInfo() = PreInfo(OrderedDict{Symbol,Symbol}(), [])
+PreInfo() = PreInfo(MyOrderedDict{Symbol,Any}(), [])
 
 function precom(ex)
     mc, fname, args, ts, body = match_function(ex)
