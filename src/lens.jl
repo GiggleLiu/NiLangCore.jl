@@ -1,4 +1,3 @@
-using MLStyle
 @generated function field_update(main :: T, field::Val{Field}, value) where {T, Field}
     fields = fieldnames(T)
     quote
