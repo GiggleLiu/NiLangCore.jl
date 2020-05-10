@@ -1,5 +1,5 @@
 module NiLangCore
-using MLStyle
+using MatchCore
 using TupleTools
 
 #include("ngg/ngg.jl")

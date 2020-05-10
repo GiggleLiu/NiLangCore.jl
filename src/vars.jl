@@ -10,7 +10,7 @@ Deallocate ancilla `x` if `x == expr`,
 else throw an `InvertibilityError`.
 """
 macro deanc(ex)
-    @match ex begin
+    @smatch ex begin
         :($x = $val) => Expr(:block, :(deanc($(esc(x)), $(esc(val)))), :($(esc(x)) = nothing))
         _ => error("please use like `@deanc x = val`")
     end
@@ -24,7 +24,7 @@ deanc(x, val) = @invcheck x val
 Create an ancilla `x` with initial value `expr`,
 """
 macro anc(ex)
-    @match ex begin
+    @smatch ex begin
         :($x = $tp) => esc(ex)
         _ => error("please use like `@anc x = val`")
     end
@@ -51,7 +51,7 @@ GVar{Float64,Float64}(2.0, 0.0)
 ```
 """
 macro fieldview(ex)
-    @match ex begin
+    @smatch ex begin
         :($f($obj::$tp) = begin $line; $obj.$prop end) => esc(quote
             Base.@__doc__ $f($obj::$tp) = begin $line; $obj.$prop end
             NiLangCore.chfield($obj::$tp, ::typeof($f), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)

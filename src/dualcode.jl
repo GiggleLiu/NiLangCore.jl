@@ -7,7 +7,7 @@ end
 
 # get the function name of the inverse function
 function dual_fname(op)
-    @match op begin
+    @smatch op begin
         :($x::MinusEq{$tp}) => :($x::PlusEq{$tp})
         :($x::PlusEq{$tp}) => :($x::MinusEq{$tp})
         :($x::MinusEq) => :($x::PlusEq)
@@ -42,7 +42,7 @@ end
 Get the dual expression of `ex`.
 """
 function dual_ex(ex)
-    @match ex begin
+    @smatch ex begin
         :($x → $val) => :($x ← $val)
         :($x ← $val) => :($x → $val)
         :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
@@ -110,7 +110,7 @@ function dual_ex(ex)
     end
 end
 
-get_pipline!(ex, out!) = @match ex begin
+get_pipline!(ex, out!) = @smatch ex begin
     :($a |> $f) => begin
         get_pipline!(a, out!)
         push!(out!, f)
@@ -119,7 +119,7 @@ get_pipline!(ex, out!) = @match ex begin
     _ => push!(out!, ex)
 end
 
-get_dotpipline!(ex, out!) = @match a begin
+get_dotpipline!(ex, out!) = @smatch a begin
     :($a .|> $f) => begin
         get_dotpipline!(a, out!)
         push!(out, f)
@@ -138,7 +138,7 @@ function rev_pipline!(var, fs; dot)
 end
 
 function dual_if(ex)
-    _dual_cond(cond) = @match cond begin
+    _dual_cond(cond) = @smatch cond begin
         :(($pre, $post)) => :(($post, $pre))
     end
     if ex.head == :if
@@ -173,14 +173,14 @@ macro code_reverse(ex)
     QuoteNode(dual_ex(ex))
 end
 
-dualname(f) = @match f begin
+dualname(f) = @smatch f begin
     :(⊕($f)) => :(⊖($f))
     :(⊖($f)) => :(⊕($f))
     :(~$fname) => fname
     _ => :(~$f)
 end
 
-getdual(f) = @match f begin
+getdual(f) = @smatch f begin
     :(⊕($f)) => :(⊖($f))
     :(⊖($f)) => :(⊕($f))
     :(~$f) => f

@@ -26,12 +26,12 @@ end
 
 function precom_opm(f, out, arg2)
     if f in [:(+=), :(-=)]
-        @match arg2 begin
+        @smatch arg2 begin
             :($subf($(subargs...))) => Expr(f, out, arg2)
             _ => error("unknown expression after assign $(QuoteNode(arg2))")
         end
     elseif f in [:(.+=), :(.-=)]
-        @match arg2 begin
+        @smatch arg2 begin
             :($subf.($(subargs...))) => Expr(f, out, arg2)
             :($subf($(subargs...))) => Expr(f, out, arg2)
             _ => error("unknown expression after assign $(QuoteNode(arg2))")
@@ -41,14 +41,14 @@ end
 
 function precom_ox(f, out, arg2)
     if f == :(⊻=)
-        @match arg2 begin
+        @smatch arg2 begin
             :($subf($(subargs...))) ||
             :($a || $b) ||
             :($a && $b) => Expr(f, out, arg2)
             _ => error("unknown expression after assign $(QuoteNode(arg2))")
         end
     elseif f == :(.⊻=)
-        @match arg2 begin
+        @smatch arg2 begin
             :($subf.($(subargs...))) => Expr(f, out, arg2)
             :($subf($(subargs...))) => Expr(f, out, arg2)
             _ => error("unknown expression after assign $(QuoteNode(arg2))")
@@ -57,7 +57,7 @@ function precom_ox(f, out, arg2)
 end
 
 function precom_ex(ex, info)
-    @match ex begin
+    @smatch ex begin
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
             for arg in args
@@ -160,12 +160,12 @@ function precom_ex(ex, info)
     end
 end
 
-precom_range(range) = @match range begin
+precom_range(range) = @smatch range begin
     _ => range
 end
 
 function precom_if(ex)
-    _expand_cond(cond) = @match cond begin
+    _expand_cond(cond) = @smatch cond begin
         :(($pre, ~)) => :(($pre, $pre))
         :(($pre, $post)) => :(($pre, $post))
         _ => error("must provide post condition, use `~` to specify a dummy one.")
