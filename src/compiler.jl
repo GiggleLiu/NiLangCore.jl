@@ -32,80 +32,88 @@ end
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
 function compile_ex(ex, info)
-    @match ex begin
-        :($a += $f($(args...))) => _instr(PlusEq, f, a, args, info, false, false)
-        :($a .+= $f($(args...))) => _instr(PlusEq, f, a, args, info, true, false)
-        :($a .+= $f.($(args...))) => _instr(PlusEq, f, a, args, info, true, true)
-        :($a -= $f($(args...))) => _instr(MinusEq, f, a, args, info, false, false)
-        :($a .-= $f($(args...))) => _instr(MinusEq, f, a, args, info, true, false)
-        :($a .-= $f.($(args...))) => _instr(MinusEq, f, a, args, info, true, true)
-        :($a ⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, false, false)
-        :($a ⊻= $x || $y) => _instr(XorEq, logical_or, a, Any[x, y], info, false, false)
-        :($a ⊻= $x && $y) => _instr(XorEq, logical_and, a, Any[x, y], info, false, false)
-        :($a .⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, true, false)
-        :($a .⊻= $f.($(args...))) => _instr(XorEq, f, a, args, info, true, true)
-        :($x ← new{$(_...)}($(args...))) ||
-        :($x ← new($(args...))) => begin
-            :($x = $(ex.args[3]))
-        end
-        :($x → new{$(_...)}($(args...))) ||
-        :($x → new($(args...))) => begin
-            :($(Expr(:tuple, args...)) = $type2tuple($x))
-        end
-        :($x ← $tp) => :($x = $tp)
-        :($x → $tp) => begin
+    @switch ex begin
+        @case :($a += $f($(args...)))
+            return _instr(PlusEq, f, a, args, info, false, false)
+        @case :($a .+= $f($(args...)))
+            return _instr(PlusEq, f, a, args, info, true, false)
+        @case :($a .+= $f.($(args...)))
+            return _instr(PlusEq, f, a, args, info, true, true)
+        @case :($a -= $f($(args...)))
+            return _instr(MinusEq, f, a, args, info, false, false)
+        @case :($a .-= $f($(args...)))
+            return _instr(MinusEq, f, a, args, info, true, false)
+        @case :($a .-= $f.($(args...)))
+            return _instr(MinusEq, f, a, args, info, true, true)
+        @case :($a ⊻= $f($(args...)))
+            return _instr(XorEq, f, a, args, info, false, false)
+        @case :($a ⊻= $x || $y)
+            return _instr(XorEq, logical_or, a, Any[x, y], info, false, false)
+        @case :($a ⊻= $x && $y)
+            return _instr(XorEq, logical_and, a, Any[x, y], info, false, false)
+        @case :($a .⊻= $f($(args...)))
+            return _instr(XorEq, f, a, args, info, true, false)
+        @case :($a .⊻= $f.($(args...)))
+            return _instr(XorEq, f, a, args, info, true, true)
+        @case :($x ← new{$(_...)}($(args...))) ||
+        :($x ← new($(args...)))
+            return :($x = $(ex.args[3]))
+        @case :($x → new{$(_...)}($(args...))) ||
+        :($x → new($(args...)))
+            return :($(Expr(:tuple, args...)) = $type2tuple($x))
+        @case :($x ← $tp)
+            return :($x = $tp)
+        @case :($x → $tp)
             if info.invcheckon[]
-                :($deanc($x, $tp))
+                return :($deanc($x, $tp))
+            else
+                return nothing
             end
-        end
-        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
-        :(($x |> $f)) => begin
+        @case :(($t1=>$t2)($x))
+            return assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
+        @case :(($x |> $f))
             vars, fcall = compile_pipline(x, f)
             symres = gensym()
-            Expr(:block, :($symres = $fcall),
+            return Expr(:block, :($symres = $fcall),
                  assign_vars(vars, symres; invcheck=info.invcheckon[]))
-        end
-        :(($xs .|> $f)) => begin
+        @case :(($xs .|> $f))
             vars, fcall = compile_dotpipline(xs, f)
             symres = gensym()
-            Expr(:block, :($symres = $fcall),
+            return Expr(:block, :($symres = $fcall),
                  bcast_assign_vars(vars, symres; invcheck=info.invcheckon[]))
-        end
-        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
-        :($f($(args...))) => :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
-        :($f.($(args...))) => :(@assignback $ibcast((@skip! $f), $(args...))) |> rmlines
-        Expr(:if, _...) => compile_if(copy(ex), info)
-        :(while ($pre, $post); $(body...); end) => begin
-            whilestatement(pre, post, compile_body(body, info), info)
-        end
-        # TODO: allow ommit step.
-        :(for $i=$range; $(body...); end) => begin
-            forstatement(i, range, compile_body(body, info), info, nothing)
-        end
-        :(@simd $line for $i=$range; $(body...); end) => begin
-            forstatement(i, range, compile_body(body, info), info, Symbol("@simd")=>line)
-        end
-        :(@threads $line for $i=$range; $(body...); end) => begin
-            forstatement(i, range, compile_body(body, info), info, Symbol("@threads")=>line)
-        end
-        :(@avx $line for $i=$range; $(body...); end) => begin
-            forstatement(i, range, compile_body(body, info), info, Symbol("@avx")=>line)
-        end
-        :(begin $(body...) end) => begin
-            Expr(:block, compile_body(body, info)...)
-        end
-        :(@safe $line $subex) => subex
-        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, compile_ex(subex, info))
-        :(@invcheckoff $line $subex) => begin
+        @case :(($t1=>$t2).($x))
+            return assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
+        @case :($f($(args...)))
+            return :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
+        @case :($f.($(args...)))
+            return :(@assignback $ibcast((@skip! $f), $(args...))) |> rmlines
+        @case Expr(:if, _...)
+            return compile_if(copy(ex), info)
+        @case :(while ($pre, $post); $(body...); end)
+            return whilestatement(pre, post, compile_body(body, info), info)
+        @case :(for $i=$range; $(body...); end)
+            return forstatement(i, range, compile_body(body, info), info, nothing)
+        @case :(@simd $line for $i=$range; $(body...); end)
+            return forstatement(i, range, compile_body(body, info), info, Symbol("@simd")=>line)
+        @case :(@threads $line for $i=$range; $(body...); end)
+            return forstatement(i, range, compile_body(body, info), info, Symbol("@threads")=>line)
+        @case :(@avx $line for $i=$range; $(body...); end)
+            return forstatement(i, range, compile_body(body, info), info, Symbol("@avx")=>line)
+        @case :(begin $(body...) end)
+            return Expr(:block, compile_body(body, info)...)
+        @case :(@safe $line $subex)
+            return subex
+        @case :(@inbounds $line $subex)
+            return Expr(:macrocall, Symbol("@inbounds"), line, compile_ex(subex, info))
+        @case :(@invcheckoff $line $subex)
             state = info.invcheckon[]
             info.invcheckon[] = false
             ex = compile_ex(subex, info)
             info.invcheckon[] = state
-            ex
-        end
-        :(@cuda $line $(args...)) => begin
-            fcall = @match args[end] begin
-                :($f($(args...))) => Expr(:call,
+            return ex
+        @case :(@cuda $line $(args...))
+            fcall = @when :($f($(args...))) = args[end] begin
+                Expr(:call,
                     Expr(:->,
                         Expr(:tuple, args...),
                         Expr(:block,
@@ -115,31 +123,31 @@ function compile_ex(ex, info)
                     ),
                     args...
                 )
-                _ => error("expect a function after @cuda, got $(args[end])")
+            @otherwise
+                error("expect a function after @cuda, got $(args[end])")
             end
-            Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., fcall)
-        end
-        :(@launchkernel $line $device $thread $ndrange $f($(args...))) => begin
+            return Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., fcall)
+        @case :(@launchkernel $line $device $thread $ndrange $f($(args...)))
             res = gensym()
-            Expr(:block,
-                :($res = $f($device, $thread)($(args...); ndrange=$ndrange)),
-                :(wait($res))
-            )
-        end
-        ::LineNumberNode => ex
-        _ => error("statement is not supported for invertible lang! got $ex")
+            return Expr(:block,
+                    :($res = $f($device, $thread)($(args...); ndrange=$ndrange)),
+                    :(wait($res))
+                )
+        @case ::LineNumberNode
+            return ex
+        @case _
+            return error("statement is not supported for invertible lang! got $ex")
     end
 end
 
-compile_pipline(x, f) = @match x begin
-    :(($(xx...),)) => begin
-        xx, :($f($(xx...)))
-    end
-    :($xx |> $ff) => begin
+compile_pipline(x, f) = @switch x begin
+    @case :(($(xx...),))
+        return xx, :($f($(xx...)))
+    @case :($xx |> $ff)
         vars, newx = compile_pipline(xx, ff)
-        vars, :($f(NiLangCore.wrap_tuple($(newx))...))
-    end
-    _ => error("reversible pipline should start with a tuple, e.g. (x, y) |> f1 |> f2..., got $x")
+        return vars, :($f(NiLangCore.wrap_tuple($(newx))...))
+    @case _
+        error("reversible pipline should start with a tuple, e.g. (x, y) |> f1 |> f2..., got $x")
 end
 
 struct TupleExpanded{FT} <: Function
@@ -147,15 +155,14 @@ struct TupleExpanded{FT} <: Function
 end
 (tf::TupleExpanded)(x) = tf.f(x...)
 
-compile_dotpipline(x, f) = @match x begin
-    :(($(xx...),)) => begin
-        xx, :($f.($(xx...)))
-    end
-    :($xx .|> $ff) => begin
+compile_dotpipline(x, f) = @switch x begin
+    @case :(($(xx...),))
+        return xx, :($f.($(xx...)))
+    @case :($xx .|> $ff)
         vars, newx = compile_dotpipline(xx, ff)
-        vars, :($TupleExpanded($f).($(newx)))
-    end
-    _ => error("reversible pipline broadcasting should start with a tuple, e.g. (x, y) .|> f1 .|> f2..., got $x")
+        return vars, :($TupleExpanded($f).($(newx)))
+    @case _
+        error("reversible pipline broadcasting should start with a tuple, e.g. (x, y) .|> f1 .|> f2..., got $x")
 end
 
 function compile_if(ex, info)
@@ -290,13 +297,10 @@ end
 function _gen_istruct(ex)
     invlist = []
     for (i, st) in enumerate(ex.args[3].args)
-        @match st begin
-            :(@i $line $funcdef) => begin
-                fdefs = _gen_ifunc(funcdef).args
-                ex.args[3].args[i] = fdefs[1]
-                append!(invlist, fdefs[2:end])
-            end
-            _ => st
+        @when :(@i $line $funcdef) = st begin
+            fdefs = _gen_ifunc(funcdef).args
+            ex.args[3].args[i] = fdefs[1]
+            append!(invlist, fdefs[2:end])
         end
     end
     Expr(:block, ex, invlist...)
@@ -403,27 +407,31 @@ function invfuncfoot(args)
     end
 end
 
-_replace_opmx(ex) = @match ex begin
-    :(⊕($f)) => :($(gensym())::PlusEq{typeof($f)})
-    :(⊖($f)) => :($(gensym())::MinusEq{typeof($f)})
-    :(⊻($f)) => :($(gensym())::XorEq{typeof($f)})
-    _ => ex
+_replace_opmx(ex) = @switch ex begin
+    @case :(⊕($f))
+        return :($(gensym())::PlusEq{typeof($f)})
+    @case :(⊖($f))
+        return :($(gensym())::MinusEq{typeof($f)})
+    @case :(⊻($f))
+        return :($(gensym())::XorEq{typeof($f)})
+    @case _
+        return ex
 end
 
 function interpret_func(ex)
-    @match ex begin
-        :(function $fname($(args...)) $(body...) end) ||
-        :($fname($(args...)) = $(body...)) => begin
+    @switch ex begin
+        @case :(function $fname($(args...)) $(body...) end) ||
+        :($fname($(args...)) = $(body...))
             ftype = get_ftype(fname)
-            esc(:(
+            return esc(:(
             function $fname($(args...))
                 $(compile_body(body)...)
                 ($(args...),)
             end;
             $(_funcdef(:isreversible, ftype))
             ))
-        end
-        _=>error("$ex is not a function def")
+        @case _
+            error("$ex is not a function def")
     end
 end
 
@@ -449,26 +457,23 @@ macro instr(ex)
     esc(NiLangCore.compile_ex(precom_ex(ex, NiLangCore.PreInfo()), CompileInfo()))
 end
 
-compile_range(range) = @match range begin
-    :($start:$step:$stop) => begin
+compile_range(range) = @switch range begin
+    @case :($start:$step:$stop)
         start_, step_, stop_ = gensym(), gensym(), gensym()
-        Any[:($start_ = $start),
+        return Any[:($start_ = $start),
         :($step_ = $step),
         :($stop_ = $stop)],
         Any[:(@invcheck $start_  $start),
         :(@invcheck $step_  $step),
         :(@invcheck $stop_  $stop)]
-    end
-    :($start:$stop) => begin
+    @case :($start:$stop)
         start_, stop_ = gensym(), gensym()
-        Any[:($start_ = $start),
+        return Any[:($start_ = $start),
         :($stop_ = $stop)],
         Any[:(@invcheck $start_  $start),
         :(@invcheck $stop_  $stop)]
-    end
-    :($list) => begin
+    @case :($list)
         list_ = gensym()
-        Any[:($list_ = deepcopy($list))],
+        return Any[:($list_ = deepcopy($list))],
         Any[:(@invcheck $list_  $list)]
-    end
 end

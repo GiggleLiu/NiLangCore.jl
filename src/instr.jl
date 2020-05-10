@@ -72,23 +72,22 @@ Assign input variables with output values: `args... = f(args...)`, turn off inve
 """
 macro assignback(ex, invcheck=true)
     ex = precom_ex(ex, PreInfo())
-    @match ex begin
-        :($f($(args...))) => begin
+    @switch ex begin
+        @case :($f($(args...)))
             symres = gensym()
             ex = :($symres = $f($(args...)))
             if startwithdot(f)
-                esc(Expr(ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
+                return esc(Expr(ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
             else
-                esc(Expr(:block, ex, assign_vars(notkey(args), symres; invcheck=invcheck)))
+                return esc(Expr(:block, ex, assign_vars(notkey(args), symres; invcheck=invcheck)))
             end
-        end
-        # TODO: support multiple input
-        :($f.($(args...))) => begin
+        @case :($f.($(args...)))
+            # TODO: support multiple input
             symres = gensym()
             ex = :($symres = $f.($(args...)))
-            esc(Expr(:block, ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
-        end
-        _ => error("got $ex")
+            return esc(Expr(:block, ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
+        @case _
+            error("got $ex")
     end
 end
 
@@ -100,12 +99,11 @@ Get the expression of assigning `symres` to `args`.
 function assign_vars(args, symres; invcheck)
     exprs = []
     for (i,arg) in enumerate(args)
-        exi = @match arg begin
-            :($ag...) => begin
+        exi = @when :($ag...) = arg begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
                 assign_ex(ag, :($tailn($wrap_tuple($symres), Val($i-1))); invcheck=invcheck)
-            end
-            _ => assign_ex(arg, :($wrap_tuple($symres)[$i]); invcheck=invcheck)
+            @otherwise
+                assign_ex(arg, :($wrap_tuple($symres)[$i]); invcheck=invcheck)
         end
         exi !== nothing && push!(exprs, exi)
     end
@@ -118,19 +116,19 @@ wrap_tuple(x::Tuple) = x
 """The broadcast version of `assign_vars`"""
 function bcast_assign_vars(args, symres; invcheck)
     if length(args) == 1
-        @match args[1] begin
-            :($args...) => :($args = ([getindex.($symres, j) for j=1:length($symres[1])]...,))
-            _ => assign_ex(args[1], symres; invcheck=invcheck)
+        @when :($args...) = args[1] begin
+            :($args = ([getindex.($symres, j) for j=1:length($symres[1])]...,))
+        @otherwise
+            assign_ex(args[1], symres; invcheck=invcheck)
         end
     else
         ex = :()
         for (i,arg) in enumerate(args)
-            exi = @match arg begin
-                :($ag...) => begin
+            exi = @when :($ag...) = arg begin
                     i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
                     :($ag = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
-                end
-                _ => assign_ex(arg, :(getindex.($symres, $i)); invcheck=invcheck)
+                @otherwise
+                    assign_ex(arg, :(getindex.($symres, $i)); invcheck=invcheck)
             end
             exi !== nothing && (ex = :($ex; $exi))
         end
@@ -154,39 +152,47 @@ function assign_ex(arg::Symbol, res; invcheck)
     end
 end
 assign_ex(arg::Union{Number,String}, res; invcheck) = _invcheck(invcheck, arg, res)
-assign_ex(arg::Expr, res; invcheck) = @match arg begin
-    :(@skip! $line $x) => nothing
-    :(tget($a, $(x...))) => begin
-        assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)); invcheck=invcheck)
-    end
-    :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
-    :($f($x)) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
-    :($f($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
-    :($f.($x)) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
-    :($f.($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
-    :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)); invcheck=invcheck)
-    :($a[$(x...)]) => begin
-        :($a[$(x...)] = $res)
-    end
-    # tuple must be index through tget
-    :(($(args...),)) => begin
+assign_ex(arg::Expr, res; invcheck) = @switch arg begin
+    @case :(@skip! $line $x)
+        return nothing
+    @case :(tget($a, $(x...)))
+        return assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)); invcheck=invcheck)
+    @case :($x.$k)
+        return _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
+    @case :($f($x))
+        return _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
+    @case :($f($(args...)))
+        return all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
+    @case :($f.($x))
+        return _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
+    @case :($f.($(args...)))
+        return all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
+    @case :($x')
+        return _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)); invcheck=invcheck)
+    @case :($a[$(x...)])
+        return :($a[$(x...)] = $res)
+    @case :(($(args...),))
+        # tuple must be index through tget
         ex = :()
         for i=1:length(args)
             ex = :($ex; $(assign_ex(args[i], :($res[$i]); invcheck=invcheck)))
         end
-        ex
-    end
-    _ => _invcheck(invcheck, arg, res)
+        return ex
+    @case _
+        return _invcheck(invcheck, arg, res)
 end
 
 _isconst(x) = false
 _isconst(x::Symbol) = x in [:im, :π, :true, :false]
 _isconst(::QuoteNode) = true
 _isconst(x::Union{Number,String}) = true
-_isconst(x::Expr) = @match x begin
-    :($f($(args...))) => all(_isconst, args)
-    :(@keep $line $ex) => true
-    _ => false
+_isconst(x::Expr) = @switch x begin
+    @case :($f($(args...)))
+        return all(_isconst, args)
+    @case :(@keep $line $ex)
+        return true
+    @case _
+        return false
 end
 
 iter_assign(a::AbstractArray, val, indices...) = (a[indices...] = val; a)

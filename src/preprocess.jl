@@ -27,40 +27,49 @@ end
 
 function precom_opm(f, out, arg2)
     if f in [:(+=), :(-=)]
-        @match arg2 begin
-            :($subf($(subargs...))) => Expr(f, out, arg2)
-            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+        @when :($subf($(subargs...))) = arg2 begin
+            return Expr(f, out, arg2)
+        @otherwise
+            error("unknown expression after assign $(QuoteNode(arg2))")
         end
     elseif f in [:(.+=), :(.-=)]
-        @match arg2 begin
-            :($subf.($(subargs...))) => Expr(f, out, arg2)
-            :($subf($(subargs...))) => Expr(f, out, arg2)
-            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+        @switch arg2 begin
+        @case :($subf.($(subargs...)))
+            return Expr(f, out, arg2)
+        @case :($subf($(subargs...)))
+            return Expr(f, out, arg2)
+        @case _
+            error("unknown expression after assign $(QuoteNode(arg2))")
         end
     end
 end
 
 function precom_ox(f, out, arg2)
     if f == :(⊻=)
-        @match arg2 begin
-            :($subf($(subargs...))) ||
+        @switch arg2 begin
+            @case :($subf($(subargs...))) ||
             :($a || $b) ||
-            :($a && $b) => Expr(f, out, arg2)
-            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+            :($a && $b)
+                return Expr(f, out, arg2)
+            @case _
+                error("unknown expression after assign $(QuoteNode(arg2))")
         end
     elseif f == :(.⊻=)
-        @match arg2 begin
-            :($subf.($(subargs...))) => Expr(f, out, arg2)
-            :($subf($(subargs...))) => Expr(f, out, arg2)
-            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+        @switch arg2 begin
+        @case :($subf.($(subargs...)))
+            return Expr(f, out, arg2)
+        @case :($subf($(subargs...)))
+            return Expr(f, out, arg2)
+        @case _
+            error("unknown expression after assign $(QuoteNode(arg2))")
         end
     end
 end
 
 function precom_ex(ex, info)
-    @match ex begin
-        :($x ← new{$(_...)}($(args...))) ||
-        :($x ← new($(args...))) => begin
+    @switch ex begin
+        @case :($x ← new{$(_...)}($(args...))) ||
+        :($x ← new($(args...)))
             for arg in args
                 # no need to deallocate `arg`.
                 if arg != x
@@ -70,10 +79,9 @@ function precom_ex(ex, info)
             if !(x in args)
                 info.ancs[x] = ex.args[3]
             end
-            ex
-        end
-        :($x → new{$(_...)}($(args...))) ||
-        :($x → new($(args...))) => begin
+            return ex
+        @case :($x → new{$(_...)}($(args...))) ||
+        :($x → new($(args...)))
             for (i, arg) in enumerate(args)
                 # no need to deallocate `arg`.
                 if arg != x
@@ -83,93 +91,106 @@ function precom_ex(ex, info)
             if !(x in args)
                 delete!(info.ancs, x)
             end
-            ex
-        end
-        :($x ← $val) => begin
+            return ex
+        @case :($x ← $val)
             info.ancs[x] = val
-            ex
-        end
-        :($x → $val) => begin
+            return ex
+        @case :($x → $val)
             delete!(info.ancs, x)
-            ex
-        end
-        :($a += $b) => precom_opm(:+=, a, b)
-        :($a -= $b) => precom_opm(:-=, a, b)
-        :($a ⊻= $b) => precom_ox(:⊻=, a, b)
-        :($a .+= $b) => precom_opm(:.+=, a, b)
-        :($a .-= $b) => precom_opm(:.-=, a, b)
-        :($a .⊻= $b) => precom_ox(:.⊻=, a, b)
-        :($a ⊕ $b) => :($a += identity($b))
-        :($a .⊕ $b) => :($a .+= identity.($b))
-        :($a ⊖ $b) => :($a -= identity($b))
-        :($a .⊖ $b) => :($a .-= identity.($b))
-        :($a ⊙ $b) => :($a ⊻= identity($b))
-        :($a .⊙ $b) => :($a .⊻= identity.($b))
-        Expr(:if, _...) => precom_if(copy(ex))
-        :(while ($pre, $post); $(body...); end) => begin
+            return ex
+        @case :($a += $b)
+            return precom_opm(:+=, a, b)
+        @case :($a -= $b)
+            return precom_opm(:-=, a, b)
+        @case :($a ⊻= $b)
+            return precom_ox(:⊻=, a, b)
+        @case :($a .+= $b)
+            return precom_opm(:.+=, a, b)
+        @case :($a .-= $b)
+            return precom_opm(:.-=, a, b)
+        @case :($a .⊻= $b)
+            return precom_ox(:.⊻=, a, b)
+        @case :($a ⊕ $b)
+            return :($a += identity($b))
+        @case :($a .⊕ $b)
+            return :($a .+= identity.($b))
+        @case :($a ⊖ $b)
+            return :($a -= identity($b))
+        @case :($a .⊖ $b)
+            return :($a .-= identity.($b))
+        @case :($a ⊙ $b)
+            return :($a ⊻= identity($b))
+        @case :($a .⊙ $b)
+            return :($a .⊻= identity.($b))
+        @case Expr(:if, _...)
+            return precom_if(copy(ex))
+        @case :(while ($pre, $post); $(body...); end)
             post = post == :~ ? pre : post
             info = PreInfo()
-            Expr(:while, :(($pre, $post)), Expr(:block, flushancs(precom_body(body, info), info)...))
-        end
-        :(begin $(body...) end) => begin
-            Expr(:block, precom_body(body, info)...)
-        end
-        # TODO: allow ommit step.
-        :(for $i=$range; $(body...); end) ||
-        :(for $i in $range; $(body...); end) => begin
+            return Expr(:while, :(($pre, $post)), Expr(:block, flushancs(precom_body(body, info), info)...))
+        @case :(begin $(body...) end)
+            return Expr(:block, precom_body(body, info)...)
+        @case :(for $i=$range; $(body...); end) ||
+        :(for $i in $range; $(body...); end)
             info = PreInfo()
-            Expr(:for, :($i=$(precom_range(range))), Expr(:block, flushancs(precom_body(body, info), info)...))
-        end
-        :(@anc $line $x = $val) => begin
+            return Expr(:for, :($i=$(range)), Expr(:block, flushancs(precom_body(body, info), info)...))
+        @case :(@anc $line $x = $val)
             @warn "`@anc x = expr` is deprecated, please use `x ← expr` for loading an ancilla."
-            precom_ex(:($x ← $val), info)
-        end
-        :(@deanc $line $x = $val) => begin
+            return precom_ex(:($x ← $val), info)
+        @case :(@deanc $line $x = $val)
             @warn "`@deanc x = expr` is deprecated, please use `x → expr` for deallocating an ancilla."
-            precom_ex(:($x → $val), info)
-        end
-        :(@safe $line $subex) => ex
-        :(@cuda $line $(args...)) => ex
-        :(@launchkernel $line $(args...)) => ex
-        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, precom_ex(subex, info))
-        :(@simd $line $subex) => Expr(:macrocall, Symbol("@simd"), line, precom_ex(subex, info))
-        :(@threads $line $subex) => Expr(:macrocall, Symbol("@threads"), line, precom_ex(subex, info))
-        :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, precom_ex(subex, info))
-        :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, precom_ex(subex, info))
-        :(@routine $line $name $expr) => begin
+            return precom_ex(:($x → $val), info)
+        @case :(@safe $line $subex)
+            return ex
+        @case :(@cuda $line $(args...))
+            return ex
+        @case :(@launchkernel $line $(args...))
+            return ex
+        @case :(@inbounds $line $subex)
+            return Expr(:macrocall, Symbol("@inbounds"), line, precom_ex(subex, info))
+        @case :(@simd $line $subex)
+            return Expr(:macrocall, Symbol("@simd"), line, precom_ex(subex, info))
+        @case :(@threads $line $subex)
+            return Expr(:macrocall, Symbol("@threads"), line, precom_ex(subex, info))
+        @case :(@avx $line $subex)
+            return Expr(:macrocall, Symbol("@avx"), line, precom_ex(subex, info))
+        @case :(@invcheckoff $line $subex)
+            return Expr(:macrocall, Symbol("@invcheckoff"), line, precom_ex(subex, info))
+        @case :(@routine $line $name $expr)
             @warn "`@routine name begin ... end` is deprecated, please use `@routine begin ... end`"
-            precom_ex(:(@routine $expr), info)
-        end
-        :(~(@routine $line $name)) => begin
+            return precom_ex(:(@routine $expr), info)
+        @case :(~(@routine $line $name))
             @warn "`~@routine name` is deprecated, please use `~@routine`"
-            precom_ex(:(~(@routine)), info)
-        end
-        :(@routine $line $expr) => begin
+            return precom_ex(:(~(@routine)), info)
+        @case :(@routine $line $expr)
             precode = precom_ex(expr, info)
             push!(info.routines, precode)
-            precode
-        end
-        :(~(@routine $line)) => begin
-            precom_ex(dual_ex(pop!(info.routines)), info)
-        end
-        :(~$expr) => dual_ex(precom_ex(expr, info))
-        :($f($(args...))) => :($f($(args...)))
-        :($f.($(args...))) => :($f.($(args...)))
-        ::LineNumberNode => ex
-        ::Nothing => ex
-        _ => error("unsupported statement: $ex")
+            return precode
+        @case :(~(@routine $line))
+            return precom_ex(dual_ex(pop!(info.routines)), info)
+        @case :(~$expr)
+            return dual_ex(precom_ex(expr, info))
+        @case :($f($(args...)))
+            return :($f($(args...)))
+        @case :($f.($(args...)))
+            return :($f.($(args...)))
+        @case ::LineNumberNode
+            return ex
+        @case ::Nothing
+            return ex
+        @case _
+            return error("unsupported statement: $ex")
     end
 end
 
-precom_range(range) = @match range begin
-    _ => range
-end
-
 function precom_if(ex)
-    _expand_cond(cond) = @match cond begin
-        :(($pre, ~)) => :(($pre, $pre))
-        :(($pre, $post)) => :(($pre, $post))
-        _ => error("must provide post condition, use `~` to specify a dummy one.")
+    _expand_cond(cond) = @switch cond begin
+        @case :(($pre, ~))
+            return :(($pre, $pre))
+        @case :(($pre, $post))
+            return :(($pre, $post))
+        @case _
+            error("must provide post condition, use `~` to specify a dummy one.")
     end
     if ex.head == :if
         ex.args[1] = _expand_cond(ex.args[1])

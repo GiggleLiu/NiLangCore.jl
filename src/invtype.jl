@@ -65,8 +65,8 @@ macro icast(ex, body)
     if !(body isa Expr && body.head == :block)
         error("the second argument must be a `begin ... end` statement.")
     end
-    @match ex begin
-        :($a => $b) => begin
+    @switch ex begin
+        @case :($a => $b)
             t1, args1 = _match_typecast(a)
             t2, args2 = _match_typecast(b)
             ancs = OrderedDict{Any,Any}()
@@ -82,16 +82,19 @@ macro icast(ex, body)
             x = gensym()
             fdef1 = Expr(:function, :(Base.convert(::Type{$t1}, $x::$t2)), Expr(:block, _unpack_struct(x, args2), compile_body(dual_body(body), CompileInfo())..., a))
             fdef2 = Expr(:function, :(Base.convert(::Type{$t2}, $x::$t1)), Expr(:block, _unpack_struct(x, args1), compile_body(body, CompileInfo())..., b))
-            esc(Expr(:block, fdef1, fdef2, nothing))
-        end
-        _ => error("the first argument must be a pair like `x => y`.")
+            return esc(Expr(:block, fdef1, fdef2, nothing))
+        @case _
+            error("the first argument must be a pair like `x => y`.")
     end
 end
 
-_match_typecast(ex) = @match ex begin
-    :($tp($(args...))) => (tp, args)
-    :($x::$tp) => (tp, x)
-    _ => error("type specification should be `T(args...)` or `x::T`.")
+_match_typecast(ex) = @switch ex begin
+    @case :($tp($(args...)))
+        return (tp, args)
+    @case :($x::$tp)
+        return (tp, x)
+    @case _
+        error("type specification should be `T(args...)` or `x::T`.")
 end
 
 function _unpack_struct(obj, args)

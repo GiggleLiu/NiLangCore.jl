@@ -7,16 +7,23 @@ end
 
 # get the function name of the inverse function
 function dual_fname(op)
-    @match op begin
-        :($x::MinusEq{$tp}) => :($x::PlusEq{$tp})
-        :($x::PlusEq{$tp}) => :($x::MinusEq{$tp})
-        :($x::MinusEq) => :($x::PlusEq)
-        :($x::PlusEq) => :($x::MinusEq)
-        :($x::XorEq{$tp}) => :($x::XorEq{$tp})
-        :($x::$tp) => :($x::Inv{<:$tp})
-        :(~$x) => x
-        #_ => :(_::Inv{typeof($op)})
-        _ => :($(gensym())::$_typeof(~$op))
+    @switch op begin
+        @case :($x::MinusEq{$tp})
+            return :($x::PlusEq{$tp})
+        @case :($x::PlusEq{$tp})
+            return :($x::MinusEq{$tp})
+        @case :($x::MinusEq)
+            return :($x::PlusEq)
+        @case :($x::PlusEq)
+            return :($x::MinusEq)
+        @case :($x::XorEq{$tp})
+            return :($x::XorEq{$tp})
+        @case :($x::$tp)
+            return :($x::Inv{<:$tp})
+        @case :(~$x)
+            return x
+        @case _
+            return :($(gensym())::$_typeof(~$op))
     end
 end
 
@@ -42,90 +49,113 @@ end
 Get the dual expression of `ex`.
 """
 function dual_ex(ex)
-    @match ex begin
-        :($x → $val) => :($x ← $val)
-        :($x ← $val) => :($x → $val)
-        :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
-        :(($t1=>$t2).($x)) => :(($t2=>$t1).($x))
-        :($a |> $b) => begin
+    @switch ex begin
+        @case :($x → $val)
+            return :($x ← $val)
+        @case :($x ← $val)
+            return :($x → $val)
+        @case :(($t1=>$t2)($x))
+            return :(($t2=>$t1)($x))
+        @case :(($t1=>$t2).($x))
+            return :(($t2=>$t1).($x))
+        @case :($a |> $b)
             pipline = get_pipline!(ex, Any[])
-            rev_pipline!(pipline[1], pipline[2:end], dot=false)
-        end
-        :($a .|> $b) => begin
+            return rev_pipline!(pipline[1], pipline[2:end], dot=false)
+        @case :($a .|> $b)
             pipline = get_dotpipline!(ex, Any[])
-            rev_pipline!(pipline[1], pipline[2:end]; dot=true)
-        end
-        :($f($(args...))) => begin
+            return rev_pipline!(pipline[1], pipline[2:end]; dot=true)
+        @case :($f($(args...)))
             if startwithdot(f)
-                :($(dotgetdual(f)).($(args...)))
+                return :($(dotgetdual(f)).($(args...)))
             else
-                :($(getdual(f))($(args...)))
+                return :($(getdual(f))($(args...)))
             end
-        end
-        :($f.($(args...))) => :($(getdual(f)).($(args...)))
-        :($a += $f($(args...))) => :($a -= $f($(args...)))
-        :($a .+= $f($(args...))) => :($a .-= $f($(args...)))
-        :($a .+= $f.($(args...))) => :($a .-= $f.($(args...)))
-        :($a -= $f($(args...))) => :($a += $f($(args...)))
-        :($a .-= $f($(args...))) => :($a .+= $f($(args...)))
-        :($a .-= $f.($(args...))) => :($a .+= $f.($(args...)))
-        :($a ⊻= $f($(args...))) => :($a ⊻= $f($(args...)))
-        :($a .⊻= $f($(args...))) => :($a .⊻= $f($(args...)))
-        :($a .⊻= $f.($(args...))) => :($a .⊻= $f.($(args...)))
-
-        :($a += $b) => :($a -= $b)
-        :($a .+= $b) => :($a .-= $b)
-        :($a -= $b) => :($a += $b)
-        :($a .-= $b) => :($a .+= $b)
-        :($a ⊻= $b) => :($a ⊻= $b)
-        :($a .⊻= $b) => :($a .⊻= $b)
-        Expr(:if, _...) => dual_if(copy(ex))
-        :(while ($pre, $post); $(body...); end) => begin
-            Expr(:while, :(($post, $pre)), Expr(:block, dual_body(body)...))
-        end
-        # TODO: allow ommit step.
-        :(for $i=$start:$step:$stop; $(body...); end) => begin
-            Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(body)...))
-        end
-        :(for $i=$start:$stop; $(body...); end) => begin
+        @case :($f.($(args...)))
+            return :($(getdual(f)).($(args...)))
+        @case :($a += $f($(args...)))
+            return :($a -= $f($(args...)))
+        @case :($a .+= $f($(args...)))
+            return :($a .-= $f($(args...)))
+        @case :($a .+= $f.($(args...)))
+            return :($a .-= $f.($(args...)))
+        @case :($a -= $f($(args...)))
+            return :($a += $f($(args...)))
+        @case :($a .-= $f($(args...)))
+            return :($a .+= $f($(args...)))
+        @case :($a .-= $f.($(args...)))
+            return :($a .+= $f.($(args...)))
+        @case :($a ⊻= $f($(args...)))
+            return :($a ⊻= $f($(args...)))
+        @case :($a .⊻= $f($(args...)))
+            return :($a .⊻= $f($(args...)))
+        @case :($a .⊻= $f.($(args...)))
+            return :($a .⊻= $f.($(args...)))
+        @case :($a += $b)
+            return :($a -= $b)
+        @case :($a .+= $b)
+            return :($a .-= $b)
+        @case :($a -= $b)
+            return :($a += $b)
+        @case :($a .-= $b)
+            return :($a .+= $b)
+        @case :($a ⊻= $b)
+            return :($a ⊻= $b)
+        @case :($a .⊻= $b)
+            return :($a .⊻= $b)
+        @case Expr(:if, _...)
+            return dual_if(copy(ex))
+        @case :(while ($pre, $post); $(body...); end)
+            return Expr(:while, :(($post, $pre)), Expr(:block, dual_body(body)...))
+        @case :(for $i=$start:$step:$stop; $(body...); end)
+            return Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(body)...))
+        @case :(for $i=$start:$stop; $(body...); end)
             j = gensym()
-            Expr(:for, :($j=$start:$stop), Expr(:block, :($i ← $stop-$j+$start), dual_body(body)..., :($i → $stop-$j+$start)))
-        end
-        :(for $i=$itr; $(body...); end) => begin
-            Expr(:for, :($i=Base.Iterators.reverse($itr)), Expr(:block, dual_body(body)...))
-        end
-        :(@safe $line $subex) => Expr(:macrocall, Symbol("@safe"), line, subex)
-        :(@cuda $line $(args...)) => Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., dual_ex(args[end]))
-        :(@launchkernel $line $(args...)) => Expr(:macrocall, Symbol("@launchkernel"), line, args[1:end-1]..., dual_ex(args[end]))
-        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, dual_ex(subex))
-        :(@simd $line $subex) => Expr(:macrocall, Symbol("@simd"), line, dual_ex(subex))
-        :(@threads $line $subex) => Expr(:macrocall, Symbol("@threads"), line, dual_ex(subex))
-        :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, dual_ex(subex))
-        :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, dual_ex(subex))
-        :(begin $(body...) end) => Expr(:block, dual_body(body)...)
-        ::LineNumberNode => ex
-        ::Nothing => ex
-        :() => ex
-        _ => error("can not invert target expression $ex")
+            return Expr(:for, :($j=$start:$stop), Expr(:block, :($i ← $stop-$j+$start), dual_body(body)..., :($i → $stop-$j+$start)))
+        @case :(for $i=$itr; $(body...); end)
+            return Expr(:for, :($i=Base.Iterators.reverse($itr)), Expr(:block, dual_body(body)...))
+        @case :(@safe $line $subex)
+            return Expr(:macrocall, Symbol("@safe"), line, subex)
+        @case :(@cuda $line $(args...))
+            return Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., dual_ex(args[end]))
+        @case :(@launchkernel $line $(args...))
+            return Expr(:macrocall, Symbol("@launchkernel"), line, args[1:end-1]..., dual_ex(args[end]))
+        @case :(@inbounds $line $subex)
+            return Expr(:macrocall, Symbol("@inbounds"), line, dual_ex(subex))
+        @case :(@simd $line $subex)
+            return Expr(:macrocall, Symbol("@simd"), line, dual_ex(subex))
+        @case :(@threads $line $subex)
+            return Expr(:macrocall, Symbol("@threads"), line, dual_ex(subex))
+        @case :(@avx $line $subex)
+            return Expr(:macrocall, Symbol("@avx"), line, dual_ex(subex))
+        @case :(@invcheckoff $line $subex)
+            return Expr(:macrocall, Symbol("@invcheckoff"), line, dual_ex(subex))
+        @case :(begin $(body...) end)
+            return Expr(:block, dual_body(body)...)
+        @case ::LineNumberNode
+            return ex
+        @case ::Nothing
+            return ex
+        @case :()
+            return ex
+        @case _
+            return error("can not invert target expression $ex")
     end
 end
 
-get_pipline!(ex, out!) = @match ex begin
-    :($a |> $f) => begin
+get_pipline!(ex, out!) = @when :($a |> $f) = ex begin
         get_pipline!(a, out!)
         push!(out!, f)
-        out!
-    end
-    _ => push!(out!, ex)
+        return out!
+    @otherwise
+        return push!(out!, ex)
 end
 
-get_dotpipline!(ex, out!) = @match a begin
-    :($a .|> $f) => begin
+get_dotpipline!(ex, out!) = @when :($a .|> $f) = a begin
         get_dotpipline!(a, out!)
         push!(out, f)
-        out!
-    end
-    _ => push!(out!, ex)
+        return out!
+    @otherwise
+        return push!(out!, ex)
 end
 
 function rev_pipline!(var, fs; dot)
@@ -173,18 +203,26 @@ macro code_reverse(ex)
     QuoteNode(dual_ex(ex))
 end
 
-dualname(f) = @match f begin
-    :(⊕($f)) => :(⊖($f))
-    :(⊖($f)) => :(⊕($f))
-    :(~$fname) => fname
-    _ => :(~$f)
+dualname(f) = @switch f begin
+    @case :(⊕($f))
+        return :(⊖($f))
+    @case :(⊖($f))
+        return :(⊕($f))
+    @case :(~$fname)
+        return fname
+    @case _
+        return :(~$f)
 end
 
-getdual(f) = @match f begin
-    :(⊕($f)) => :(⊖($f))
-    :(⊖($f)) => :(⊕($f))
-    :(~$f) => f
-    _ => :(~$f)
+getdual(f) = @switch f begin
+    @case :(⊕($f))
+        return :(⊖($f))
+    @case :(⊖($f))
+        return :(⊕($f))
+    @case :(~$f)
+        return f
+    @case _
+        return :(~$f)
 end
 dotgetdual(f::Symbol) = getdual(removedot(f))
 

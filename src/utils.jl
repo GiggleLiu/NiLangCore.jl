@@ -12,32 +12,44 @@ function debcast(f)
 end
 
 function get_ftype(fname)
-    @match fname begin
-        :($x::$tp) => tp
-        _ => :(NiLangCore._typeof($fname))
+    @when :($x::$tp) = fname begin
+        return tp
+    @otherwise
+        return :(NiLangCore._typeof($fname))
     end
 end
 
 get_argname(arg::Symbol) = arg
 function get_argname(fname::Expr)
-    @match fname begin
-        :($x::$t) => x
-        :($x::$t=$y) => x
-        :($x=$y) => x
-        :($x...) => :($x...)
-        :($x::$t...) => :($x...)
-        Expr(:parameters, args...) => fname
-        _ => error("can not get the function name of expression $fname.")
+    @switch fname begin
+        @case :($x::$t)
+            return x
+        @case :($x::$t=$y)
+            return x
+        @case :($x=$y)
+            return x
+        @case :($x...)
+            return :($x...)
+        @case :($x::$t...)
+            return :($x...)
+        @case Expr(:parameters, args...)
+            return fname
+        @case _
+            return error("can not get the function name of expression $fname.")
     end
 end
 
 function match_function(ex)
-    @match ex begin
-        :(function $(fname)($(args...)) $(body...) end) ||
-        :($fname($(args...)) = $(body...)) => (nothing, fname, args, [], body)
-        Expr(:function, :($fname($(args...)) where {$(ts...)}), xbody) => (nothing, fname, args, ts, xbody.args)
-        Expr(:macrocall, mcname, line, fdef) => ([mcname, line], match_function(fdef)[2:end]...)
-        _ => error("must input a function, got $ex")
+    @switch ex begin
+        @case :(function $(fname)($(args...)) $(body...) end) ||
+        :($fname($(args...)) = $(body...))
+            return (nothing, fname, args, [], body)
+        @case Expr(:function, :($fname($(args...)) where {$(ts...)}), xbody)
+            return (nothing, fname, args, ts, xbody.args)
+        @case Expr(:macrocall, mcname, line, fdef)
+            return ([mcname, line], match_function(fdef)[2:end]...)
+        @case _
+            return error("must input a function, got $ex")
     end
 end
 
