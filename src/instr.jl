@@ -8,12 +8,6 @@ Define `f` and `invf` as a pair of dual instructions, i.e. reverse to each other
 """
 macro dual(f, invf)
     esc(:(
-        NiLangCore.isreversible($f) || begin
-            NiLangCore.isreversible(::typeof($f)) = true
-        end;
-        NiLangCore.isreversible($invf) || begin
-            NiLangCore.isreversible(::typeof($invf)) = true
-        end;
         NiLangCore.isprimitive($f) || begin
             NiLangCore.isprimitive(::typeof($f)) = true
         end;
@@ -36,9 +30,6 @@ Define `f` as a self-dual instructions.
 """
 macro selfdual(f)
     esc(:(
-        NiLangCore.isreversible($f) || begin
-            NiLangCore.isreversible(::typeof($f)) = true
-        end;
         NiLangCore.isreflexive($f) || begin
             NiLangCore.isreflexive(::typeof($f)) = true
         end;
