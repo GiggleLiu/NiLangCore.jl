@@ -322,7 +322,6 @@ function _gen_ifunc(ex)
     #ex = :(Base.@__doc__ $fdef1; if $ftype != $dftype; $fdef2; end)
     ex = Expr(:block, fdef1,
         Expr(:if, :($ftype != $dftype), fdef2),
-        _funcdef(:isreversible, ftype) |> rmlines
         )
 end
 
@@ -420,7 +419,6 @@ function interpret_func(ex)
                 $(compile_body(body)...)
                 ($(args...),)
             end;
-            $(_funcdef(:isreversible, ftype))
             ))
         end
         _=>error("$ex is not a function def")
@@ -429,13 +427,6 @@ end
 
 function _hasmethod1(f::TF, argt) where TF
     any(m->Tuple{TF, argt} == m.sig, methods(f).ms)
-end
-
-function _funcdef(f, ftype)
-    :(if !$(_hasmethod1)(NiLangCore.$f, $ftype)
-        NiLangCore.$f(::$ftype) = true
-    end
-     )
 end
 
 export @instr
