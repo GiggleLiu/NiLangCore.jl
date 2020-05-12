@@ -12,6 +12,10 @@ function dual_fname(op)
         :($x::PlusEq{$tp}) => :($x::MinusEq{$tp})
         :($x::MinusEq) => :($x::PlusEq)
         :($x::PlusEq) => :($x::MinusEq)
+        :($x::DivEq{$tp}) => :($x::MulEq{$tp})
+        :($x::MulEq{$tp}) => :($x::DivEq{$tp})
+        :($x::DivEq) => :($x::MulEq)
+        :($x::MulEq) => :($x::DivEq)
         :($x::XorEq{$tp}) => :($x::XorEq{$tp})
         :($x::$tp) => :($x::Inv{<:$tp})
         :(~$x) => x
@@ -29,6 +33,10 @@ function _infer_dual(sym::Symbol)
         :.-=
     elseif sym == :.-=
         :.+=
+    elseif sym == :*=
+        :/=
+    elseif sym == :/=
+        :*=
     elseif sym == :⊻=
         :⊻=
     elseif sym == :.⊻=
@@ -69,16 +77,22 @@ function dual_ex(ex)
         :($a -= $f($(args...))) => :($a += $f($(args...)))
         :($a .-= $f($(args...))) => :($a .+= $f($(args...)))
         :($a .-= $f.($(args...))) => :($a .+= $f.($(args...)))
+        :($a *= $f($(args...))) => :($a /= $f($(args...)))
+        :($a .*= $f($(args...))) => :($a ./= $f($(args...)))
+        :($a .*= $f.($(args...))) => :($a ./= $f.($(args...)))
+        :($a /= $f($(args...))) => :($a *= $f($(args...)))
+        :($a ./= $f($(args...))) => :($a .*= $f($(args...)))
+        :($a ./= $f.($(args...))) => :($a .*= $f.($(args...)))
         :($a ⊻= $f($(args...))) => :($a ⊻= $f($(args...)))
         :($a .⊻= $f($(args...))) => :($a .⊻= $f($(args...)))
         :($a .⊻= $f.($(args...))) => :($a .⊻= $f.($(args...)))
 
-        :($a += $b) => :($a -= $b)
-        :($a .+= $b) => :($a .-= $b)
-        :($a -= $b) => :($a += $b)
-        :($a .-= $b) => :($a .+= $b)
-        :($a ⊻= $b) => :($a ⊻= $b)
-        :($a .⊻= $b) => :($a .⊻= $b)
+        #:($a += $b) => :($a -= $b)
+        #:($a .+= $b) => :($a .-= $b)
+        #:($a -= $b) => :($a += $b)
+        #:($a .-= $b) => :($a .+= $b)
+        #:($a ⊻= $b) => :($a ⊻= $b)
+        #:($a .⊻= $b) => :($a .⊻= $b)
         Expr(:if, _...) => dual_if(copy(ex))
         :(while ($pre, $post); $(body...); end) => begin
             Expr(:while, :(($post, $pre)), Expr(:block, dual_body(body)...))

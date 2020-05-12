@@ -66,7 +66,7 @@ macro assignback(ex, invcheck=true)
     @smatch ex begin
         :($f($(args...))) => begin
             symres = gensym()
-            ex = :($symres = $f($(args...)))
+            ex = :($symres = $wrap_tuple($f($(args...))))
             if startwithdot(f)
                 esc(Expr(ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
             else
@@ -94,9 +94,9 @@ function assign_vars(args, symres; invcheck)
         exi = @smatch arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                assign_ex(ag, :($tailn($wrap_tuple($symres), Val($i-1))); invcheck=invcheck)
+                assign_ex(ag, :($tailn($symres, Val($i-1))); invcheck=invcheck)
             end
-            _ => assign_ex(arg, :($wrap_tuple($symres)[$i]); invcheck=invcheck)
+            _ => assign_ex(arg, :($symres[$i]); invcheck=invcheck)
         end
         exi !== nothing && push!(exprs, exi)
     end

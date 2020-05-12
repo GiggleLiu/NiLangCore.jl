@@ -103,7 +103,7 @@ protectf(x) = x
 protectf(x::Inv) = x.f
 
 ######### Infer
-export PlusEq, MinusEq, XorEq
+export PlusEq, MinusEq, XorEq, MulEq, DivEq
 """
     PlusEq{FT} <: Function
     PlusEq(f)
@@ -144,6 +144,26 @@ struct MinusEq{FT} <: Function
 end
 
 """
+    MulEq{FT} <: Function
+    MulEq(f)
+
+Called when executing `out *= f(args...)` instruction. See `PlusEq` for detail.
+"""
+struct MulEq{FT} <: Function
+    f::FT
+end
+
+"""
+    DivEq{FT} <: Function
+    DivEq(f)
+
+Called when executing `out /= f(args...)` instruction. See `PlusEq` for detail.
+"""
+struct DivEq{FT} <: Function
+    f::FT
+end
+
+"""
     XorEq{FT} <: Function
     XorEq(f)
     ⊙(f)
@@ -155,17 +175,10 @@ struct XorEq{FT} <: Function
 end
 isreflexive(::XorEq) = true
 
-const OPMX{FT} = Union{PlusEq{FT}, MinusEq{FT}, XorEq{FT}}
+const OPMX{FT} = Union{PlusEq{FT}, MinusEq{FT}, XorEq{FT}, MulEq{FT}, DivEq{FT}}
 
 logical_or(a, b) = a || b
 logical_and(a, b) = a && b
-
-"""
-accumulate result into x.
-"""
-#(inf::PlusEq)(out!, args...) = (chfield(out!, value, value(out!) + inf.f(value.(args)...)), args...)
-#(inf::MinusEq)(out!, args...) = (chfield(out!, value, value(out!) - inf.f(value.(args)...)), args...)
-#(inf::XorEq)(out!, args...) = (chfield(out!, value, value(out!) ⊻ inf.f(value.(args)...)), args...)
 
 _add(x, y) = x + y
 _sub(x, y) = x - y
@@ -179,14 +192,19 @@ end
 
 Base.:~(op::PlusEq) = MinusEq(op.f)
 Base.:~(om::MinusEq) = PlusEq(om.f)
+Base.:~(op::MulEq) = DivEq(op.f)
+Base.:~(om::DivEq) = MulEq(om.f)
 Base.:~(om::XorEq) = om
-_str(::PlusEq) = '⊕'
-_str(::MinusEq) = '⊖'
-_str(::XorEq) = '⊙'
+_str(::PlusEq) = "+="
+_str(::MinusEq) = "-="
+_str(::MulEq) = "*="
+_str(::DivEq) = "/="
+_str(::XorEq) = "⊻="
 Base.display(o::OPMX) = print(_str(o), "(", o.f, ")")
 Base.show_function(io::IO, o::OPMX, compact::Bool) = print(io, "$(_str(o))($(o.f))")
 Base.show_function(io::IO, ::MIME"plain/text", o::OPMX, compact::Bool) = Base.show(io, o)
 
+# TODO deprecate
 export ⊕, ⊖, ⊙
 ⊕(f) = PlusEq(f)
 ⊖(f) = MinusEq(f)
