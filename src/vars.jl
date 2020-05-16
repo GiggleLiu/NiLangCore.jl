@@ -17,6 +17,8 @@ macro deanc(ex)
 end
 
 deanc(x, val) = @invcheck x val
+deanc(x::T, val::T) where T<:Tuple = x === val || deanc.(x, val)
+deanc(x::T, val::T) where T<:AbstractArray = x === val || deanc.(x, val)
 
 """
     @anc x = expr
