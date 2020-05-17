@@ -65,7 +65,7 @@ macro icast(ex, body)
     if !(body isa Expr && body.head == :block)
         error("the second argument must be a `begin ... end` statement.")
     end
-    @match ex begin
+    @smatch ex begin
         :($a => $b) => begin
             t1, args1 = _match_typecast(a)
             t2, args2 = _match_typecast(b)
@@ -88,7 +88,7 @@ macro icast(ex, body)
     end
 end
 
-_match_typecast(ex) = @match ex begin
+_match_typecast(ex) = @smatch ex begin
     :($tp($(args...))) => (tp, args)
     :($x::$tp) => (tp, x)
     _ => error("type specification should be `T(args...)` or `x::T`.")

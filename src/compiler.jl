@@ -32,13 +32,19 @@ end
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
 function compile_ex(ex, info)
-    @match ex begin
+    @smatch ex begin
         :($a += $f($(args...))) => _instr(PlusEq, f, a, args, info, false, false)
         :($a .+= $f($(args...))) => _instr(PlusEq, f, a, args, info, true, false)
         :($a .+= $f.($(args...))) => _instr(PlusEq, f, a, args, info, true, true)
         :($a -= $f($(args...))) => _instr(MinusEq, f, a, args, info, false, false)
         :($a .-= $f($(args...))) => _instr(MinusEq, f, a, args, info, true, false)
         :($a .-= $f.($(args...))) => _instr(MinusEq, f, a, args, info, true, true)
+        :($a *= $f($(args...))) => _instr(MulEq, f, a, args, info, false, false)
+        :($a .*= $f($(args...))) => _instr(MulEq, f, a, args, info, true, false)
+        :($a .*= $f.($(args...))) => _instr(MulEq, f, a, args, info, true, true)
+        :($a /= $f($(args...))) => _instr(DivEq, f, a, args, info, false, false)
+        :($a ./= $f($(args...))) => _instr(DivEq, f, a, args, info, true, false)
+        :($a ./= $f.($(args...))) => _instr(DivEq, f, a, args, info, true, true)
         :($a ⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, false, false)
         :($a ⊻= $x || $y) => _instr(XorEq, logical_or, a, Any[x, y], info, false, false)
         :($a ⊻= $x && $y) => _instr(XorEq, logical_and, a, Any[x, y], info, false, false)
@@ -104,7 +110,7 @@ function compile_ex(ex, info)
             ex
         end
         :(@cuda $line $(args...)) => begin
-            fcall = @match args[end] begin
+            fcall = @smatch args[end] begin
                 :($f($(args...))) => Expr(:call,
                     Expr(:->,
                         Expr(:tuple, args...),
@@ -131,7 +137,7 @@ function compile_ex(ex, info)
     end
 end
 
-compile_pipline(x, f) = @match x begin
+compile_pipline(x, f) = @smatch x begin
     :(($(xx...),)) => begin
         xx, :($f($(xx...)))
     end
@@ -147,7 +153,7 @@ struct TupleExpanded{FT} <: Function
 end
 (tf::TupleExpanded)(x) = tf.f(x...)
 
-compile_dotpipline(x, f) = @match x begin
+compile_dotpipline(x, f) = @smatch x begin
     :(($(xx...),)) => begin
         xx, :($f.($(xx...)))
     end
@@ -290,7 +296,7 @@ end
 function _gen_istruct(ex)
     invlist = []
     for (i, st) in enumerate(ex.args[3].args)
-        @match st begin
+        @smatch st begin
             :(@i $line $funcdef) => begin
                 fdefs = _gen_ifunc(funcdef).args
                 ex.args[3].args[i] = fdefs[1]
@@ -402,7 +408,13 @@ function invfuncfoot(args)
     end
 end
 
-_replace_opmx(ex) = @match ex begin
+_replace_opmx(ex) = @smatch ex begin
+    :(:+=($f)) => :($(gensym())::PlusEq{typeof($f)})
+    :(:-=($f)) => :($(gensym())::MinusEq{typeof($f)})
+    :(:*=($f)) => :($(gensym())::MulEq{typeof($f)})
+    :(:/=($f)) => :($(gensym())::DivEq{typeof($f)})
+    :(:⊻=($f)) => :($(gensym())::XorEq{typeof($f)})
+    # TODO: DEPRECATE
     :(⊕($f)) => :($(gensym())::PlusEq{typeof($f)})
     :(⊖($f)) => :($(gensym())::MinusEq{typeof($f)})
     :(⊻($f)) => :($(gensym())::XorEq{typeof($f)})
@@ -410,7 +422,7 @@ _replace_opmx(ex) = @match ex begin
 end
 
 function interpret_func(ex)
-    @match ex begin
+    @smatch ex begin
         :(function $fname($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
             ftype = get_ftype(fname)
@@ -440,7 +452,7 @@ macro instr(ex)
     esc(NiLangCore.compile_ex(precom_ex(ex, NiLangCore.PreInfo()), CompileInfo()))
 end
 
-compile_range(range) = @match range begin
+compile_range(range) = @smatch range begin
     :($start:$step:$stop) => begin
         start_, step_, stop_ = gensym(), gensym(), gensym()
         Any[:($start_ = $start),

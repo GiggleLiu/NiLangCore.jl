@@ -12,7 +12,7 @@ function debcast(f)
 end
 
 function get_ftype(fname)
-    @match fname begin
+    @smatch fname begin
         :($x::$tp) => tp
         _ => :(NiLangCore._typeof($fname))
     end
@@ -20,7 +20,7 @@ end
 
 get_argname(arg::Symbol) = arg
 function get_argname(fname::Expr)
-    @match fname begin
+    @smatch fname begin
         :($x::$t) => x
         :($x::$t=$y) => x
         :($x=$y) => x
@@ -32,7 +32,7 @@ function get_argname(fname::Expr)
 end
 
 function match_function(ex)
-    @match ex begin
+    @smatch ex begin
         :(function $(fname)($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => (nothing, fname, args, [], body)
         Expr(:function, :($fname($(args...)) where {$(ts...)}), xbody) => (nothing, fname, args, ts, xbody.args)

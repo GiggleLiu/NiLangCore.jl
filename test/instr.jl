@@ -134,3 +134,22 @@ end
     @test @keep 2 == 2
     @test NiLangCore._isconst(:(@keep grad(x)))
 end
+
+@testset "+=, -=, *=, /=" begin
+    @test compile_ex(:(x += y * z), NiLangCore.CompileInfo()) == compile_ex(dual_ex(:(x -= y * z)), NiLangCore.CompileInfo())
+    @test compile_ex(:(x /= y * z), NiLangCore.CompileInfo()) == compile_ex(dual_ex(:(x *= y * z)), NiLangCore.CompileInfo())
+    @test ~MulEq(*) == DivEq(*)
+    @test ~DivEq(*) == MulEq(*)
+    function (g::MulEq)(y, a, b)
+        y * g.f(a, b), a, b
+    end
+
+    function (g::DivEq)(y, a, b)
+        y / g.f(a, b), a, b
+    end
+    a, b, c = 1.0, 2.0, 3.0
+    @instr a *= b + c
+    @test a == 5.0
+    @instr a /= b + c
+    @test a == 1.0
+end

@@ -63,10 +63,10 @@ Assign input variables with output values: `args... = f(args...)`, turn off inve
 """
 macro assignback(ex, invcheck=true)
     ex = precom_ex(ex, PreInfo())
-    @match ex begin
+    @smatch ex begin
         :($f($(args...))) => begin
             symres = gensym()
-            ex = :($symres = $f($(args...)))
+            ex = :($symres = $wrap_tuple($f($(args...))))
             if startwithdot(f)
                 esc(Expr(ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
             else
@@ -91,12 +91,12 @@ Get the expression of assigning `symres` to `args`.
 function assign_vars(args, symres; invcheck)
     exprs = []
     for (i,arg) in enumerate(args)
-        exi = @match arg begin
+        exi = @smatch arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                assign_ex(ag, :($tailn($wrap_tuple($symres), Val($i-1))); invcheck=invcheck)
+                assign_ex(ag, :($tailn($symres, Val($i-1))); invcheck=invcheck)
             end
-            _ => assign_ex(arg, :($wrap_tuple($symres)[$i]); invcheck=invcheck)
+            _ => assign_ex(arg, :($symres[$i]); invcheck=invcheck)
         end
         exi !== nothing && push!(exprs, exi)
     end
@@ -109,14 +109,14 @@ wrap_tuple(x::Tuple) = x
 """The broadcast version of `assign_vars`"""
 function bcast_assign_vars(args, symres; invcheck)
     if length(args) == 1
-        @match args[1] begin
+        @smatch args[1] begin
             :($args...) => :($args = ([getindex.($symres, j) for j=1:length($symres[1])]...,))
             _ => assign_ex(args[1], symres; invcheck=invcheck)
         end
     else
         ex = :()
         for (i,arg) in enumerate(args)
-            exi = @match arg begin
+            exi = @smatch arg begin
                 :($ag...) => begin
                     i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
                     :($ag = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
@@ -145,7 +145,7 @@ function assign_ex(arg::Symbol, res; invcheck)
     end
 end
 assign_ex(arg::Union{Number,String}, res; invcheck) = _invcheck(invcheck, arg, res)
-assign_ex(arg::Expr, res; invcheck) = @match arg begin
+assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
     :(@skip! $line $x) => nothing
     :(tget($a, $(x...))) => begin
         assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)); invcheck=invcheck)
@@ -174,7 +174,7 @@ _isconst(x) = false
 _isconst(x::Symbol) = x in [:im, :π, :true, :false]
 _isconst(::QuoteNode) = true
 _isconst(x::Union{Number,String}) = true
-_isconst(x::Expr) = @match x begin
+_isconst(x::Expr) = @smatch x begin
     :($f($(args...))) => all(_isconst, args)
     :(@keep $line $ex) => true
     _ => false
