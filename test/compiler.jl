@@ -573,3 +573,11 @@ end
     x = [1,2,3]
     @test f(x) == [2,3,4]
 end
+
+@testset "xor over ||" begin
+    x = false
+    @instr x ⊻= true || false
+    @test x
+    @instr x ⊻= true && false
+    @test x
+end
