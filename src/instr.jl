@@ -7,6 +7,8 @@ export nargs, nouts
 Define `f` and `invf` as a pair of dual instructions, i.e. reverse to each other.
 """
 macro dual(f, invf)
+    register_reversible!(f)
+    register_reversible!(invf)
     esc(:(
         NiLangCore.isprimitive($f) || begin
             NiLangCore.isprimitive(::typeof($f)) = true
@@ -29,6 +31,7 @@ end
 Define `f` as a self-dual instructions.
 """
 macro selfdual(f)
+    register_reversible!(f)
     esc(:(
         NiLangCore.isreflexive($f) || begin
             NiLangCore.isreflexive(::typeof($f)) = true

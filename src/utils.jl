@@ -96,31 +96,31 @@ islinenumbernode(@nospecialize(x)) = x isa LineNumberNode
 _typeof(x) = typeof(x)
 _typeof(x::Type{T}) where T = Type{T}
 
-@inline function ibcast(f, x)
+function ibcast(f, x)
     f, f.(x)
 end
 
-@inline function ibcast(f, x, y)
+function ibcast(f, x, y)
     res = f.(x, y)
     f, getindex.(res, 1), getindex.(res, 2)
 end
 
-@inline function ibcast(f, x, y, z)
+function ibcast(f, x, y, z)
     res = f.(x, y, z)
     f, getindex.(res, 1), getindex.(res, 2), getindex.(res, 3)
 end
 
-@inline function ibcast(f, x, y, z, a)
+function ibcast(f, x, y, z, a)
     res = f.(x, y, z, a)
     f, getindex.(res, 1), getindex.(res, 2), getindex.(res, 3), getindex.(res, 4)
 end
 
-@inline function ibcast(f, x, y, z, a, b)
+function ibcast(f, x, y, z, a, b)
     res = f.(x, y, z, a, b)
     f, getindex.(res, 1), getindex.(res, 2), getindex.(res, 3), getindex.(res, 4), getindex.(res, 5)
 end
 
-@inline function ibcast(f, x::AbstractArray)
+function ibcast(f, x::AbstractArray)
     for i=1:length(x)
         @inbounds x[i] = f(x[i])
     end

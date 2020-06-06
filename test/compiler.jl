@@ -14,6 +14,8 @@ using Base.Threads
         (~test1)(a, b, out)
         a ⊕ b
     end
+    l2 = length(NiLangCore.REVERSIBLE_FUNCTIONS)
+    @test :add in NiLangCore.REVERSIBLE_FUNCTIONS
 
     # compute (a+b)*b -> out
     x = 3.0

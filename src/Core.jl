@@ -1,10 +1,17 @@
 # Properties
 export isreversible, isreflexive, isprimitive
 export protectf
+
+const REVERSIBLE_FUNCTIONS = Set()
+
+function register_reversible!(x)
+    push!(REVERSIBLE_FUNCTIONS, x)
+end
+
 """
     isreversible(f, ARGT)
 
-Return `true` if a function is reversible.
+Return `true` if a `f(args...)` is reversible, where `typeof(args) == ARGT`.
 """
 isreversible(f, ::Type{ARGT}) where ARGT = hasmethod(~f, ARGT)
 

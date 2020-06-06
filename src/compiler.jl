@@ -311,6 +311,7 @@ end
 function _gen_ifunc(ex)
     mc, fname, args, ts, body = precom(ex)
     fname = _replace_opmx(fname)
+    register_reversible!(fname)
 
     # implementations
     ftype = get_ftype(fname)
