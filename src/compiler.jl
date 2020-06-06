@@ -143,7 +143,7 @@ compile_pipline(x, f) = @smatch x begin
     end
     :($xx |> $ff) => begin
         vars, newx = compile_pipline(xx, ff)
-        vars, :($f(NiLangCore.wrap_tuple($(newx))...))
+        vars, :($f($NiLangCore.wrap_tuple($(newx))...))
     end
     _ => error("reversible pipline should start with a tuple, e.g. (x, y) |> f1 |> f2..., got $x")
 end

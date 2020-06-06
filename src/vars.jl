@@ -56,7 +56,7 @@ macro fieldview(ex)
     @smatch ex begin
         :($f($obj::$tp) = begin $line; $obj.$prop end) => esc(quote
             Base.@__doc__ $f($obj::$tp) = begin $line; $obj.$prop end
-            NiLangCore.chfield($obj::$tp, ::typeof($f), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)
+            $NiLangCore.chfield($obj::$tp, ::typeof($f), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)
         end)
         _ => error("expect expression `f(obj::type) = obj.prop`, got $ex")
     end
@@ -149,8 +149,8 @@ macro pure_wrapper(tp)
         $TP(x::$TP{T}) where T = x # to avoid ambiguity error
         $TP{T}(x::$TP{T}) where T = x
         (_::Type{Inv{$TP}})(x) = x.x
-        NiLangCore.value(x::$TP) = x.x
-        NiLangCore.chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
+        $NiLangCore.value(x::$TP) = x.x
+        $NiLangCore.chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
         Base.zero(x::$TP) = $TP(zero(x.x))
         Base.show(io::IO, gv::$TP) = print(io, "$($TP)($(gv.x))")
         Base.show(io::IO, ::MIME"plain/text", gv::$TP) = Base.show(io, gv)
