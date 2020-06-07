@@ -10,13 +10,15 @@ Deallocate ancilla `x` if `x == expr`,
 else throw an `InvertibilityError`.
 """
 macro deanc(ex)
-    @match ex begin
+    @smatch ex begin
         :($x = $val) => Expr(:block, :(deanc($(esc(x)), $(esc(val)))), :($(esc(x)) = nothing))
         _ => error("please use like `@deanc x = val`")
     end
 end
 
 deanc(x, val) = @invcheck x val
+deanc(x::T, val::T) where T<:Tuple = x === val || deanc.(x, val)
+deanc(x::T, val::T) where T<:AbstractArray = x === val || deanc.(x, val)
 
 """
     @anc x = expr
@@ -24,7 +26,7 @@ deanc(x, val) = @invcheck x val
 Create an ancilla `x` with initial value `expr`,
 """
 macro anc(ex)
-    @match ex begin
+    @smatch ex begin
         :($x = $tp) => esc(ex)
         _ => error("please use like `@anc x = val`")
     end
@@ -51,10 +53,10 @@ GVar{Float64,Float64}(2.0, 0.0)
 ```
 """
 macro fieldview(ex)
-    @match ex begin
+    @smatch ex begin
         :($f($obj::$tp) = begin $line; $obj.$prop end) => esc(quote
             Base.@__doc__ $f($obj::$tp) = begin $line; $obj.$prop end
-            NiLangCore.chfield($obj::$tp, ::typeof($f), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)
+            $NiLangCore.chfield($obj::$tp, ::typeof($f), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)
         end)
         _ => error("expect expression `f(obj::type) = obj.prop`, got $ex")
     end
@@ -147,8 +149,8 @@ macro pure_wrapper(tp)
         $TP(x::$TP{T}) where T = x # to avoid ambiguity error
         $TP{T}(x::$TP{T}) where T = x
         (_::Type{Inv{$TP}})(x) = x.x
-        NiLangCore.value(x::$TP) = x.x
-        NiLangCore.chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
+        $NiLangCore.value(x::$TP) = x.x
+        $NiLangCore.chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)
         Base.zero(x::$TP) = $TP(zero(x.x))
         Base.show(io::IO, gv::$TP) = print(io, "$($TP)($(gv.x))")
         Base.show(io::IO, ::MIME"plain/text", gv::$TP) = Base.show(io, gv)

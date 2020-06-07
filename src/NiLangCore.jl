@@ -1,5 +1,5 @@
 module NiLangCore
-using MLStyle
+using MatchCore
 using TupleTools
 
 #include("ngg/ngg.jl")
@@ -15,5 +15,8 @@ include("dualcode.jl")
 include("preprocess.jl")
 include("compiler.jl")
 include("checks.jl")
+
+include("precompile.jl")
+_precompile_()
 
 end # module

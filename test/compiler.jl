@@ -19,7 +19,7 @@ using Base.Threads
     x = 3.0
     y = 4.0
     out = 0.0
-    @test isreversible(test1)
+    @test isreversible(test1, Tuple{Number, Any, Any})
     @test check_inv(test1, (x, y, out))
     @test check_inv(tt, (x, y))
     @test check_inv(tt, (x, y))
@@ -577,4 +577,12 @@ end
 @testset "yaoir" begin
     @test (@code_reverse @ctrl k 1=>shift(θ)) == :(@ctrl k 1=>shift(θ)')
     @test (@code_reverse 1=>shift(θ)) == :(1=>shift(θ)')
+end
+
+@testset "xor over ||" begin
+    x = false
+    @instr x ⊻= true || false
+    @test x
+    @instr x ⊻= true && false
+    @test x
 end

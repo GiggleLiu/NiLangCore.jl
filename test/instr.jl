@@ -23,11 +23,11 @@ end
 
 @dual add sub
 
-function XOR(a!::Number, b::Number) where T
+function XOR(a!::Integer, b::Integer)
     xor(a!, b), b
 end
 
-@i function XOR(a!::T, b) where T
+@i function XOR(a!::T, b::T) where T<:IWrapper
     XOR(value(a!), value(b))
 end
 @selfdual XOR
@@ -45,8 +45,8 @@ end
 end
 
 @testset "@dual" begin
-    @test isreversible(add)
-    @test isreversible(sub)
+    @test isreversible(add, Tuple{Any,Any})
+    @test isreversible(sub, Tuple{Any,Any})
     @test !isreflexive(add)
     @test ~(add) == sub
     a=2.0
@@ -64,7 +64,10 @@ end
 end
 
 @testset "@selfdual" begin
-    @test isreversible(XOR)
+    @test !isreversible(XOR, Tuple{Any, Any})
+    @test !isreversible(~XOR, Tuple{Any, Any})
+    @test isreversible(~XOR, Tuple{Integer, Integer})
+    @test isreversible(XOR, Tuple{Integer, Integer})
     @test isreflexive(XOR)
     @test isprimitive(XOR)
     @test ~(XOR) == XOR
@@ -130,4 +133,23 @@ end
 @testset "keep value" begin
     @test @keep 2 == 2
     @test NiLangCore._isconst(:(@keep grad(x)))
+end
+
+@testset "+=, -=, *=, /=" begin
+    @test compile_ex(:(x += y * z), NiLangCore.CompileInfo()) == compile_ex(dual_ex(:(x -= y * z)), NiLangCore.CompileInfo())
+    @test compile_ex(:(x /= y * z), NiLangCore.CompileInfo()) == compile_ex(dual_ex(:(x *= y * z)), NiLangCore.CompileInfo())
+    @test ~MulEq(*) == DivEq(*)
+    @test ~DivEq(*) == MulEq(*)
+    function (g::MulEq)(y, a, b)
+        y * g.f(a, b), a, b
+    end
+
+    function (g::DivEq)(y, a, b)
+        y / g.f(a, b), a, b
+    end
+    a, b, c = 1.0, 2.0, 3.0
+    @instr a *= b + c
+    @test a == 5.0
+    @instr a /= b + c
+    @test a == 1.0
 end
