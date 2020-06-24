@@ -62,6 +62,7 @@ julia> @instr (SVar=>Float64)(x)
 ```
 """
 macro icast(ex, body)
+    m = __module__
     if !(body isa Expr && body.head == :block)
         error("the second argument must be a `begin ... end` statement.")
     end
@@ -74,14 +75,14 @@ macro icast(ex, body)
                 ancs[arg] = nothing
             end
             info = PreInfo(ancs, [])
-            body = precom_body(body.args, info)
+            body = precom_body(m, body.args, info)
             for arg in _asvector(args2)
                 delete!(info.ancs, arg)
             end
             isempty(info.ancs) || throw("variable information discarded/unknown variable: $(info.ancs)")
             x = gensym()
-            fdef1 = Expr(:function, :(Base.convert(::Type{$t1}, $x::$t2)), Expr(:block, _unpack_struct(x, args2), compile_body(dual_body(body), CompileInfo())..., a))
-            fdef2 = Expr(:function, :(Base.convert(::Type{$t2}, $x::$t1)), Expr(:block, _unpack_struct(x, args1), compile_body(body, CompileInfo())..., b))
+            fdef1 = Expr(:function, :(Base.convert(::Type{$t1}, $x::$t2)), Expr(:block, _unpack_struct(x, args2), compile_body(m, dual_body(m, body), CompileInfo())..., a))
+            fdef2 = Expr(:function, :(Base.convert(::Type{$t2}, $x::$t1)), Expr(:block, _unpack_struct(x, args1), compile_body(m, body, CompileInfo())..., b))
             esc(Expr(:block, fdef1, fdef2, nothing))
         end
         _ => error("the first argument must be a pair like `x => y`.")

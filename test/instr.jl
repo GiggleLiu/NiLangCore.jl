@@ -79,24 +79,11 @@ end
     @test a == 2
 end
 
-#=
-@testset "compile_ex" begin
-    info = ()
-    @test compile_ex(:(f(x, y)), info) == :(@instr f(x, y))
-    @test compile_ex(precom_ex(:(out ⊕ (x + y)), info), info) == :(@instr ⊕(+)(out, x, y))
-    @test compile_ex(:(x .+ y), info) == :(@instr x .+ y)
-    @test compile_ex(:(f.(x, y)), info) == :(@instr f.(x, y))
-    @test compile_ex(precom_ex(:(out .⊕ (x .+ y)), info), info) == :(@instr ⊕(+).(out, x, y))
-    @test compile_ex(precom_ex(:(out .⊕ swap.(x, y)), info), info) == :(@instr ⊕(swap).(out, x, y))
-end
-=#
-
 @testset "dual_ex" begin
-    @test dual_ex(:(⊕(+)(out, x, y))) == :(⊖(+)(out, x, y))
-    #@test dual_ex(:(x .⊕ y)) == :((x .(~(⊕)) y))
-    @test dual_ex(:((+).(x, y))) == :((~(+)).(x, y))
-    @test dual_ex(:(⊕(+).(out, x, y))) == :(⊖(+).(out, x, y))
-    @test dual_ex(:(⊕(XOR).(out, x, y))) == :(⊖(XOR).(out, x, y))
+    @test dual_ex(@__MODULE__, :(⊕(+)(out, x, y))) == :(⊖(+)(out, x, y))
+    @test dual_ex(@__MODULE__, :((+).(x, y))) == :((~(+)).(x, y))
+    @test dual_ex(@__MODULE__, :(⊕(+).(out, x, y))) == :(⊖(+).(out, x, y))
+    @test dual_ex(@__MODULE__, :(⊕(XOR).(out, x, y))) == :(⊖(XOR).(out, x, y))
 end
 
 @testset "⊕" begin
@@ -136,8 +123,8 @@ end
 end
 
 @testset "+=, -=, *=, /=" begin
-    @test compile_ex(:(x += y * z), NiLangCore.CompileInfo()) == compile_ex(dual_ex(:(x -= y * z)), NiLangCore.CompileInfo())
-    @test compile_ex(:(x /= y * z), NiLangCore.CompileInfo()) == compile_ex(dual_ex(:(x *= y * z)), NiLangCore.CompileInfo())
+    @test compile_ex(@__MODULE__, :(x += y * z), NiLangCore.CompileInfo()) == compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x -= y * z)), NiLangCore.CompileInfo())
+    @test compile_ex(@__MODULE__, :(x /= y * z), NiLangCore.CompileInfo()) == compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x *= y * z)), NiLangCore.CompileInfo())
     @test ~MulEq(*) == DivEq(*)
     @test ~DivEq(*) == MulEq(*)
     function (g::MulEq)(y, a, b)

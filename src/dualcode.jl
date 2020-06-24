@@ -1,7 +1,7 @@
 # get the expression of the inverse function
-function dual_func(fname, args, ts, body)
+function dual_func(m::Module, fname, args, ts, body)
     :(function $(:(~$fname))($(args...)) where {$(ts...)};
-            $(dual_body(body)...);
+            $(dual_body(m, body)...);
         end)
 end
 
@@ -45,11 +45,11 @@ function _infer_dual(sym::Symbol)
 end
 
 """
-    dual_ex(ex)
+    dual_ex(m::Module, ex)
 
 Get the dual expression of `ex`.
 """
-function dual_ex(ex)
+function dual_ex(m::Module, ex)
     @smatch ex begin
         :($x → $val) => :($x ← $val)
         :($x ← $val) => :($x → $val)
@@ -81,30 +81,30 @@ function dual_ex(ex)
         :($a ./= $b) => :($a .*= $b)
         :($a ⊻= $b) => :($a ⊻= $b)
         :($a .⊻= $b) => :($a .⊻= $b)
-        Expr(:if, _...) => dual_if(copy(ex))
+        Expr(:if, _...) => dual_if(m, copy(ex))
         :(while ($pre, $post); $(body...); end) => begin
-            Expr(:while, :(($post, $pre)), Expr(:block, dual_body(body)...))
+            Expr(:while, :(($post, $pre)), Expr(:block, dual_body(m, body)...))
         end
         # TODO: allow ommit step.
         :(for $i=$start:$step:$stop; $(body...); end) => begin
-            Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(body)...))
+            Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(m, body)...))
         end
         :(for $i=$start:$stop; $(body...); end) => begin
             j = gensym()
-            Expr(:for, :($j=$start:$stop), Expr(:block, :($i ← $stop-$j+$start), dual_body(body)..., :($i → $stop-$j+$start)))
+            Expr(:for, :($j=$start:$stop), Expr(:block, :($i ← $stop-$j+$start), dual_body(m, body)..., :($i → $stop-$j+$start)))
         end
         :(for $i=$itr; $(body...); end) => begin
-            Expr(:for, :($i=Base.Iterators.reverse($itr)), Expr(:block, dual_body(body)...))
+            Expr(:for, :($i=Base.Iterators.reverse($itr)), Expr(:block, dual_body(m, body)...))
         end
         :(@safe $line $subex) => Expr(:macrocall, Symbol("@safe"), line, subex)
-        :(@cuda $line $(args...)) => Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., dual_ex(args[end]))
-        :(@launchkernel $line $(args...)) => Expr(:macrocall, Symbol("@launchkernel"), line, args[1:end-1]..., dual_ex(args[end]))
-        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, dual_ex(subex))
-        :(@simd $line $subex) => Expr(:macrocall, Symbol("@simd"), line, dual_ex(subex))
-        :(@threads $line $subex) => Expr(:macrocall, Symbol("@threads"), line, dual_ex(subex))
-        :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, dual_ex(subex))
-        :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, dual_ex(subex))
-        :(begin $(body...) end) => Expr(:block, dual_body(body)...)
+        :(@cuda $line $(args...)) => Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., dual_ex(m, args[end]))
+        :(@launchkernel $line $(args...)) => Expr(:macrocall, Symbol("@launchkernel"), line, args[1:end-1]..., dual_ex(m, args[end]))
+        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, dual_ex(m, subex))
+        :(@simd $line $subex) => Expr(:macrocall, Symbol("@simd"), line, dual_ex(m, subex))
+        :(@threads $line $subex) => Expr(:macrocall, Symbol("@threads"), line, dual_ex(m, subex))
+        :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, dual_ex(m, subex))
+        :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, dual_ex(m, subex))
+        :(begin $(body...) end) => Expr(:block, dual_body(m, body)...)
         ::LineNumberNode => ex
         ::Nothing => ex
         :() => ex
@@ -139,7 +139,7 @@ function rev_pipline!(var, fs; dot)
     rev_pipline!(nvar, fs; dot=dot)
 end
 
-function dual_if(ex)
+function dual_if(m::Module, ex)
     _dual_cond(cond) = @smatch cond begin
         :(($pre, $post)) => :(($post, $pre))
     end
@@ -148,12 +148,12 @@ function dual_if(ex)
     elseif ex.head == :elseif
         ex.args[1].args[2] = _dual_cond(ex.args[1].args[2])
     end
-    ex.args[2] = Expr(:block, dual_body(ex.args[2].args)...)
+    ex.args[2] = Expr(:block, dual_body(m, ex.args[2].args)...)
     if length(ex.args) == 3
         if ex.args[3].head == :elseif
-            ex.args[3] = dual_if(ex.args[3])
+            ex.args[3] = dual_if(m, ex.args[3])
         elseif ex.args[3].head == :block
-            ex.args[3] = Expr(:block, dual_body(ex.args[3].args)...)
+            ex.args[3] = Expr(:block, dual_body(m, ex.args[3].args)...)
         end
     end
     ex
@@ -172,7 +172,7 @@ julia> @code_reverse x += exp(3.0)
 ```
 """
 macro code_reverse(ex)
-    QuoteNode(dual_ex(ex))
+    QuoteNode(dual_ex(__module__, ex))
 end
 
 dualname(f) = @smatch f begin
@@ -190,6 +190,6 @@ getdual(f) = @smatch f begin
 end
 dotgetdual(f::Symbol) = getdual(removedot(f))
 
-function dual_body(body)
-    out = map(st->(dual_ex(st)), Iterators.reverse(body))
+function dual_body(m::Module, body)
+    out = map(st->(dual_ex(m, st)), Iterators.reverse(body))
 end

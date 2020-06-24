@@ -62,7 +62,7 @@ export @assignback
 Assign input variables with output values: `args... = f(args...)`, turn off invertibility error check if the second argument is false.
 """
 macro assignback(ex, invcheck=true)
-    ex = precom_ex(ex, PreInfo())
+    ex = precom_ex(__module__, ex, PreInfo())
     @smatch ex begin
         :($f($(args...))) => begin
             symres = gensym()
@@ -137,7 +137,7 @@ function _invcheck(docheck, arg, res)
         nothing
     end
 end
-function assign_ex(arg::Symbol, res; invcheck)
+function assign_ex(arg::Union{Symbol,GlobalRef}, res; invcheck)
     if _isconst(arg)
         _invcheck(invcheck, arg, res)
     else

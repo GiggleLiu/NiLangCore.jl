@@ -4,10 +4,10 @@ end
 CompileInfo() = CompileInfo(Ref(true))
 
 #using .NGG: rmlines
-function compile_body(body::AbstractVector, info)
+function compile_body(m::Module, body::AbstractVector, info)
     out = []
     for ex in body
-        ex_ = compile_ex(ex, info)
+        ex_ = compile_ex(m, ex, info)
         ex_ !== nothing && push!(out, ex_)
     end
     return out
@@ -31,7 +31,7 @@ end
 
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
-function compile_ex(ex, info)
+function compile_ex(m::Module, ex, info)
     @smatch ex begin
         :($a += $f($(args...))) => _instr(PlusEq, f, a, args, info, false, false)
         :($a .+= $f($(args...))) => _instr(PlusEq, f, a, args, info, true, false)
@@ -80,32 +80,32 @@ function compile_ex(ex, info)
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
         :($f($(args...))) => :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
         :($f.($(args...))) => :(@assignback $ibcast((@skip! $f), $(args...))) |> rmlines
-        Expr(:if, _...) => compile_if(copy(ex), info)
+        Expr(:if, _...) => compile_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
-            whilestatement(pre, post, compile_body(body, info), info)
+            whilestatement(pre, post, compile_body(m, body, info), info)
         end
         # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) => begin
-            forstatement(i, range, compile_body(body, info), info, nothing)
+            forstatement(i, range, compile_body(m, body, info), info, nothing)
         end
         :(@simd $line for $i=$range; $(body...); end) => begin
-            forstatement(i, range, compile_body(body, info), info, Symbol("@simd")=>line)
+            forstatement(i, range, compile_body(m, body, info), info, Symbol("@simd")=>line)
         end
         :(@threads $line for $i=$range; $(body...); end) => begin
-            forstatement(i, range, compile_body(body, info), info, Symbol("@threads")=>line)
+            forstatement(i, range, compile_body(m, body, info), info, Symbol("@threads")=>line)
         end
         :(@avx $line for $i=$range; $(body...); end) => begin
-            forstatement(i, range, compile_body(body, info), info, Symbol("@avx")=>line)
+            forstatement(i, range, compile_body(m, body, info), info, Symbol("@avx")=>line)
         end
         :(begin $(body...) end) => begin
-            Expr(:block, compile_body(body, info)...)
+            Expr(:block, compile_body(m, body, info)...)
         end
         :(@safe $line $subex) => subex
-        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, compile_ex(subex, info))
+        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, compile_ex(m, subex, info))
         :(@invcheckoff $line $subex) => begin
             state = info.invcheckon[]
             info.invcheckon[] = false
-            ex = compile_ex(subex, info)
+            ex = compile_ex(m, subex, info)
             info.invcheckon[] = state
             ex
         end
@@ -164,14 +164,14 @@ compile_dotpipline(x, f) = @smatch x begin
     _ => error("reversible pipline broadcasting should start with a tuple, e.g. (x, y) .|> f1 .|> f2..., got $x")
 end
 
-function compile_if(ex, info)
+function compile_if(m::Module, ex, info)
     pres = []
     posts = []
-    ex = analyse_if(ex, info, pres, posts)
+    ex = analyse_if(m, ex, info, pres, posts)
     Expr(:block, pres..., ex, posts...)
 end
 
-function analyse_if(ex, info, pres, posts)
+function analyse_if(m::Module, ex, info, pres, posts)
     var = gensym()
     if ex.head == :if
         pre, post = ex.args[1].args
@@ -184,12 +184,12 @@ function analyse_if(ex, info, pres, posts)
     if info.invcheckon[]
         push!(posts, Expr(:macrocall, Symbol("@invcheck"), nothing, var, post))
     end
-    ex.args[2] = Expr(:block, compile_body(ex.args[2].args, info)...)
+    ex.args[2] = Expr(:block, compile_body(m, ex.args[2].args, info)...)
     if length(ex.args) == 3
         if ex.args[3].head == :elseif
-            ex.args[3] = analyse_if(ex.args[3], info, pres, posts)
+            ex.args[3] = analyse_if(m, ex.args[3], info, pres, posts)
         elseif ex.args[3].head == :block
-            ex.args[3] = Expr(:block, compile_body(ex.args[3].args, info)...)
+            ex.args[3] = Expr(:block, compile_body(m, ex.args[3].args, info)...)
         end
     end
     ex
@@ -239,7 +239,7 @@ julia> prettify(@code_julia x += exp(3.0))
 ```
 """
 macro code_julia(ex)
-    QuoteNode(compile_ex(ex, CompileInfo()))
+    QuoteNode(compile_ex(__module__, ex, CompileInfo()))
 end
 
 export @i
@@ -285,20 +285,20 @@ See `test/compiler.jl` and `test/invtype.jl` for more examples.
 """
 macro i(ex)
     if ex isa Expr && ex.head == :struct
-        ex = _gen_istruct(ex)
+        ex = _gen_istruct(__module__, ex)
     else
-        ex = _gen_ifunc(ex)
+        ex = _gen_ifunc(__module__, ex)
     end
     ex.args[1] = :(Base.@__doc__ $(ex.args[1]))
     esc(ex)
 end
 
-function _gen_istruct(ex)
+function _gen_istruct(m::Module, ex)
     invlist = []
     for (i, st) in enumerate(ex.args[3].args)
         @smatch st begin
             :(@i $line $funcdef) => begin
-                fdefs = _gen_ifunc(funcdef).args
+                fdefs = _gen_ifunc(m, funcdef).args
                 ex.args[3].args[i] = fdefs[1]
                 append!(invlist, fdefs[2:end])
             end
@@ -308,8 +308,8 @@ function _gen_istruct(ex)
     Expr(:block, ex, invlist...)
 end
 
-function _gen_ifunc(ex)
-    mc, fname, args, ts, body = precom(ex)
+function _gen_ifunc(m::Module, ex)
+    mc, fname, args, ts, body = precom(m, ex)
     fname = _replace_opmx(fname)
 
     # implementations
@@ -318,9 +318,9 @@ function _gen_ifunc(ex)
     head = :($fname($(args...)) where {$(ts...)})
     dfname = dual_fname(fname)
     dftype = get_ftype(dfname)
-    fdef1 = Expr(:function, head, Expr(:block, compile_body(body, CompileInfo())..., invfuncfoot(args)))
+    fdef1 = Expr(:function, head, Expr(:block, compile_body(m, body, CompileInfo())..., invfuncfoot(args)))
     dualhead = :($dfname($(args...)) where {$(ts...)})
-    fdef2 = Expr(:function, dualhead, Expr(:block, compile_body(dual_body(body), CompileInfo())..., invfuncfoot(args)))
+    fdef2 = Expr(:function, dualhead, Expr(:block, compile_body(m, dual_body(m, body), CompileInfo())..., invfuncfoot(args)))
     if mc !== nothing
         fdef1 = Expr(:macrocall, mc[1], mc[2], fdef1)
         fdef2 = Expr(:macrocall, mc[1], mc[2], fdef2)
@@ -368,15 +368,15 @@ julia> nilang_ir(ex; reversed=true) |> MacroTools.prettify
       end)
 ```
 """
-function nilang_ir(ex; reversed::Bool=false)
-    mc, fname, args, ts, body = precom(ex)
+function nilang_ir(m::Module, ex; reversed::Bool=false)
+    mc, fname, args, ts, body = precom(m, ex)
     fname = _replace_opmx(fname)
 
     # implementations
     if reversed
         dfname = :(~$fname) # use fake head for readability
         head = :($dfname($(args...)) where {$(ts...)})
-        body = dual_body(body)
+        body = dual_body(m, body)
     else
         head = :($fname($(args...)) where {$(ts...)})
     end
@@ -421,14 +421,14 @@ _replace_opmx(ex) = @smatch ex begin
     _ => ex
 end
 
-function interpret_func(ex)
+function interpret_func(m::Module, ex)
     @smatch ex begin
         :(function $fname($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => begin
             ftype = get_ftype(fname)
             esc(:(
             function $fname($(args...))
-                $(compile_body(body)...)
+                $(compile_body(m, body)...)
                 ($(args...),)
             end;
             ))
@@ -449,7 +449,7 @@ export @instr
 Execute a reversible instruction.
 """
 macro instr(ex)
-    esc(NiLangCore.compile_ex(precom_ex(ex, NiLangCore.PreInfo()), CompileInfo()))
+    esc(NiLangCore.compile_ex(__module__, precom_ex(__module__, ex, NiLangCore.PreInfo()), CompileInfo()))
 end
 
 compile_range(range) = @smatch range begin
