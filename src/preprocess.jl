@@ -6,14 +6,14 @@ struct PreInfo
 end
 PreInfo() = PreInfo(MyOrderedDict{Symbol,Any}(), [])
 
-function precom(ex)
+function precom(m::Module, ex)
     mc, fname, args, ts, body = match_function(ex)
     info = PreInfo()
-    mc, fname, args, ts, flushancs(precom_body(body, info), info)
+    mc, fname, args, ts, flushancs(precom_body(m, body, info), info)
 end
 
-function precom_body(body::AbstractVector, info)
-    [precom_ex(ex, info) for ex in body]
+function precom_body(m::Module, body::AbstractVector, info)
+    [precom_ex(m, ex, info) for ex in body]
 end
 
 function flushancs(out, info)
@@ -56,7 +56,7 @@ function precom_ox(f, out, arg2)
     end
 end
 
-function precom_ex(ex, info)
+function precom_ex(m::Module, ex, info)
     @smatch ex begin
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
@@ -108,56 +108,57 @@ function precom_ex(ex, info)
         :($a .⊖ $b) => :($a .-= identity.($b))
         :($a ⊙ $b) => :($a ⊻= identity($b))
         :($a .⊙ $b) => :($a .⊻= identity.($b))
-        Expr(:if, _...) => precom_if(copy(ex))
+        Expr(:if, _...) => precom_if(m, copy(ex))
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
             info = PreInfo()
-            Expr(:while, :(($pre, $post)), Expr(:block, flushancs(precom_body(body, info), info)...))
+            Expr(:while, :(($pre, $post)), Expr(:block, flushancs(precom_body(m, body, info), info)...))
         end
         :(begin $(body...) end) => begin
-            Expr(:block, precom_body(body, info)...)
+            Expr(:block, precom_body(m, body, info)...)
         end
         # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
             info = PreInfo()
-            Expr(:for, :($i=$(precom_range(range))), Expr(:block, flushancs(precom_body(body, info), info)...))
+            Expr(:for, :($i=$(precom_range(range))), Expr(:block, flushancs(precom_body(m, body, info), info)...))
         end
         :(@anc $line $x = $val) => begin
             @warn "`@anc x = expr` is deprecated, please use `x ← expr` for loading an ancilla."
-            precom_ex(:($x ← $val), info)
+            precom_ex(m, :($x ← $val), info)
         end
         :(@deanc $line $x = $val) => begin
             @warn "`@deanc x = expr` is deprecated, please use `x → expr` for deallocating an ancilla."
-            precom_ex(:($x → $val), info)
+            precom_ex(m, :($x → $val), info)
         end
         :(@safe $line $subex) => ex
         :(@cuda $line $(args...)) => ex
         :(@launchkernel $line $(args...)) => ex
-        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, precom_ex(subex, info))
-        :(@simd $line $subex) => Expr(:macrocall, Symbol("@simd"), line, precom_ex(subex, info))
-        :(@threads $line $subex) => Expr(:macrocall, Symbol("@threads"), line, precom_ex(subex, info))
-        :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, precom_ex(subex, info))
-        :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, precom_ex(subex, info))
+        :(@inbounds $line $subex) => Expr(:macrocall, Symbol("@inbounds"), line, precom_ex(m, subex, info))
+        :(@simd $line $subex) => Expr(:macrocall, Symbol("@simd"), line, precom_ex(m, subex, info))
+        :(@threads $line $subex) => Expr(:macrocall, Symbol("@threads"), line, precom_ex(m, subex, info))
+        :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, precom_ex(m, subex, info))
+        :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, precom_ex(m, subex, info))
         :(@routine $line $name $expr) => begin
             @warn "`@routine name begin ... end` is deprecated, please use `@routine begin ... end`"
-            precom_ex(:(@routine $expr), info)
+            precom_ex(m, :(@routine $expr), info)
         end
         :(~(@routine $line $name)) => begin
             @warn "`~@routine name` is deprecated, please use `~@routine`"
-            precom_ex(:(~(@routine)), info)
+            precom_ex(m, :(~(@routine)), info)
         end
         :(@routine $line $expr) => begin
-            precode = precom_ex(expr, info)
+            precode = precom_ex(m, expr, info)
             push!(info.routines, precode)
             precode
         end
         :(~(@routine $line)) => begin
-            precom_ex(dual_ex(pop!(info.routines)), info)
+            precom_ex(m, dual_ex(m, pop!(info.routines)), info)
         end
-        :(~$expr) => dual_ex(precom_ex(expr, info))
+        :(~$expr) => dual_ex(m, precom_ex(m, expr, info))
         :($f($(args...))) => :($f($(args...)))
         :($f.($(args...))) => :($f.($(args...)))
+        Expr(:macrocall, _...) => precom_ex(m, macroexpand(m, ex), info)
         ::LineNumberNode => ex
         ::Nothing => ex
         _ => error("unsupported statement: $ex")
@@ -168,7 +169,7 @@ precom_range(range) = @smatch range begin
     _ => range
 end
 
-function precom_if(ex)
+function precom_if(m, ex)
     _expand_cond(cond) = @smatch cond begin
         :(($pre, ~)) => :(($pre, $pre))
         :(($pre, $post)) => :(($pre, $post))
@@ -180,13 +181,13 @@ function precom_if(ex)
         ex.args[1].args[2] = _expand_cond(ex.args[1].args[2])
     end
     info = PreInfo()
-    ex.args[2] = Expr(:block, flushancs(precom_body(ex.args[2].args, info), info)...)
+    ex.args[2] = Expr(:block, flushancs(precom_body(m, ex.args[2].args, info), info)...)
     if length(ex.args) == 3
         if ex.args[3].head == :elseif
-            ex.args[3] = precom_if(ex.args[3])
+            ex.args[3] = precom_if(m, ex.args[3])
         elseif ex.args[3].head == :block
             info = PreInfo()
-            ex.args[3] = Expr(:block, flushancs(precom_body(ex.args[3].args, info), info)...)
+            ex.args[3] = Expr(:block, flushancs(precom_body(m, ex.args[3].args, info), info)...)
         else
             error("unknown statement following `if` $ex.")
         end
@@ -212,5 +213,5 @@ julia> prettify(@code_preprocess if (x < 3, ~) x += exp(3.0) end)
 ```
 """
 macro code_preprocess(ex)
-    QuoteNode(precom_ex(ex, PreInfo()))
+    QuoteNode(precom_ex(__module__, ex, PreInfo()))
 end

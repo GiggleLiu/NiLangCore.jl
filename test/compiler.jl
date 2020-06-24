@@ -448,8 +448,8 @@ end
           anc -= identity(x!)
           anc → zero(T)
     end)
-    @test nilang_ir(ex) |> NiLangCore.rmlines == ex2 |> NiLangCore.rmlines
-    @test nilang_ir(ex; reversed=true) |> NiLangCore.rmlines == ex3 |> NiLangCore.rmlines
+    @test nilang_ir(@__MODULE__, ex) |> NiLangCore.rmlines == ex2 |> NiLangCore.rmlines
+    @test nilang_ir(@__MODULE__, ex; reversed=true) |> NiLangCore.rmlines == ex3 |> NiLangCore.rmlines
 end
 
 @testset "protectf" begin
@@ -580,4 +580,16 @@ end
     @test x
     @instr x ⊻= true && false
     @test x
+end
+
+macro zeros(T, x, y)
+    esc(:($x ← zero($T); $y ← zero($T)))
+end
+
+@testset "macro" begin
+    @i function f(x)
+        @zeros Float64 a b
+        x += a * b
+    end
+    @test f(3.0) == 3.0
 end
