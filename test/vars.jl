@@ -2,7 +2,7 @@ using Test, NiLangCore
 
 @testset "dataview" begin
     x = 1.0
-    @assign value(x) 0.2
+    @assign (x |> value) 0.2
     @test x == 0.2
     @assign -x 0.1
     @test x == -0.1
@@ -10,7 +10,24 @@ using Test, NiLangCore
     @assign x' 0.1+1im
     @test x == 0.1-1im
     x = (3, 4)
-    @test tget(x, 1) == 3
+    @instr (x |> tget(1)) += 3
+    @test x == (6, 4)
+    x = 3
+    y = (4,)
+    @instr x += y |> tget(1)
+    @test x == 7
+    x = [3, 4]
+    y = ([4, 4],)
+    @instr x .+= y |> tget(1)
+    @test x == [7.0, 8.0]
+    x = true
+    y = (true,)
+    @instr x ⊻= y |> tget(1)
+    @test x == false
+    x = [true, false]
+    y = ([true, true],)
+    @instr x .⊻= y |> tget(1)
+    @test x == [false, true]
 end
 
 @testset "anc, deanc" begin
@@ -38,26 +55,26 @@ end
 
 @testset "inv and tuple output" begin
     a, b = false, false
-    @instr ~(a ⊻= identity(true))
+    @instr ~(a ⊻= true)
     @test a == true
-    @instr ~((a, b) ⊻= identity((true, true)))
+    @instr ~((a, b) ⊻= (true, true))
     @test a == false
     @test b == true
     y = 1.0
     x = 1.0
-    @instr ~(~(y += identity(1.0)))
+    @instr ~(~(y += 1.0))
     @test y == 2.0
-    @instr ~(~((x, y) += identity((1.0, 1.0))))
+    @instr ~(~((x, y) += (1.0, 1.0)))
     @test y == 3.0
     @test x == 2.0
-    @instr ~((x, y) += identity((1.0, 1.0)))
+    @instr ~((x, y) += (1.0, 1.0))
     @test y == 2.0
     @test x == 1.0
-    @instr ~(y += identity(1.0))
+    @instr ~(y += 1.0)
     @test y == 1.0
 
     z = [1.0, 2.0]
-    @instr ~(~(z .+= identity.([1.0, 2.0])))
+    @instr ~(~(z .+= [1.0, 2.0]))
     @test z ≈ [2.0, 4.0]
 end
 
@@ -67,7 +84,6 @@ end
     @test_throws InvertibilityError chfield(x, length, 2)
 
     @test chfield((1,2,3), 3, 'k') == (1,2,'k')
-    @test chfield((1,2,3), (3,), 'k') == (1,2,'k')
     @test chfield([1,2,3], 2, 4) == [1,4,3]
     @test chfield([1,2,3], (2,), 4) == [1,4,3]
     @test chfield(Ref(3), (), 4).x == Ref(4).x

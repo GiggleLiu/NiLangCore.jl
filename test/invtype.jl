@@ -51,7 +51,7 @@ end
     # TODO: fix the type inference!
     @i function CVar(xx::T) where T
         gg ← zero(xx)
-        gg += identity(1)
+        gg += 1
         xx ← new{T}(gg, xx)
     end
 end
@@ -62,7 +62,7 @@ end
     l
     @i function DVar{Float64}(xx::T) where {T}
         gg ← zero(xx)
-        gg += identity(xx)
+        gg += xx
         ll ← zero(gg)
         xx ← new{Float64, typeof(gg), T}(xx, gg, ll)
     end
@@ -90,12 +90,12 @@ end
 @icast PVar(g, x) => SVar(x, k) begin
     g → zero(x)
     k ← zero(x)
-    k += identity(x)
+    k += x
 end
 
 @icast x::Float64 => SVar(x, gg) begin
     gg ← zero(x)
-    gg += identity(x)
+    gg += x
 end
 
 @testset "@icast" begin
