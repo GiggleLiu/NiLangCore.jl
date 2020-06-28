@@ -13,6 +13,12 @@ NiTypeTest(x) = NiTypeTest(x, zero(x))
 @testset "inv type" begin
     it = NiTypeTest(0.5)
     @test value(it) == 0.5
+    @test it ≈ NiTypeTest(0.5)
+    @test it > 0.4
+    @test it < NiTypeTest(0.6)
+    @test it < 7
+    @test 0.4 < it
+    @test 7 > it
     @test chfield(it, value, 0.3) == NiTypeTest(0.3)
     it = chfield(it, Val(:g), 0.2)
     @test almost_same(NiTypeTest(0.5+1e-15), NiTypeTest(0.5))

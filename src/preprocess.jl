@@ -123,14 +123,6 @@ function precom_ex(m::Module, ex, info)
             info = PreInfo()
             Expr(:for, :($i=$(precom_range(range))), Expr(:block, flushancs(precom_body(m, body, info), info)...))
         end
-        :(@anc $line $x = $val) => begin
-            @warn "`@anc x = expr` is deprecated, please use `x ← expr` for loading an ancilla."
-            precom_ex(m, :($x ← $val), info)
-        end
-        :(@deanc $line $x = $val) => begin
-            @warn "`@deanc x = expr` is deprecated, please use `x → expr` for deallocating an ancilla."
-            precom_ex(m, :($x → $val), info)
-        end
         :(@safe $line $subex) => ex
         :(@cuda $line $(args...)) => ex
         :(@launchkernel $line $(args...)) => ex

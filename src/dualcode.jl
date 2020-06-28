@@ -24,26 +24,6 @@ function dual_fname(op)
     end
 end
 
-function _infer_dual(sym::Symbol)
-    if sym == :+=
-        :-=
-    elseif sym == :-=
-        :+=
-    elseif sym == :.+=
-        :.-=
-    elseif sym == :.-=
-        :.+=
-    elseif sym == :*=
-        :/=
-    elseif sym == :/=
-        :*=
-    elseif sym == :⊻=
-        :⊻=
-    elseif sym == :.⊻=
-        :.⊻=
-    end
-end
-
 """
     dual_ex(m::Module, ex)
 
@@ -173,13 +153,6 @@ julia> @code_reverse x += exp(3.0)
 """
 macro code_reverse(ex)
     QuoteNode(dual_ex(__module__, ex))
-end
-
-dualname(f) = @smatch f begin
-    :(⊕($f)) => :(⊖($f))
-    :(⊖($f)) => :(⊕($f))
-    :(~$fname) => fname
-    _ => :(~$f)
 end
 
 getdual(f) = @smatch f begin

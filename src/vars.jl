@@ -3,34 +3,9 @@ export IWrapper, Partial
 export chfield, value, unwrap
 
 ############# ancillas ################
-"""
-    @deanc x = expr
-
-Deallocate ancilla `x` if `x == expr`,
-else throw an `InvertibilityError`.
-"""
-macro deanc(ex)
-    @smatch ex begin
-        :($x = $val) => Expr(:block, :(deanc($(esc(x)), $(esc(val)))), :($(esc(x)) = nothing))
-        _ => error("please use like `@deanc x = val`")
-    end
-end
-
 deanc(x, val) = @invcheck x val
 deanc(x::T, val::T) where T<:Tuple = x === val || deanc.(x, val)
 deanc(x::T, val::T) where T<:AbstractArray = x === val || deanc.(x, val)
-
-"""
-    @anc x = expr
-
-Create an ancilla `x` with initial value `expr`,
-"""
-macro anc(ex)
-    @smatch ex begin
-        :($x = $tp) => esc(ex)
-        _ => error("please use like `@anc x = val`")
-    end
-end
 
 # variables
 # TODO: allow reversible mapping
