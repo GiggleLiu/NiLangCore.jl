@@ -12,7 +12,7 @@ using Base.Threads
         out ← 0.0
         test1(a, b, out)
         (~test1)(a, b, out)
-        a ⊕ b
+        a += b
     end
 
     # compute (a+b)*b -> out
@@ -87,7 +87,7 @@ end
 @testset "for" begin
     @i function looper(x, y, k)
         for i=1:1:k
-            x ⊕ y
+            x += y
         end
     end
     x = 0.0
@@ -101,8 +101,8 @@ end
     shiba = 18
     @i function looper2(x, y, k)
         for i=1:1:k
-            k ⊕ shiba
-            x ⊕ y
+            k += shiba
+            x += y
         end
     end
     @test_throws InvertibilityError looper2(x, y, k)
@@ -111,7 +111,7 @@ end
 @testset "while" begin
     @i function looper(x, y)
         while (x<100, x>0)
-            x ⊕ y
+            x += y
         end
     end
     x = 0.0
@@ -123,7 +123,7 @@ end
 
     @i function looper2(x, y)
         while (x<100, x>-10)
-            x ⊕ y
+            x += y
         end
     end
     @test_throws InvertibilityError looper2(x, y)
@@ -131,8 +131,8 @@ end
     @i function looper2(x, y)
         while (x<100, x>0)
             z ← 0
-            x ⊕ y
-            z += identity(1)
+            x += y
+            z += 1
         end
     end
     @test_throws InvertibilityError looper2(x, y)
@@ -142,9 +142,9 @@ end
     one, ten = 1, 10
     @i function looper(x, y)
         z ← 0
-        x ⊕ y
-        z ⊕ one
-        z ⊖ one
+        x += y
+        z += one
+        z -= one
     end
     x = 0.0
     y = 9
@@ -155,9 +155,9 @@ end
 
     @i function looper(x, y)
         z ← 0
-        x ⊕ y
-        z ⊕ one
-        z ⊖ ten
+        x += y
+        z += one
+        z -= ten
     end
     x = 0.0
     y = 9
@@ -167,7 +167,7 @@ end
 @testset "broadcast" begin
     # compute (a+b)*b -> out
     @i function test1(a, b)
-        a .⊕ b
+        a .+= b
     end
     x = [3, 1.0]
     y = [4, 2.0]
@@ -177,7 +177,7 @@ end
     @test x == [3, 1.0]
 
     @i function test2(a, b, out)
-        a .⊕ b
+        a .+= identity.(b)
         out .+= (a .* b)
     end
 
@@ -202,13 +202,13 @@ end
         y += x + z
     end
     @i function f2(x, y)
-        y += identity(x)
+        y += x
     end
     @i function f1(x)
         l ← zero(x)
-        l += identity(x)
-        x -= 2 * identity(l)
-        l += identity(x)
+        l += x
+        x -= 2 * l
+        l += x
     end
     a = randn(10)
     b = randn(10)
@@ -255,7 +255,7 @@ end
     @test ee ≈ a + b + c + d + e
 
     x = randn(5)
-    @test_throws AssertionError @instr x .+= identity.(c)
+    @test_throws AssertionError @instr x .+= c
 end
 
 @testset "broadcast tuple" begin
@@ -271,13 +271,13 @@ end
         y += x + z
     end
     @i function f2(x, y)
-        y += identity(x)
+        y += x
     end
     @i function f1(x)
         l ← zero(x)
-        l += identity(x)
-        x -= 2 * identity(l)
-        l += identity(x)
+        l += x
+        x -= 2 * l
+        l += x
     end
     a = (1,2)
     b = (3,1)
@@ -324,13 +324,13 @@ end
     @test ee == a .+ b .+ c .+ d .+ e
 
     x = (2,1,5)
-    @test_throws DimensionMismatch @instr x .+= identity.(c)
+    @test_throws DimensionMismatch @instr x .+= c
 end
 
 @testset "broadcast 2" begin
     # compute (a+b)*b -> out
     @i function test1(a, b)
-        a ⊕ b
+        a += b
     end
     x = [3, 1.0]
     y = [4, 2.0]
@@ -366,7 +366,7 @@ end
 @testset "@ibounds" begin
     @i function test(x, y)
         for i=1:length(x)
-            @inbounds x[i] += identity(y[i])
+            @inbounds x[i] += y[i]
         end
     end
     @test test([1,2], [2,3]) == ([3,5], [2,3])
@@ -382,7 +382,7 @@ end
 @testset "routines" begin
     @i function test(out, x)
         @routine begin
-            out += identity(x)
+            out += x
         end
         ~@routine
     end
@@ -393,10 +393,10 @@ end
 
 @testset "inverse a prog" begin
     @i function test(out, x)
-        ~(out += identity(x);
-        out += identity(x))
+        ~(out += x;
+        out += x)
         ~for i=1:3
-            out += identity(x)
+            out += x
         end
     end
     out, x = 0.0, 1.0
@@ -409,12 +409,12 @@ end
     @i function test(out, x)
         anc ← 0
         @invcheckoff for i=1:x[]
-            x[] -= identity(1)
+            x[] -= 1
         end
         @invcheckoff while (anc<3, anc<3)
-            anc += identity(1)
+            anc += 1
         end
-        out += identity(anc)
+        out += anc
         @invcheckoff anc → 0
     end
     res = test(0, Ref(7))
@@ -426,7 +426,7 @@ end
     ex = :(
         @inline function f(x!::T, y) where T
             anc ← zero(T)
-            @routine anc += identity(x!)
+            @routine anc += x!
             x! += y * anc
             ~@routine
         end
@@ -480,11 +480,11 @@ end
 @testset "ifelse statement" begin
     @i function f(x, y)
         if (x > 0, ~)
-            y += identity(1)
+            y += 1
         elseif (x < 0, ~)
-            y += identity(2)
+            y += 2
         else
-            y += identity(3)
+            y += 3
         end
     end
     @test f(1, 0) == (1, 1)
@@ -493,11 +493,11 @@ end
 
     @i function f2(x, y)
         if (x > 0, x < 0)
-            y += identity(1)
+            y += 1
         elseif (x < 0, x < 0)
-            y += identity(2)
+            y += 2
         else
-            y += identity(3)
+            y += 3
         end
     end
     @test_throws InvertibilityError f2(-1, 0)
@@ -505,10 +505,10 @@ end
 
 @testset "skip!" begin
     x = 0.4
-    @instr (@skip! 3) += identity(x)
+    @instr (@skip! 3) += x
     @test x == 0.4
     y = 0.3
-    @instr x += identity(@keep y)
+    @instr x += @keep y
     @test x == 0.7
     @test y == 0.3
 end
@@ -516,7 +516,7 @@ end
 @testset "for x in range" begin
     @i function f(x, y)
         for item in y
-            x += identity(item)
+            x += item
         end
     end
     @test check_inv(f, (0.0, [1,2,5]))
@@ -560,14 +560,14 @@ end
 @testset "@simd and @threads" begin
     @i function f(x)
         @threads for i=1:length(x)
-            x[i] += identity(1)
+            x[i] += 1
         end
     end
     x = [1,2,3]
     @test f(x) == [2,3,4]
     @i function f(x)
         @simd for i=1:length(x)
-            x[i] += identity(1)
+            x[i] += 1
         end
     end
     x = [1,2,3]

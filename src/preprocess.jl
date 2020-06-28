@@ -27,14 +27,16 @@ end
 function precom_opm(f, out, arg2)
     if f in [:(+=), :(-=), :(*=), :(/=)]
         @smatch arg2 begin
+            :($x |> $view) => Expr(f, out, :(identity($arg2)))
             :($subf($(subargs...))) => Expr(f, out, arg2)
-            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+            _ => Expr(f, out, :(identity($arg2)))
         end
     elseif f in [:(.+=), :(.-=), :(.*=), :(./=)]
         @smatch arg2 begin
+            :($x |> $view) || :($x .|> $view) => Expr(f, out, :(identity.($arg2)))
             :($subf.($(subargs...))) => Expr(f, out, arg2)
             :($subf($(subargs...))) => Expr(f, out, arg2)
-            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+            _ => Expr(f, out, :(identity.($arg2)))
         end
     end
 end
@@ -42,16 +44,18 @@ end
 function precom_ox(f, out, arg2)
     if f == :(⊻=)
         @smatch arg2 begin
+            :($x |> $view) => Expr(f, out, :(identity($arg2)))
             :($subf($(subargs...))) ||
             :($a || $b) ||
             :($a && $b) => Expr(f, out, arg2)
-            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+            _ => Expr(f, out, :(identity($arg2)))
         end
     elseif f == :(.⊻=)
         @smatch arg2 begin
+            :($x |> $view) || :($x .|> $view) => Expr(f, out, :(identity.($arg2)))
             :($subf.($(subargs...))) => Expr(f, out, arg2)
             :($subf($(subargs...))) => Expr(f, out, arg2)
-            _ => error("unknown expression after assign $(QuoteNode(arg2))")
+            _ => Expr(f, out, :(identity.($arg2)))
         end
     end
 end
@@ -102,12 +106,6 @@ function precom_ex(m::Module, ex, info)
         :($a .*= $b) => precom_opm(:.*=, a, b)
         :($a ./= $b) => precom_opm(:./=, a, b)
         :($a .⊻= $b) => precom_ox(:.⊻=, a, b)
-        :($a ⊕ $b) => :($a += identity($b))
-        :($a .⊕ $b) => :($a .+= identity.($b))
-        :($a ⊖ $b) => :($a -= identity($b))
-        :($a .⊖ $b) => :($a .-= identity.($b))
-        :($a ⊙ $b) => :($a ⊻= identity($b))
-        :($a .⊙ $b) => :($a .⊻= identity.($b))
         Expr(:if, _...) => precom_if(m, copy(ex))
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post

@@ -47,10 +47,9 @@ chfield(x::T, ::typeof(value), y::T) where T = y
 
 chfield(a, b, c) = error("chfield($a, $b, $c) not defined!")
 chfield(x, ::typeof(identity), xval) = xval
-function chfield(tp::Tuple, i::Tuple{Int}, val)
-    TupleTools.insertat(tp, i[1], (val,))
+function chfield(tp::Tuple, i::Int, val)
+    TupleTools.insertat(tp, i, (val,))
 end
-chfield(tp::Tuple, i::Int, val) = chfield(tp, (i,), val)
 
 for VTYPE in [:AbstractArray, :Ref]
     @eval function chfield(a::$VTYPE, indices::Tuple, val)
@@ -176,8 +175,8 @@ Base.show(io::IO, ::MIME"plain/text", gv::Partial) = Base.show(io, gv)
 export tget
 
 """
-    tget(x::Tuple, i)
+    tget(i::Int)
 
 Get the i-th entry of a tuple.
 """
-tget(x::Tuple, inds...) = x[inds...]
+tget(i::Int) = x::Tuple -> x[i]

@@ -147,19 +147,19 @@ end
 assign_ex(arg::Union{Number,String}, res; invcheck) = _invcheck(invcheck, arg, res)
 assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
     :(@skip! $line $x) => nothing
-    :(tget($a, $(x...))) => begin
-        assign_ex(a, :(chfield($a, $(Expr(:tuple, x...)), $res)); invcheck=invcheck)
-    end
     :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
-    :($f($x)) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
-    :($f($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
-    :($f.($x)) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
-    :($f.($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
+    # tuples must be index through (x |> 1)
+    :($a |> tget($x)) => assign_ex(a, :(chfield($a, $x, $res)); invcheck=invcheck)
+    :($x |> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
+    :($x .|> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
     :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)); invcheck=invcheck)
+    :(-$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, -, $res)); invcheck=invcheck)
+    :(-.$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref(-), $res)); invcheck=invcheck)
+    :($f($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
+    :($f.($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
     :($a[$(x...)]) => begin
         :($a[$(x...)] = $res)
     end
-    # tuple must be index through tget
     :(($(args...),)) => begin
         ex = :()
         for i=1:length(args)

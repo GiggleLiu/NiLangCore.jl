@@ -35,7 +35,7 @@ end
 
 @testset "boolean" begin
     x = false
-    @instr x ⊻= identity(true)
+    @instr x ⊻= true
     @test x
     @instr x ⊻= true || false
     @test !x
@@ -99,13 +99,13 @@ end
 
 @testset "+= and const" begin
     x = 0.5
-    @instr x ⊕ π
+    @instr x += π
     @test x == 0.5+π
     @instr x += log(π)
     @test x == 0.5 + π + log(π)
-    @instr x ⊕ log(π)/2
+    @instr x += log(π)/2
     @test x == 0.5 + π + 3*log(π)/2
-    @instr x ⊕ log(2*π)/2
+    @instr x += log(2*π)/2
     @test x == 0.5 + π + 3*log(π)/2 + log(2π)/2
 end
 
