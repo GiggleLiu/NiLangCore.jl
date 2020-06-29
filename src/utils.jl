@@ -127,7 +127,7 @@ function ibcast(f, x::AbstractArray)
     f, x
 end
 
-@inline function ibcast(f, x::AbstractArray, y)
+function ibcast(f, x::AbstractArray, y)
     @assert length(x) == length(y)
     for i=1:length(x)
         (x[i], y[i]) = f(x[i], y[i])
@@ -135,7 +135,7 @@ end
     f, x, y
 end
 
-@inline function ibcast(f, x::AbstractArray, y, z)
+function ibcast(f, x::AbstractArray, y, z)
     @assert length(x) == length(y) == length(z)
     for i=1:length(x)
         (x[i], y[i], z[i]) = f(x[i], y[i], z[i])
@@ -143,7 +143,7 @@ end
     f, x, y, z
 end
 
-@inline function ibcast(f, x::AbstractArray, y, z, a)
+function ibcast(f, x::AbstractArray, y, z, a)
     @assert length(x) == length(y) == length(z) == length(a)
     for i=1:length(x)
         (x[i], y[i], z[i], a[i]) = f(x[i], y[i], z[i], a[i])
@@ -151,7 +151,7 @@ end
     f, x, y, z, a
 end
 
-@inline function ibcast(f, x::AbstractArray, y, z, a, b)
+function ibcast(f, x::AbstractArray, y, z, a, b)
     @assert length(x) == length(y) == length(z) == length(a) == length(b)
     for i=1:length(x)
         (x[i], y[i], z[i], a[i], b[i]) = f(x[i], y[i], z[i], a[i], b[i])

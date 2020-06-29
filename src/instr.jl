@@ -1,5 +1,4 @@
 export @dual, @selfdual
-export nargs, nouts
 
 """
     @dual f invf
@@ -196,19 +195,3 @@ Turn off invertibility check if the `invcheck` is false.
 macro assign(a, b, invcheck=true)
     esc(assign_ex(a, b; invcheck=invcheck))
 end
-
-# TODEP
-"""
-    nargs(instr)
-
-Number of arguments as the input of `instr`.
-"""
-function nargs end
-
-# TODEP
-"""
-    nouts(instr)
-
-Number of output arguments in the input list of `instr`.
-"""
-function nouts end
