@@ -163,7 +163,7 @@ function precom_if(m, ex)
     _expand_cond(cond) = @smatch cond begin
         :(($pre, ~)) => :(($pre, $pre))
         :(($pre, $post)) => :(($pre, $post))
-        _ => error("must provide post condition, use `~` to specify a dummy one.")
+        :($pre) => :(($pre, $pre))
     end
     if ex.head == :if
         ex.args[1] = _expand_cond(ex.args[1])

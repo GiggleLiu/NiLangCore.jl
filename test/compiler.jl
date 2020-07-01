@@ -84,6 +84,24 @@ end
     @test out==0
 end
 
+@testset "if statement 4" begin
+    @i function test1(a, b, out)
+        add(a, b)
+        if a > 8.0
+            out += a*b
+        end
+    end
+    @test test1(1.0, 8.0, 0.0)[3] == 72.0
+
+    @i function test2(a, b)
+        add(a, b)
+        if a > 8.0
+            a -= b*b
+        end
+    end
+    @test_throws InvertibilityError test2(1.0, 8.0)
+end
+
 @testset "for" begin
     @i function looper(x, y, k)
         for i=1:1:k
