@@ -1,7 +1,7 @@
 @generated function field_update(main :: T, field::Val{Field}, value) where {T, Field}
     fields = fieldnames(T)
     quote
-        $T($([field !== Field ? :(main.$field) : :value for field in fields]...))
+        default_constructor($T, $([field !== Field ? :(main.$field) : :value for field in fields]...))
     end
 end
 
@@ -31,4 +31,8 @@ end
 
 macro with(ex)
     with(ex) |> esc
+end
+
+@inline function default_constructor(::Type{T}, args...) where T
+    T(args...)
 end
