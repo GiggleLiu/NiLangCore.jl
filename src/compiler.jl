@@ -242,6 +242,8 @@ macro code_julia(ex)
     QuoteNode(compile_ex(__module__, ex, CompileInfo()))
 end
 
+compile_ex(m::Module, ex) = compile_ex(m, ex, CompileInfo())
+
 export @i
 
 """

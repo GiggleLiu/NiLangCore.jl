@@ -205,3 +205,5 @@ julia> prettify(@code_preprocess if (x < 3, ~) x += exp(3.0) end)
 macro code_preprocess(ex)
     QuoteNode(precom_ex(__module__, ex, PreInfo()))
 end
+
+precom_ex(m::Module, ex) = precom_ex(m, ex, PreInfo())
