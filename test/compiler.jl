@@ -611,3 +611,10 @@ end
     end
     @test f(3.0) == 3.0
 end
+
+@testset "allow nothing pass" begin
+    @i function f(x)
+        nothing
+    end
+    @test f(2) == 2
+end

@@ -148,6 +148,7 @@ function precom_ex(m::Module, ex, info)
         :(~$expr) => dual_ex(m, precom_ex(m, expr, info))
         :($f($(args...))) => :($f($(args...)))
         :($f.($(args...))) => :($f.($(args...)))
+        :(nothing) => ex
         Expr(:macrocall, _...) => precom_ex(m, macroexpand(m, ex), info)
         ::LineNumberNode => ex
         ::Nothing => ex

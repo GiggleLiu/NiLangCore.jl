@@ -85,6 +85,7 @@ function dual_ex(m::Module, ex)
         :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, dual_ex(m, subex))
         :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, dual_ex(m, subex))
         :(begin $(body...) end) => Expr(:block, dual_body(m, body)...)
+        :(nothing) => ex
         ::LineNumberNode => ex
         ::Nothing => ex
         :() => ex
