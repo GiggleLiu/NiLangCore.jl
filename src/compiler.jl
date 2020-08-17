@@ -132,8 +132,10 @@ function compile_ex(m::Module, ex, info)
                 :(wait($res))
             )
         end
+        :(nothing) => ex
+        ::Nothing => ex
         ::LineNumberNode => ex
-        _ => error("statement is not supported for invertible lang! got $ex")
+        _ => error("statement $ex is not supported for invertible lang! got $ex")
     end
 end
 
