@@ -234,6 +234,9 @@ function pushvar!(x::Vector{Symbol}, target)
                 pushvar!(x, tar)
             end
         end
+        Expr(:kw, tar, val) => begin
+            pushvar!(x, tar)
+        end
         _ => error("unknow variable expression $(target)")
     end
     nothing
@@ -248,9 +251,6 @@ function popvar!(x::Vector{Symbol}, target)
                 throw(InvertibilityError("Variable `$target` has not been defined in current scope."))
             end
         end
-        :($tar = _) => popvar!(x, tar)
-        :($tar...) => popvar!(x, tar)
-        :($tar::$tp) => popvar!(x, tar)
         _ => error("unknow variable expression $(target)")
     end
     nothing

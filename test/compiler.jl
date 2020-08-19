@@ -661,4 +661,14 @@ end
         end
     end)
     @test macroexpand(Main, ex7) isa Expr
+
+    ex8 = :(@i function f(x; y=5)
+        z ← 0
+    end)
+    @test macroexpand(Main, ex8) isa Expr
+
+    ex9 = :(@i function f(x; y)
+        z ← 0
+    end)
+    @test macroexpand(Main, ex9) isa Expr
 end
