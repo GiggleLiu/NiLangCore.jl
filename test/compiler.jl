@@ -650,4 +650,15 @@ end
         y ← 0
     end)
     @test macroexpand(Main, ex6) isa Expr
+
+    ex7 = :(@i function f(x::Int)
+        if x>3
+            y ← 0
+        elseif x<-3
+            y ← 0
+        else
+            y ← 0
+        end
+    end)
+    @test macroexpand(Main, ex7) isa Expr
 end

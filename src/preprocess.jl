@@ -24,6 +24,7 @@ end
 function flushancs(out, info)
     for i in 1:length(info.ancs)
         (x, tp) = pop!(info.ancs)
+        popvar!(info.vars, x)
         push!(out, :($x → $tp))
     end
     return out
@@ -184,7 +185,7 @@ function precom_if(m, ex, exinfo)
         if ex.args[3].head == :elseif
             ex.args[3] = precom_if(m, ex.args[3], exinfo)
         elseif ex.args[3].head == :block
-            info = PreInfo(info.vars)
+            info = PreInfo(exinfo.vars)
             ex.args[3] = Expr(:block, flushancs(precom_body(m, ex.args[3].args, info), info)...)
         else
             error("unknown statement following `if` $ex.")
@@ -220,8 +221,7 @@ function pushvar!(x::Vector{Symbol}, target)
     @smatch target begin
         ::Symbol => begin
             if target in x
-                throw(InvertibilityError("Symbol `$target` should not be used as the allocation target,
-                            it is an existing variable in the current scope."))
+                throw(InvertibilityError("Symbol `$target` should not be used as the allocation target, it is an existing variable in the current scope."))
             else
                 push!(x, target)
             end
