@@ -71,10 +71,12 @@ macro icast(ex, body)
             t1, args1 = _match_typecast(a)
             t2, args2 = _match_typecast(b)
             ancs = MyOrderedDict{Symbol,Any}()
+            vars = Symbol[]
             for arg in _asvector(args1)
                 ancs[arg] = nothing
+                pushvar!(vars, arg)
             end
-            info = PreInfo(ancs, [])
+            info = PreInfo(vars, ancs, [])
             body = precom_body(m, body.args, info)
             for arg in _asvector(args2)
                 delete!(info.ancs, arg)

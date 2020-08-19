@@ -618,3 +618,21 @@ end
     end
     @test f(2) == 2
 end
+
+@testset "ancilla check" begin
+    ex1 = :(@i function f(x)
+        x ← 0
+    end)
+    @test_throws LoadError macroexpand(Main, ex1)
+
+    ex2 = :(@i function f(x)
+        y ← 0
+        y ← 0
+    end)
+    @test_throws LoadError macroexpand(Main, ex2)
+
+    ex3 = :(@i function f(x)
+        y ← 0
+    end)
+    @test macroexpand(Main, ex3) isa Expr
+end

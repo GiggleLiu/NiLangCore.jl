@@ -1,14 +1,19 @@
 export precom
 
 struct PreInfo
+    vars::Vector{Symbol}
     ancs::MyOrderedDict{Symbol, Any}
     routines::Vector{Any}
 end
-PreInfo() = PreInfo(MyOrderedDict{Symbol,Any}(), [])
+PreInfo(vars::Vector{Symbol}) = PreInfo(vars, MyOrderedDict{Symbol,Any}(), [])
 
 function precom(m::Module, ex)
     mc, fname, args, ts, body = match_function(ex)
-    info = PreInfo()
+    vars = Symbol[]
+    for arg in args
+        pushvar!(vars, arg)
+    end
+    info = PreInfo(vars)
     mc, fname, args, ts, flushancs(precom_body(m, body, info), info)
 end
 
@@ -90,10 +95,12 @@ function precom_ex(m::Module, ex, info)
         end
         :($x ← $val) => begin
             info.ancs[x] = val
+            pushvar!(info.vars, x)
             ex
         end
         :($x → $val) => begin
             delete!(info.ancs, x)
+            popvar!(info.vars, x)
             ex
         end
         :($a += $b) => precom_opm(:+=, a, b)
@@ -106,10 +113,10 @@ function precom_ex(m::Module, ex, info)
         :($a .*= $b) => precom_opm(:.*=, a, b)
         :($a ./= $b) => precom_opm(:./=, a, b)
         :($a .⊻= $b) => precom_ox(:.⊻=, a, b)
-        Expr(:if, _...) => precom_if(m, copy(ex))
+        Expr(:if, _...) => precom_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
-            info = PreInfo()
+            info = PreInfo(info.vars)
             Expr(:while, :(($pre, $post)), Expr(:block, flushancs(precom_body(m, body, info), info)...))
         end
         :(begin $(body...) end) => begin
@@ -118,7 +125,7 @@ function precom_ex(m::Module, ex, info)
         # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
-            info = PreInfo()
+            info = PreInfo(info.vars)
             Expr(:for, :($i=$(precom_range(range))), Expr(:block, flushancs(precom_body(m, body, info), info)...))
         end
         :(@safe $line $subex) => ex
@@ -160,7 +167,7 @@ precom_range(range) = @smatch range begin
     _ => range
 end
 
-function precom_if(m, ex)
+function precom_if(m, ex, exinfo)
     _expand_cond(cond) = @smatch cond begin
         :(($pre, ~)) => :(($pre, $pre))
         :(($pre, $post)) => :(($pre, $post))
@@ -171,13 +178,13 @@ function precom_if(m, ex)
     elseif ex.head == :elseif
         ex.args[1].args[2] = _expand_cond(ex.args[1].args[2])
     end
-    info = PreInfo()
+    info = PreInfo(exinfo.vars)
     ex.args[2] = Expr(:block, flushancs(precom_body(m, ex.args[2].args, info), info)...)
     if length(ex.args) == 3
         if ex.args[3].head == :elseif
-            ex.args[3] = precom_if(m, ex.args[3])
+            ex.args[3] = precom_if(m, ex.args[3], exinfo)
         elseif ex.args[3].head == :block
-            info = PreInfo()
+            info = PreInfo(info.vars)
             ex.args[3] = Expr(:block, flushancs(precom_body(m, ex.args[3].args, info), info)...)
         else
             error("unknown statement following `if` $ex.")
@@ -204,7 +211,47 @@ julia> prettify(@code_preprocess if (x < 3, ~) x += exp(3.0) end)
 ```
 """
 macro code_preprocess(ex)
-    QuoteNode(precom_ex(__module__, ex, PreInfo()))
+    QuoteNode(precom_ex(__module__, ex, PreInfo(Symbol[])))
 end
 
-precom_ex(m::Module, ex) = precom_ex(m, ex, PreInfo())
+precom_ex(m::Module, ex) = precom_ex(m, ex, PreInfo(Symbol[]))
+
+function pushvar!(x::Vector{Symbol}, target)
+    @smatch target begin
+        ::Symbol => begin
+            if target in x
+                throw(InvertibilityError("Symbol `$target` should not be used as the allocation target,
+                            it is an existing variable in the current scope."))
+            else
+                push!(x, target)
+            end
+        end
+        :($tar = _) => pushvar!(x, tar)
+        :($tar...) => pushvar!(x, tar)
+        :($tar::$tp) => pushvar!(x, tar)
+        Expr(:parameters, targets...) => begin
+            for tar in targets
+                pushvar!(x, tar)
+            end
+        end
+        _ => error("unknow variable expression $(target)")
+    end
+    nothing
+end
+
+function popvar!(x::Vector{Symbol}, target)
+    @smatch target begin
+        ::Symbol => begin
+            if target in x
+                filter!(x->x!=target, x)
+            else
+                throw(InvertibilityError("Variable `$target` has not been defined in current scope."))
+            end
+        end
+        :($tar = _) => popvar!(x, tar)
+        :($tar...) => popvar!(x, tar)
+        :($tar::$tp) => popvar!(x, tar)
+        _ => error("unknow variable expression $(target)")
+    end
+    nothing
+end
