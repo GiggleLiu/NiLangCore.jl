@@ -99,8 +99,8 @@ function precom_ex(m::Module, ex, info)
             ex
         end
         :($x → $val) => begin
-            delete!(info.ancs, x)
             popvar!(info.vars, x)
+            delete!(info.ancs, x)
             ex
         end
         :($a += $b) => precom_opm(:+=, a, b)

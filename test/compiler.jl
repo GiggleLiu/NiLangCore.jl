@@ -635,4 +635,19 @@ end
         y ← 0
     end)
     @test macroexpand(Main, ex3) isa Expr
+
+    ex4 = :(@i function f(x; y=5)
+        y ← 0
+    end)
+    @test_throws LoadError macroexpand(Main, ex4)
+
+    ex5 = :(@i function f(x)
+        y → 0
+    end)
+    @test_throws LoadError macroexpand(Main, ex5)
+
+    ex6 = :(@i function f(x::Int)
+        y ← 0
+    end)
+    @test macroexpand(Main, ex6) isa Expr
 end
