@@ -618,3 +618,57 @@ end
     end
     @test f(2) == 2
 end
+
+@testset "ancilla check" begin
+    ex1 = :(@i function f(x)
+        x ← 0
+    end)
+    @test_throws LoadError macroexpand(Main, ex1)
+
+    ex2 = :(@i function f(x)
+        y ← 0
+        y ← 0
+    end)
+    @test_throws LoadError macroexpand(Main, ex2)
+
+    ex3 = :(@i function f(x)
+        y ← 0
+    end)
+    @test macroexpand(Main, ex3) isa Expr
+
+    ex4 = :(@i function f(x; y=5)
+        y ← 0
+    end)
+    @test_throws LoadError macroexpand(Main, ex4)
+
+    ex5 = :(@i function f(x)
+        y → 0
+    end)
+    @test_throws LoadError macroexpand(Main, ex5)
+
+    ex6 = :(@i function f(x::Int)
+        y ← 0
+    end)
+    @test macroexpand(Main, ex6) isa Expr
+
+    ex7 = :(@i function f(x::Int)
+        if x>3
+            y ← 0
+        elseif x<-3
+            y ← 0
+        else
+            y ← 0
+        end
+    end)
+    @test macroexpand(Main, ex7) isa Expr
+
+    ex8 = :(@i function f(x; y=5)
+        z ← 0
+    end)
+    @test macroexpand(Main, ex8) isa Expr
+
+    ex9 = :(@i function f(x; y)
+        z ← 0
+    end)
+    @test macroexpand(Main, ex9) isa Expr
+end
