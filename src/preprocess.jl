@@ -153,7 +153,10 @@ function precom_ex(m::Module, ex, info)
         :(~(@routine $line)) => begin
             precom_ex(m, dual_ex(m, pop!(info.routines)), info)
         end
-        :(~$expr) => dual_ex(m, precom_ex(m, expr, info))
+        # 1. precompile to expand macros
+        # 2. get dual expression
+        # 3. precompile to analyze vaiables
+        :(~$expr) => precom_ex(m, dual_ex(m, precom_ex(m, expr, PreInfo(Symbol[]))), info)
         :($f($(args...))) => :($f($(args...)))
         :($f.($(args...))) => :($f.($(args...)))
         :(nothing) => ex
