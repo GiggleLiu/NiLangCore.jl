@@ -671,4 +671,14 @@ end
         z ← 0
     end)
     @test macroexpand(Main, ex9) isa Expr
+
+    ex10 = :(@i function f(x; y)
+        begin
+            z ← 0
+        end
+        ~begin
+            z ← 0
+        end
+    end)
+    @test macroexpand(Main, ex10) isa Expr
 end
