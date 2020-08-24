@@ -195,3 +195,47 @@ Turn off invertibility check if the `invcheck` is false.
 macro assign(a, b, invcheck=true)
     esc(assign_ex(a, b; invcheck=invcheck))
 end
+
+function check_shared_rw(args...)
+    args_kernel = []
+    for arg in args
+        out = get_memory_kernel(arg)
+        if out isa Vector
+            for o in out
+                if o !== nothing
+                    push!(args_kernel, o)
+                end
+            end
+        elseif out !== nothing
+            push!(args_kernel, out)
+        end
+    end
+    for i=1:length(args_kernel)
+        for j in i+1:length(args_kernel)
+            if args_kernel[i] == args_kernel[j]
+                throw(InvertibilityError("$i-th argument and $j-th argument shares the same memory $(args_kernel[i]), shared read and shared write are not allowed!"))
+            end
+        end
+    end
+end
+
+get_memory_kernel(ex) = @smatch ex begin
+    ::Symbol => ex
+    :(@skip! $line $x) => nothing
+    :(@keep $line $x) => get_memory_kernel(x)
+
+    :($x.$k) => :($(get_memory_kernel(x)).$k)
+    # tuples must be index through (x |> 1)
+    :($a |> tget($x)) => :($(get_memory_kernel(a)) |> tget($x))
+    :($x |> $f) => get_memory_kernel(x)
+    :($x .|> $f) => get_memory_kernel(x)
+    :($x') => get_memory_kernel(x)
+    :(-$x) => get_memory_kernel(x)
+    :(-.$x) => get_memory_kernel(x)  #?
+    :($f($(args...))) => nothing
+    :($f.($(args...))) => nothing
+    :($a[$(x...)]) => :($(get_memory_kernel(a))[$(x...)])
+    :(($(args...),)) => Any[get_memory_kernel(arg) for arg in args]
+    :($ag...) => get_memory_kernel(ag)
+    _ => nothing
+end

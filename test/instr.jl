@@ -1,5 +1,5 @@
 using NiLangCore
-using NiLangCore: compile_ex, dual_ex, precom_ex
+using NiLangCore: compile_ex, dual_ex, precom_ex, get_memory_kernel, check_shared_rw
 
 using Test
 import Base: +, -
@@ -139,4 +139,20 @@ end
     @test a == 5.0
     @instr a /= b + c
     @test a == 1.0
+end
+
+@testset "shared read write check" begin
+    @test get_memory_kernel(:((-x[3].g' |> NEG).k[5])) == :((x[3]).g.k[5])
+    @test get_memory_kernel(:(@skip! x.g)) == nothing
+    @test get_memory_kernel(:(@keep x .|> g)) == :x
+    @test get_memory_kernel(:(cos.(x[2]))) == nothing
+    @test get_memory_kernel(:(cos(x[2]))) == nothing
+    @test get_memory_kernel(:((x |> g)...)) == :x
+    @test get_memory_kernel(:((x |> g, y |> tget(1)))) == [:x, :(y |> tget(1))]
+
+    @test_throws InvertibilityError check_shared_rw(:a, :(a |> grad))
+    @test check_shared_rw(:(a.x), :(a.g |> grad)) isa Nothing
+    @test_throws InvertibilityError check_shared_rw(:(a.x), :(b[3]), :(b[3]))
+    @test_throws InvertibilityError check_shared_rw(:(a.x), :((b, a.x))) isa Nothing
+    # TODO: check variable on the same tree, like `a.b` and `a`
 end
