@@ -96,10 +96,17 @@ end
     @i function test2(a, b)
         add(a, b)
         if a > 8.0
-            a -= b*b
+            a -= b^2
         end
     end
     @test_throws InvertibilityError test2(1.0, 8.0)
+
+    @test_throws LoadError macroexpand(Main, :(@i function test3(a, b)
+        add(a, b)
+        if a > 8.0
+            a -= b*b
+        end
+    end))
 end
 
 @testset "for" begin

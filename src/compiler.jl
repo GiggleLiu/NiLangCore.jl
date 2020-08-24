@@ -14,6 +14,7 @@ function compile_body(m::Module, body::AbstractVector, info)
 end
 
 function _instr(opm, (@nospecialize f), out, args, info, ldot, rdot)
+    check_shared_rw(out, args...)
     if length(args) > 0 && args[1] isa Expr && args[1].head == :parameters
         _args = Any[args[1], out, args[2:end]...]
     else
@@ -78,8 +79,14 @@ function compile_ex(m::Module, ex, info)
                  bcast_assign_vars(vars, symres; invcheck=info.invcheckon[]))
         end
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
-        :($f($(args...))) => :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
-        :($f.($(args...))) => :(@assignback $ibcast((@skip! $f), $(args...))) |> rmlines
+        :($f($(args...))) => begin
+            check_shared_rw(args...)
+            :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
+        end
+        :($f.($(args...))) => begin
+            check_shared_rw(args...)
+            :(@assignback $ibcast((@skip! $f), $(args...))) |> rmlines
+        end
         Expr(:if, _...) => compile_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
             whilestatement(pre, post, compile_body(m, body, info), info)
