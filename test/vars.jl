@@ -2,6 +2,9 @@ using Test, NiLangCore
 
 @testset "dataview" begin
     x = 1.0
+    @test_throws ErrorException chfield(x, "asdf", 3.0)
+    @test chfield(x, identity, 2.0) === 2.0
+    @test value(x) === 1.0
     @assign (x |> value) 0.2
     @test x == 0.2
     @assign -x 0.1
@@ -98,6 +101,8 @@ end
 
 @testset "partial" begin
     x = Partial{:im}(3+2im)
+    println(x)
+    @test x === Partial{:im,Complex{Int64},Int64}(3+2im)
     @test value(x) == 2
     @test chfield(x, value, 4) == Partial{:im}(3+4im)
     @test zero(x) == Partial{:im}(0.0+0.0im)
@@ -111,6 +116,11 @@ end
     @test zero(a) == A(0.0)
     @test (~A)(a) === 0.5
     @test -A(0.5) == A(-0.5)
+
+    a2 = A{Float64}(a)
+    @test a2 === a
+    println(a2)
+    @test chfield(a2, A, A(0.4)) === 0.4
 end
 
 @testset ">, <" begin

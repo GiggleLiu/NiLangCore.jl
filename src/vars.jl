@@ -121,7 +121,7 @@ macro pure_wrapper(tp)
     quote
         Base.@__doc__ struct $TP{T} <: IWrapper{T} x::T end
         $TP(x::$TP{T}) where T = x # to avoid ambiguity error
-        $TP{T}(x::$TP{T}) where T = x
+        $TP{T}(x::$TP{T}) where T = x # to avoid ambiguity error
         (_::Type{Inv{$TP}})(x) = x.x
         $NiLangCore.value(x::$TP) = x.x
         $NiLangCore.chfield(x::$TP, ::typeof(value), xval) = chfield(x, Val(:x), xval)

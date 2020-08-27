@@ -1,6 +1,10 @@
 using NiLangCore
 using Test
 
+@testset "Core.jl" begin
+    include("Core.jl")
+end
+
 @testset "utils.jl" begin
     include("utils.jl")
 end

@@ -18,7 +18,7 @@ function precom(m::Module, ex)
 end
 
 function precom_body(m::Module, body::AbstractVector, info)
-    [precom_ex(m, ex, info) for ex in body]
+    Any[precom_ex(m, ex, info) for ex in body]
 end
 
 function flushancs(out, info)

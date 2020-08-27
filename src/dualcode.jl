@@ -165,5 +165,5 @@ end
 dotgetdual(f::Symbol) = getdual(removedot(f))
 
 function dual_body(m::Module, body)
-    out = map(st->(dual_ex(m, st)), Iterators.reverse(body))
+    out = Any[dual_ex(m, st) for st in Iterators.reverse(body)]
 end

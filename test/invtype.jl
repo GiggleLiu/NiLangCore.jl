@@ -12,6 +12,7 @@ NiTypeTest(x) = NiTypeTest(x, zero(x))
 
 @testset "inv type" begin
     it = NiTypeTest(0.5)
+    @test eps(typeof(it)) === eps(Float64)
     @test value(it) == 0.5
     @test it ≈ NiTypeTest(0.5)
     @test it > 0.4
@@ -111,4 +112,31 @@ end
     end
     @test test([0.5, 0.6]) == [convert(SVar,0.5), convert(SVar,0.6)]
     @test (~test)(test([0.5, 0.6])) == [0.5, 0.6]
+end
+
+@testset "mutable struct set field" begin
+    mutable struct MS{T}
+        x::T
+        y::T
+        z::T
+    end
+
+    ms = MS(0.5, 0.6, 0.7)
+    @i function f(ms)
+        ms.x += 1
+        ms.y += 1
+        ms.z -= ms.x ^ 2
+    end
+    ms2 = f(ms)
+    @test (ms2.x, ms2.y, ms2.z) == (1.5, 1.6, -1.55)
+
+    struct IMS{T}
+        x::T
+        y::T
+        z::T
+    end
+
+    ms = IMS(0.5, 0.6, 0.7)
+    ms2 = f(ms)
+    @test (ms2.x, ms2.y, ms2.z) == (1.5, 1.6, -1.55)
 end

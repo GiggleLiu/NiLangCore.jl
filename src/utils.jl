@@ -86,7 +86,7 @@ rmlines(ex::Expr) = begin
     if hd == :macrocall
         Expr(:macrocall, ex.args[1], nothing, rmlines.(ex.args[3:end])...)
     else
-        tl = map(rmlines, filter(!islinenumbernode, ex.args))
+        tl = Any[rmlines(ex) for ex in ex.args if !islinenumbernode(ex)]
         Expr(hd, tl...)
     end
 end
