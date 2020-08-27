@@ -3,7 +3,11 @@ using Base.Cartesian
 export @iconstruct
 
 @generated function chfield(x, ::Val{FIELD}, xval) where FIELD
-    :(@with x.$FIELD = xval)
+    if x.mutable
+        Expr(:block, :(x.$FIELD = xval), :x)
+    else
+        :(@with x.$FIELD = xval)
+    end
 end
 @generated function chfield(x, f::Function, xval)
     :(@invcheck f(x) xval; x)
