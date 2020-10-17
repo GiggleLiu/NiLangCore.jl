@@ -698,6 +698,7 @@ end
         x::T
     end
     @dualtype AddX SubX
+    @dualtype AddX SubX
     @i function (f::AddX)(x::Real) end
     @test hasmethod(AddX(3), Tuple{Real})
     @test hasmethod(SubX(3), Tuple{Real})
