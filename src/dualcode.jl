@@ -17,7 +17,7 @@ function dual_fname(op)
         :($x::DivEq) => :($x::MulEq)
         :($x::MulEq) => :($x::DivEq)
         :($x::XorEq{$tp}) => :($x::XorEq{$tp})
-        :($x::$tp) => :($x::Inv{<:$tp})
+        :($x::$tp) => :($x::$invtype($tp))
         :(~$x) => x
         #_ => :(_::Inv{typeof($op)})
         _ => :($(gensym())::$_typeof(~$op))

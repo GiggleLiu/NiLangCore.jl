@@ -83,7 +83,7 @@ GVar{Float64,Float64}(2.0, 0.0)
 function chfield end
 
 ######## Inv
-export Inv
+export Inv, invtype
 """
     Inv{FT} <: Function
     Inv(f)
@@ -101,6 +101,8 @@ Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
 Base.display(bf::Inv) where f = print(bf)
 protectf(x) = x
 protectf(x::Inv) = x.f
+
+invtype(::Type{T}) where T = Inv{<:T}
 
 ######### Infer
 export PlusEq, MinusEq, XorEq, MulEq, DivEq
