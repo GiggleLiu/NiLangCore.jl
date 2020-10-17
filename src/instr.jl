@@ -1,4 +1,4 @@
-export @dual, @selfdual
+export @dual, @selfdual, @dualtype
 
 """
     @dual f invf
@@ -18,6 +18,17 @@ macro dual(f, invf)
         end;
         Base.:~($invf) === $f || begin
             Base.:~(::typeof($invf)) = $f;
+        end
+    ))
+end
+
+macro dualtype(t, invt)
+    esc(:(
+        invtype($t) === $invt || begin
+            $NiLangCore.invtype(::Type{$t}) = $invt;
+        end;
+        invtype($invt) === $t || begin
+            $NiLangCore.invtype(::Type{$invt}) = $t;
         end
     ))
 end

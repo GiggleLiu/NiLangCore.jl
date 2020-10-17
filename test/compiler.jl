@@ -689,3 +689,17 @@ end
     end)
     @test macroexpand(Main, ex10) isa Expr
 end
+
+@testset "inv type" begin
+    struct AddX{T}
+        x::T
+    end
+    struct SubX{T}
+        x::T
+    end
+    @dualtype AddX SubX
+    @dualtype AddX SubX
+    @i function (f::AddX)(x::Real) end
+    @test hasmethod(AddX(3), Tuple{Real})
+    @test hasmethod(SubX(3), Tuple{Real})
+end
