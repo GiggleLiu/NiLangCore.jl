@@ -703,3 +703,15 @@ end
     @test hasmethod(AddX(3), Tuple{Real})
     @test hasmethod(SubX(3), Tuple{Real})
 end
+
+
+@testset "dict access" begin
+    d = Dict(3=>4)
+    @instr d[3] → 4
+    @instr d[4] ← 3
+    @test d == Dict(4=>3)
+    @test_throws InvertibilityError @instr d[4] → 5
+    @test (@instr @invcheckoff d[8] → 5; true)
+    @test_throws AssertionError @instr d[4] ← 5
+    @test (@instr @invcheckoff d[4] ← 5; true)
+end

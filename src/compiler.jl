@@ -30,6 +30,8 @@ function _instr(opm, (@nospecialize f), out, args, info, ldot, rdot)
     end
 end
 
+deleteindex!(d::AbstractDict, index) = delete!(d, index)
+
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
 function compile_ex(m::Module, ex, info)
@@ -59,7 +61,23 @@ function compile_ex(m::Module, ex, info)
         :($x → new($(args...))) => begin
             :($(Expr(:tuple, args...)) = $type2tuple($x))
         end
+        :($x[$index] ← $tp) => begin
+            assign_expr = :($x[$index] = $tp)
+            if info.invcheckon[]
+                Expr(:block, :(@assert !haskey($x, $index)), assign_expr)
+            else
+                assign_expr
+            end
+        end
         :($x ← $tp) => :($x = $tp)
+        :($x[$index] → $tp) => begin
+            delete_expr = :($(deleteindex!)($x, $index))
+            if info.invcheckon[]
+                Expr(:block, :(@invcheck $x[$index] $tp), delete_expr)
+            else
+                delete_expr
+            end
+        end
         :($x → $tp) => begin
             if info.invcheckon[]
                 :($deanc($x, $tp))

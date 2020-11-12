@@ -94,6 +94,8 @@ function precom_ex(m::Module, ex, info)
             end
             ex
         end
+        :($x[$key] ← $val) => ex
+        :($x[$key] → $val) => ex
         :($x ← $val) => begin
             info.ancs[x] = val
             pushvar!(info.vars, x)
