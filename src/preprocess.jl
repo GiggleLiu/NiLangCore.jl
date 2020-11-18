@@ -14,7 +14,11 @@ function precom(m::Module, ex)
         pushvar!(vars, arg)
     end
     info = PreInfo(vars)
-    mc, fname, args, ts, flushancs(precom_body(m, body, info), info)
+    body_out = flushancs(precom_body(m, body, info), info)
+    if !isempty(info.routines)
+        error("`@routine` and `~@routine` must appear in pairs, mising `~@routine`!")
+    end
+    mc, fname, args, ts, body_out
 end
 
 function precom_body(m::Module, body::AbstractVector, info)
@@ -153,6 +157,9 @@ function precom_ex(m::Module, ex, info)
             precode
         end
         :(~(@routine $line)) => begin
+            if isempty(info.routines)
+                error("`@routine` and `~@routine` must appear in pairs, mising `@routine`!")
+            end
             precom_ex(m, dual_ex(m, pop!(info.routines)), info)
         end
         # 1. precompile to expand macros

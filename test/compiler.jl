@@ -715,3 +715,17 @@ end
     @test_throws AssertionError @instr d[4] ← 5
     @test (@instr @invcheckoff d[4] ← 5; true)
 end
+
+@testset "@routine,~@routine" begin
+    @test_throws LoadError macroexpand(Main, :(@i function f(x)
+        @routine begin
+        end
+    end))
+    @test_throws LoadError macroexpand(Main, :(@i function f(x)
+        ~@routine
+    end))
+    @test macroexpand(Main, :(@i function f(x)
+        @routine begin end
+        ~@routine
+    end)) !== nothing
+end
