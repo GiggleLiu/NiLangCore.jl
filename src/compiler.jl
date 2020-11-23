@@ -478,7 +478,7 @@ export @instr
 Execute a reversible instruction.
 """
 macro instr(ex)
-    esc(NiLangCore.compile_ex(__module__, precom_ex(__module__, ex, NiLangCore.PreInfo(Symbol[])), CompileInfo()))
+    esc(Expr(:block, NiLangCore.compile_ex(__module__, precom_ex(__module__, ex, NiLangCore.PreInfo(Symbol[])), CompileInfo()), nothing))
 end
 
 compile_range(range) = @smatch range begin
