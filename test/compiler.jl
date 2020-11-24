@@ -729,3 +729,19 @@ end
         ~@routine
     end)) !== nothing
 end
+
+@testset "@from post while pre" begin
+    @i function f()
+       x ← 5
+       z ← 0
+       @from z==0 while x > 0
+           x -= 1
+           z += 1
+       end
+       z → 5
+       x → 0
+    end
+
+    @test f() == ()
+    @test (~f)() == ()
+end

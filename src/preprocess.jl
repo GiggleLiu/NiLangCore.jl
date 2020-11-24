@@ -126,6 +126,7 @@ function precom_ex(m::Module, ex, info)
             info = PreInfo(info.vars)
             Expr(:while, :(($pre, $post)), Expr(:block, flushancs(precom_body(m, body, info), info)...))
         end
+        :(@from $line $post while $pre; $(body...); end) => precom_ex(m, Expr(:while, :(($pre, !$post)), ex.args[4].args[2]), info)
         :(begin $(body...) end) => begin
             Expr(:block, precom_body(m, body, info)...)
         end
