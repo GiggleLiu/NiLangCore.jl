@@ -6,6 +6,21 @@ export chfield, value, unwrap
 deanc(x, val) = @invcheck x val
 deanc(x::T, val::T) where T<:Tuple = x === val || deanc.(x, val)
 deanc(x::T, val::T) where T<:AbstractArray = x === val || deanc.(x, val)
+function deanc(x::T, val::T) where T<:Dict
+    if x !== val
+        if length(x) != length(val)
+            throw(InvertibilityError("length of dict not the same!"))
+        else
+            for (k, v) in x
+                if haskey(val, k)
+                    deanc(x[k], val[k])
+                else
+                    throw(InvertibilityError("key $k of dict does not exist!"))
+                end
+            end
+        end
+    end
+end
 
 # variables
 # TODO: allow reversible mapping

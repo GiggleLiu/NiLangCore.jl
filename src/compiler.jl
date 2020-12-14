@@ -73,7 +73,7 @@ function compile_ex(m::Module, ex, info)
         :($x[$index] → $tp) => begin
             delete_expr = :($(deleteindex!)($x, $index))
             if info.invcheckon[]
-                Expr(:block, :(@invcheck $x[$index] $tp), delete_expr)
+                Expr(:block, :($deanc($x[$index], $tp)), delete_expr)
             else
                 delete_expr
             end

@@ -135,3 +135,26 @@ end
     @test a > 0.4
     @test isless(a, 0.6)
 end
+
+@testset "dict" begin
+    @i function f1()
+        d ← Dict(1=>1, 2=>2)
+        d → Dict(2=>2)
+    end
+    @i function f2()
+        d ← Dict(1=>1)
+        d → Dict(2=>1)
+    end
+    @i function f3()
+        d ← Dict(1=>1)
+        d → Dict(1=>2)
+    end
+    @i function f4()
+        d ← Dict(1=>1)
+        d → Dict(1=>1)
+    end
+    @test_throws InvertibilityError f1()
+    @test_throws InvertibilityError f2()
+    @test_throws InvertibilityError f3()
+    @test f4() == ()
+end
