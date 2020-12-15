@@ -3,13 +3,18 @@ export IWrapper, Partial
 export chfield, value, unwrap
 
 ############# ancillas ################
-deanc(x, val) = @invcheck x val
+function deanc(a::T, b::T) where T <: Number
+    if !(a === b || isapprox(a, b; atol=GLOBAL_ATOL[]))
+        throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
+    end
+end
 deanc(x::T, val::T) where T<:Tuple = x === val || deanc.(x, val)
 deanc(x::T, val::T) where T<:AbstractArray = x === val || deanc.(x, val)
+deanc(a::T, b::T) where T<:AbstractString = a === b || throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
 function deanc(x::T, val::T) where T<:Dict
     if x !== val
         if length(x) != length(val)
-            throw(InvertibilityError("length of dict not the same!"))
+            throw(InvertibilityError("length of dict not the same, got $(length(x)) and $(length(val))!"))
         else
             for (k, v) in x
                 if haskey(val, k)
@@ -19,6 +24,19 @@ function deanc(x::T, val::T) where T<:Dict
                 end
             end
         end
+    end
+end
+
+deanc(a, b) = throw(InvertibilityError("can not deallocate because type mismatch `$(typeof(a))` and `$(typeof(b))`"))
+
+@generated function deanc(a::T, b::T) where T
+    nf = fieldcount(a)
+    if isstructtype(T)
+        quote
+            @nexprs $nf i-> deanc(getfield(a, i), getfield(b, i))
+        end
+    else
+        a === b || throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
     end
 end
 
