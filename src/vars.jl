@@ -213,3 +213,12 @@ export tget
 Get the i-th entry of a tuple.
 """
 tget(i::Int) = x::Tuple -> x[i]
+
+export subarray
+
+"""
+    subarray(ranges...)
+
+Get a subarray, same as `view` in Base.
+"""
+subarray(args...) = x -> view(x, args...)

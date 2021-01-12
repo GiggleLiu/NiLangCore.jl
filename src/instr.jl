@@ -52,8 +52,8 @@ macro selfdual(f)
     ))
 end
 
-export @keep
-macro keep(ex)
+export @const
+@eval macro $(:const)(ex)
     esc(ex)
 end
 
@@ -61,7 +61,6 @@ export @skip!
 macro skip!(ex)
     esc(ex)
 end
-
 
 export @assignback
 
@@ -154,19 +153,32 @@ function assign_ex(arg::Union{Symbol,GlobalRef}, res; invcheck)
         :($arg = $res)
     end
 end
+
+error_message_fcall(arg) = """
+function arguments should not contain function calls on variables, got `$arg`, try to decompose it into elementary statements, e.g. statement `z += f(g(x))` should be written as
+
+    y += g(x)
+    z += y
+
+If `g` is a dataview (a function map an object to its field or a bijective function), one can also use the pipline like
+
+    z += f(x |> g)
+"""
+
 assign_ex(arg::Union{Number,String}, res; invcheck) = _invcheck(invcheck, arg, res)
 assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
     :(@skip! $line $x) => nothing
     :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
     # tuples must be index through (x |> 1)
     :($a |> tget($x)) => assign_ex(a, :(chfield($a, $x, $res)); invcheck=invcheck)
+    :($a |> subarray($(ranges...))) => :(view($a, $(ranges...)) .= $res)
     :($x |> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
     :($x .|> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
     :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)); invcheck=invcheck)
     :(-$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, -, $res)); invcheck=invcheck)
     :(-.$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref(-), $res)); invcheck=invcheck)
-    :($f($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
-    :($f.($(args...))) => all(_isconst, args) ? nothing : _invcheck(invcheck, arg,res)
+    :($f($(args...))) => all(_isconst, args) || error(error_message_fcall(arg))
+    :($f.($(args...))) => all(_isconst, args) || error(error_message_fcall(arg))
     :($a[$(x...)]) => begin
         :($a[$(x...)] = $res)
     end
@@ -186,7 +198,7 @@ _isconst(::QuoteNode) = true
 _isconst(x::Union{Number,String}) = true
 _isconst(x::Expr) = @smatch x begin
     :($f($(args...))) => all(_isconst, args)
-    :(@keep $line $ex) => true
+    :(@const $line $ex) => true
     _ => false
 end
 
@@ -233,11 +245,12 @@ end
 get_memory_kernel(ex) = @smatch ex begin
     ::Symbol => ex
     :(@skip! $line $x) => nothing
-    :(@keep $line $x) => get_memory_kernel(x)
+    :(@const $line $x) => get_memory_kernel(x)
 
     :($x.$k) => :($(get_memory_kernel(x)).$k)
     # tuples must be index through (x |> 1)
     :($a |> tget($x)) => :($(get_memory_kernel(a)) |> tget($x))
+    :($a |> subarray($(ranges...))) => :($(get_memory_kernel(a))[$(ranges...)])
     :($x |> $f) => get_memory_kernel(x)
     :($x .|> $f) => get_memory_kernel(x)
     :($x') => get_memory_kernel(x)

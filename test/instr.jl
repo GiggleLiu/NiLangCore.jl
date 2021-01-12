@@ -10,7 +10,7 @@ function add(a!::Number, b::Number)
 end
 
 @i function add(a!, b)
-    add(value(a!), value(b))
+    add(a! |> value, b |> value)
 end
 
 function sub(a!::Number, b::Number)
@@ -18,7 +18,7 @@ function sub(a!::Number, b::Number)
 end
 
 @i function sub(a!, b)
-    sub(value(a!), value(b))
+    sub(a! |> value, b |> value)
 end
 
 @dual add sub
@@ -28,7 +28,7 @@ function XOR(a!::Integer, b::Integer)
 end
 
 @i function XOR(a!::T, b::T) where T<:IWrapper
-    XOR(value(a!), value(b))
+    XOR(a! |> value, b |> value)
 end
 @selfdual XOR
 #@nograd XOR
@@ -117,9 +117,9 @@ end
     @test z == 16.0
 end
 
-@testset "keep value" begin
-    @test @keep 2 == 2
-    @test NiLangCore._isconst(:(@keep grad(x)))
+@testset "constant value" begin
+    @test @const 2 == 2
+    @test NiLangCore._isconst(:(@const grad(x)))
 end
 
 @testset "+=, -=, *=, /=" begin
@@ -143,10 +143,11 @@ end
 
 @testset "shared read write check" begin
     @test get_memory_kernel(:((-x[3].g' |> NEG).k[5])) == :((x[3]).g.k[5])
-    @test get_memory_kernel(:(@skip! x.g)) == nothing
-    @test get_memory_kernel(:(@keep x .|> g)) == :x
-    @test get_memory_kernel(:(cos.(x[2]))) == nothing
-    @test get_memory_kernel(:(cos(x[2]))) == nothing
+    @test get_memory_kernel(:((-(x |> subarray(3)).g' |> NEG).k[5])) == :((x[3]).g.k[5])
+    @test get_memory_kernel(:(@skip! x.g)) === nothing
+    @test get_memory_kernel(:(@const x .|> g)) == :x
+    @test get_memory_kernel(:(cos.(x[2]))) === nothing
+    @test get_memory_kernel(:(cos(x[2]))) === nothing
     @test get_memory_kernel(:((x |> g)...)) == :x
     @test get_memory_kernel(:((x |> g, y |> tget(1)))) == [:x, :(y |> tget(1))]
 
