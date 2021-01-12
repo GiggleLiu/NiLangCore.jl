@@ -533,7 +533,7 @@ end
     @instr (@skip! 3) += x
     @test x == 0.4
     y = 0.3
-    @instr x += @keep y
+    @instr x += @const y
     @test x == 0.7
     @test y == 0.3
 end
@@ -744,4 +744,14 @@ end
 
     @test f() == ()
     @test (~f)() == ()
+end
+
+
+@testset "argument with function call" begin
+    @test_throws LoadError @macroexpand @i function f(x, y)
+        x += sin(exp(y))
+    end
+    @i function f(x, y)
+        x += sin(exp(0.4)) + y
+    end
 end

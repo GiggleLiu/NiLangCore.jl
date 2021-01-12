@@ -31,6 +31,13 @@ using Test, NiLangCore
     y = ([true, true],)
     @instr x .⊻= y |> tget(1)
     @test x == [false, true]
+
+    x = ones(4)
+    y = ones(2)
+    @instr (x |> subarray(1:2)) += y
+    @test x == [2,2,1,1]
+    @instr (x |> subarray(1)) += (y |> subarray(1))
+    @test x == [3,2,1,1]
 end
 
 @testset "anc, deanc" begin
