@@ -110,6 +110,10 @@ function precom_ex(m::Module, ex, info)
             delete!(info.ancs, x)
             ex
         end
+        # Yao IR
+        :($locs => $b) => ex
+        :(@ctrl $line $clocs $locs => $b) => ex
+        :($res = @measure $line $(args...)) => error("measure is not reversible!")
         :($a += $b) => precom_opm(:+=, a, b)
         :($a -= $b) => precom_opm(:-=, a, b)
         :($a *= $b) => precom_opm(:*=, a, b)

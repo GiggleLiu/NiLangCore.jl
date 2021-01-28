@@ -599,6 +599,11 @@ end
     @test f(x) == [2,3,4]
 end
 
+@testset "yaoir" begin
+    @test (@code_reverse @ctrl k 1=>shift(θ)) == :(@ctrl k 1=>shift(θ)')
+    @test (@code_reverse 1=>shift(θ)) == :(1=>shift(θ)')
+end
+
 @testset "xor over ||" begin
     x = false
     @instr x ⊻= true || false

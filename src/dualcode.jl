@@ -43,6 +43,9 @@ function dual_ex(m::Module, ex)
             pipline = get_dotpipline!(ex, Any[])
             rev_pipline!(pipline[1], pipline[2:end]; dot=true)
         end
+        # Yao IR
+        :($locs => $b) => :($locs => $b')
+        :(@ctrl $line $clocs $locs => $b) => Expr(:macrocall, Symbol("@ctrl"), line, clocs, :($locs => $b'))
         :($f($(args...))) => begin
             if startwithdot(f)
                 :($(dotgetdual(f)).($(args...)))
