@@ -100,6 +100,21 @@ function precom_ex(m::Module, ex, info)
         end
         :($x[$key] ← $val) => ex
         :($x[$key] → $val) => ex
+        :(($(xs...),) ← $val) => begin
+            for x in xs
+                info.ancs[x] = val
+                pushvar!(info.vars, x)
+            end
+            ex
+        end
+        :(($(xs...),) → $val) => begin
+            for x in xs
+                popvar!(info.vars, x)
+                delete!(info.ancs, x)
+            end
+            ex
+        end
+
         :($x ← $val) => begin
             info.ancs[x] = val
             pushvar!(info.vars, x)
@@ -110,6 +125,8 @@ function precom_ex(m::Module, ex, info)
             delete!(info.ancs, x)
             ex
         end
+        :($(xs...), $y ← $val) => precom_ex(m, :(($(xs...), y) ← $val), info)
+        :($(xs...), $y → $val) => precom_ex(m, :(($(xs...), y) → $val), info)
         :($a += $b) => precom_opm(:+=, a, b)
         :($a -= $b) => precom_opm(:-=, a, b)
         :($a *= $b) => precom_opm(:*=, a, b)

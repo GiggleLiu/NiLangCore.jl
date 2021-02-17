@@ -755,3 +755,33 @@ end
         x += sin(exp(0.4)) + y
     end
 end
+
+@testset "allocation multiple vars" begin
+    info = NiLangCore.PreInfo(Symbol[])
+    @test NiLangCore.precom_ex(NiLangCore, :(x,y ← var), info) == :((x, y) ← var)
+    @test info.vars == [:x, :y]
+    @test NiLangCore.precom_ex(NiLangCore, :(x,y → var), info) == :((x, y) → var)
+    @test isempty(info.vars)
+    @test (@code_reverse (x,y) ← var) == :((x, y) → var)
+    @test (@code_reverse (x,y) → var) == :((x, y) ← var)
+    @test (@code_julia (x,y) ← var) == :((x, y) = var)
+    @test (@code_julia (x,y) → var) == :($(NiLangCore.deanc)((x, y), var))
+
+    x = randn(2,4)
+    @i function f(x)
+        (m, n) ← size(x)
+        (l, k) ← size(x)
+        (l, k) → size(x)
+        (m, n) → size(x)
+    end
+    @test f(x) !== nothing
+    @test (~f)(x) !== nothing
+
+    @i function g(x)
+        (m, n) ← size(x)
+        (m, n) → (7, 5)
+    end
+
+    @test_throws InvertibilityError g(x)
+    @test_throws InvertibilityError (~g)(x)
+end
