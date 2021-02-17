@@ -35,7 +35,7 @@ end
 end
 
 @testset "my ordered dict" begin
-    od = MyOrderedDict{Symbol, Any}()
+    od = MyOrderedDict{Any, Any}()
     od[:a] = 2
     od[:b] = 4
     od[:c] = 7

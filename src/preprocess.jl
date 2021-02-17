@@ -2,10 +2,10 @@ export precom
 
 struct PreInfo
     vars::Vector{Symbol}
-    ancs::MyOrderedDict{Symbol, Any}
+    ancs::MyOrderedDict{Any, Any}
     routines::Vector{Any}
 end
-PreInfo(vars::Vector{Symbol}) = PreInfo(vars, MyOrderedDict{Symbol,Any}(), [])
+PreInfo(vars::Vector) = PreInfo(vars, MyOrderedDict{Any,Any}(), [])
 
 function precom(m::Module, ex)
     mc, fname, args, ts, body = match_function(ex)
@@ -72,6 +72,18 @@ end
 
 function precom_ex(m::Module, ex, info)
     @smatch ex begin
+        :(($(xs...),) ← $val) => begin
+            tp = (xs...,)
+            pushvar!(info.vars, tp)
+            info.ancs[tp] = val
+            ex
+        end
+        :(($(xs...),) → $val) => begin
+            tp = (xs...,)
+            popvar!(info.vars, tp)
+            delete!(info.ancs, tp)
+            ex
+        end
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
             for arg in args
@@ -100,21 +112,6 @@ function precom_ex(m::Module, ex, info)
         end
         :($x[$key] ← $val) => ex
         :($x[$key] → $val) => ex
-        :(($(xs...),) ← $val) => begin
-            for x in xs
-                info.ancs[x] = val
-                pushvar!(info.vars, x)
-            end
-            ex
-        end
-        :(($(xs...),) → $val) => begin
-            for x in xs
-                popvar!(info.vars, x)
-                delete!(info.ancs, x)
-            end
-            ex
-        end
-
         :($x ← $val) => begin
             info.ancs[x] = val
             pushvar!(info.vars, x)
@@ -125,8 +122,8 @@ function precom_ex(m::Module, ex, info)
             delete!(info.ancs, x)
             ex
         end
-        :($(xs...), $y ← $val) => precom_ex(m, :(($(xs...), y) ← $val), info)
-        :($(xs...), $y → $val) => precom_ex(m, :(($(xs...), y) → $val), info)
+        :($(xs...), $y ← $val) => precom_ex(m, :(($(xs...), $y) ← $val), info)
+        :($(xs...), $y → $val) => precom_ex(m, :(($(xs...), $y) → $val), info)
         :($a += $b) => precom_opm(:+=, a, b)
         :($a -= $b) => precom_opm(:-=, a, b)
         :($a *= $b) => precom_opm(:*=, a, b)
@@ -256,6 +253,11 @@ function pushvar!(x::Vector{Symbol}, target)
                 push!(x, target)
             end
         end
+        ::Tuple => begin
+            for t in target
+                pushvar!(x, t)
+            end
+        end
         :($tar = _) => pushvar!(x, tar)
         :($tar...) => pushvar!(x, tar)
         :($tar::$tp) => pushvar!(x, tar)
@@ -267,7 +269,7 @@ function pushvar!(x::Vector{Symbol}, target)
         Expr(:kw, tar, val) => begin
             pushvar!(x, tar)
         end
-        _ => error("unknow variable expression $(target)")
+        _ => error("unknown variable expression $(target)")
     end
     nothing
 end
@@ -279,6 +281,11 @@ function popvar!(x::Vector{Symbol}, target)
                 filter!(x->x!=target, x)
             else
                 throw(InvertibilityError("Variable `$target` has not been defined in current scope."))
+            end
+        end
+        ::Tuple => begin
+            for t in target
+                popvar!(x, t)
             end
         end
         _ => error("unknow variable expression $(target)")

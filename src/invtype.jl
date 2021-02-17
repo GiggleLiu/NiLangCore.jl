@@ -74,7 +74,7 @@ macro icast(ex, body)
         :($a => $b) => begin
             t1, args1 = _match_typecast(a)
             t2, args2 = _match_typecast(b)
-            ancs = MyOrderedDict{Symbol,Any}()
+            ancs = MyOrderedDict{Any,Any}()
             vars = Symbol[]
             for arg in _asvector(args1)
                 ancs[arg] = nothing

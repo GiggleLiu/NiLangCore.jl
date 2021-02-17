@@ -768,14 +768,17 @@ end
     @test (@code_julia (x,y) → var) == :($(NiLangCore.deanc)((x, y), var))
 
     x = randn(2,4)
-    @i function f(x)
-        (m, n) ← size(x)
+    @i function f(y, x)
+        m, n ← size(x)
         (l, k) ← size(x)
+        y += m*n
+        y += l*k
         (l, k) → size(x)
-        (m, n) → size(x)
+        m, n → size(x)
     end
-    @test f(x) !== nothing
-    @test (~f)(x) !== nothing
+    twosize = f(0, x)[1]
+    @test  twosize == 16
+    @test (~f)(twosize, x)[1] == 0
 
     @i function g(x)
         (m, n) ← size(x)
