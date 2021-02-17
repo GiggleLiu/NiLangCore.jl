@@ -774,7 +774,6 @@ end
         y += m*n
         y += l*k
         (l, k) → size(x)
-        m, n → size(x)
     end
     twosize = f(0, x)[1]
     @test  twosize == 16

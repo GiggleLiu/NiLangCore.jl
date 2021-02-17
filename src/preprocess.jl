@@ -72,18 +72,6 @@ end
 
 function precom_ex(m::Module, ex, info)
     @smatch ex begin
-        :(($(xs...),) ← $val) => begin
-            tp = (xs...,)
-            pushvar!(info.vars, tp)
-            info.ancs[tp] = val
-            ex
-        end
-        :(($(xs...),) → $val) => begin
-            tp = (xs...,)
-            popvar!(info.vars, tp)
-            delete!(info.ancs, tp)
-            ex
-        end
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
             for arg in args
@@ -253,8 +241,8 @@ function pushvar!(x::Vector{Symbol}, target)
                 push!(x, target)
             end
         end
-        ::Tuple => begin
-            for t in target
+        :(($(tar...),)) => begin
+            for t in tar
                 pushvar!(x, t)
             end
         end
@@ -283,8 +271,8 @@ function popvar!(x::Vector{Symbol}, target)
                 throw(InvertibilityError("Variable `$target` has not been defined in current scope."))
             end
         end
-        ::Tuple => begin
-            for t in target
+        :(($(tar...),)) => begin
+            for t in tar
                 popvar!(x, t)
             end
         end
