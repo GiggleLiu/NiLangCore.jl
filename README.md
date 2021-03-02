@@ -2,8 +2,7 @@
 
 The core package for reversible eDSL NiLang.
 
-[![Build Status](https://travis-ci.com/GiggleLiu/NiLangCore.jl.svg?branch=master)](https://travis-ci.com/GiggleLiu/NiLangCore.jl)
-[![Codecov](https://codecov.io/gh/GiggleLiu/NiLangCore.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/GiggleLiu/NiLangCore.jl)
+![CI](https://github.com/GiggleLiu/NiLangCore.jl/workflows/CI/badge.svg)
 
 **Warning**
 Requires Julia version >= 1.3.
