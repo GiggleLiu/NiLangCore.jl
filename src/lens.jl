@@ -3,6 +3,10 @@
     Expr(:new, T, [field !== Field ? :(main.$field) : :value for field in fields]...)
 end
 
+@inline @generated function default_constructor(::Type{T}, fields::Vararg{Any,N}) where {T,N}
+    Expr(:new, T, [:(fields[$i]) for i=1:N]...)
+end
+
 function lens_compile(ex, cache, value)
     @smatch ex begin
         :($a.$(b::Symbol).$(c::Symbol) = $d) => begin

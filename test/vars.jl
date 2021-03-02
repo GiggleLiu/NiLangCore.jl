@@ -48,37 +48,37 @@ end
     f(1.0)
     @test_throws InvertibilityError f(1.1)
 
-    @i function f(y)
+    @i function f2(y)
         x ← y
         x → (1.0, 2.0)
     end
-    f((1.0, 2.0))
-    @test_throws InvertibilityError f((1.1, 2.0))
+    f2((1.0, 2.0))
+    @test_throws InvertibilityError f2((1.1, 2.0))
 
-    @i function f(y)
+    @i function f3(y)
         x ← y
         x → [1.0, 2.0]
     end
-    f([1.0, 2.0])
-    @test_throws InvertibilityError f([1.1, 2.0])
+    f3([1.0, 2.0])
+    @test_throws InvertibilityError f3([1.1, 2.0])
 
     struct B
         a
         b
     end
-    @i function f(y)
+    @i function f4(y)
         x ← y
         x → B(1.0, 2.0)
     end
-    f(B(1.0, 2.0))
-    @test_throws InvertibilityError f(B(1.0, 1.1))
+    f4(B(1.0, 2.0))
+    @test_throws InvertibilityError f4(B(1.0, 1.1))
 
-    @i function f(y)
+    @i function f5(y)
         x ← y
         x → ""
     end
-    f("")
-    @test_throws InvertibilityError f("a")
+    f5("")
+    @test_throws InvertibilityError f5("a")
 end
 
 @testset "inv and tuple output" begin

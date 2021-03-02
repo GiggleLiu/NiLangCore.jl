@@ -45,10 +45,10 @@ julia> x = PVar(0.0, 0.5)
 PVar{Float64}(0.0, 0.5)
 
 julia> @instr (PVar=>SVar)(x)
-SVar{Float64}(0.5, 0.5)
+
 
 julia> @instr (SVar=>PVar)(x)
-PVar{Float64}(0.0, 0.5)
+
 
 julia> @icast x::Base.Float64 => SVar(x, gg) begin
            gg ← zero(x)
@@ -59,10 +59,10 @@ julia> x = 0.5
 0.5
 
 julia> @instr (Float64=>SVar)(x)
-SVar{Float64}(0.5, 0.5)
+
 
 julia> @instr (SVar=>Float64)(x)
-0.5
+
 ```
 """
 macro icast(ex, body)

@@ -13,4 +13,6 @@ using NiLangCore, Test
         end
     end
     @test NiLangCore.field_update(TestUpdateField2(1), Val(:a), 4) == TestUpdateField2(4)
+
+    @test NiLangCore.default_constructor(ComplexF64, 1.0, 2.0) == 1+2im
 end

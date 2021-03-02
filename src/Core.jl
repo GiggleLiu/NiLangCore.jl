@@ -77,7 +77,7 @@ julia> struct GVar{T, GT}
 julia> @fieldview xx(x::GVar) = x.x
 
 julia> chfield(GVar(1.0, 0.0), xx, 2.0)
-GVar{Float64,Float64}(2.0, 0.0)
+GVar{Float64, Float64}(2.0, 0.0)
 ```
 """
 function chfield end
@@ -124,7 +124,7 @@ julia> x, y, z = 0.0, 2.0, 3.0
 (0.0, 2.0, 3.0)
 
 julia> @instr x += y*z
-3.0
+
 
 julia> x, y, z
 (6.0, 2.0, 3.0)
