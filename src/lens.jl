@@ -1,8 +1,6 @@
 @generated function field_update(main :: T, field::Val{Field}, value) where {T, Field}
     fields = fieldnames(T)
-    quote
-        default_constructor($T, $([field !== Field ? :(main.$field) : :value for field in fields]...))
-    end
+    Expr(:new, T, [field !== Field ? :(main.$field) : :value for field in fields]...)
 end
 
 function lens_compile(ex, cache, value)
@@ -31,8 +29,4 @@ end
 
 macro with(ex)
     with(ex) |> esc
-end
-
-@inline function default_constructor(::Type{T}, args...) where T
-    T(args...)
 end
