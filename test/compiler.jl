@@ -153,14 +153,14 @@ end
     end
     @test_throws InvertibilityError looper2(x, y)
 
-    @i function looper2(x, y)
+    @i function looper3(x, y)
         while (x<100, x>0)
             z ← 0
             x += y
             z += 1
         end
     end
-    @test_throws InvertibilityError looper2(x, y)
+    @test_throws InvertibilityError looper3(x, y)
 end
 
 @testset "ancilla" begin
@@ -178,7 +178,7 @@ end
     @instr (~looper)(x, y)
     @test x[] == 0.0
 
-    @i function looper(x, y)
+    @i function looper2(x, y)
         z ← 0
         x += y
         z += one
@@ -186,7 +186,7 @@ end
     end
     x = 0.0
     y = 9
-    @test_throws InvertibilityError looper(x, y)
+    @test_throws InvertibilityError looper2(x, y)
 end
 
 @testset "broadcast" begin
@@ -590,13 +590,13 @@ end
     end
     x = [1,2,3]
     @test f(x) == [2,3,4]
-    @i function f(x)
+    @i function f2(x)
         @simd for i=1:length(x)
             x[i] += 1
         end
     end
     x = [1,2,3]
-    @test f(x) == [2,3,4]
+    @test f2(x) == [2,3,4]
 end
 
 @testset "xor over ||" begin
@@ -768,14 +768,16 @@ end
     @test (@code_julia (x,y) → var) == :($(NiLangCore.deanc)((x, y), var))
 
     x = randn(2,4)
-    @i function f(x)
-        (m, n) ← size(x)
+    @i function f(y, x)
+        m, n ← size(x)
         (l, k) ← size(x)
+        y += m*n
+        y += l*k
         (l, k) → size(x)
-        (m, n) → size(x)
     end
-    @test f(x) !== nothing
-    @test (~f)(x) !== nothing
+    twosize = f(0, x)[1]
+    @test  twosize == 16
+    @test (~f)(twosize, x)[1] == 0
 
     @i function g(x)
         (m, n) ← size(x)

@@ -107,11 +107,11 @@ end
     end
     @test test(0.5) == convert(SVar, 0.5)
     @test (~test)(test(0.5)) == 0.5
-    @i function test(x)
+    @i function test2(x)
         (Float64=>SVar).(x)
     end
-    @test test([0.5, 0.6]) == [convert(SVar,0.5), convert(SVar,0.6)]
-    @test (~test)(test([0.5, 0.6])) == [0.5, 0.6]
+    @test test2([0.5, 0.6]) == [convert(SVar,0.5), convert(SVar,0.6)]
+    @test (~test2)(test2([0.5, 0.6])) == [0.5, 0.6]
 end
 
 @testset "mutable struct set field" begin

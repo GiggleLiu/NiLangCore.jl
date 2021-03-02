@@ -191,7 +191,7 @@ function Base.getindex(d::MyOrderedDict, key)
 end
 
 function Base.delete!(d::MyOrderedDict, key)
-    ind = findfirst(x->x===key, d.keys)
+    ind = findfirst(x->x==key, d.keys)
     if ind isa Nothing
         throw(KeyError(ind))
     else

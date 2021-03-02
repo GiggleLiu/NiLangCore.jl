@@ -45,10 +45,10 @@ julia> x = PVar(0.0, 0.5)
 PVar{Float64}(0.0, 0.5)
 
 julia> @instr (PVar=>SVar)(x)
-SVar{Float64}(0.5, 0.5)
+
 
 julia> @instr (SVar=>PVar)(x)
-PVar{Float64}(0.0, 0.5)
+
 
 julia> @icast x::Base.Float64 => SVar(x, gg) begin
            gg ← zero(x)
@@ -59,10 +59,10 @@ julia> x = 0.5
 0.5
 
 julia> @instr (Float64=>SVar)(x)
-SVar{Float64}(0.5, 0.5)
+
 
 julia> @instr (SVar=>Float64)(x)
-0.5
+
 ```
 """
 macro icast(ex, body)
@@ -74,7 +74,7 @@ macro icast(ex, body)
         :($a => $b) => begin
             t1, args1 = _match_typecast(a)
             t2, args2 = _match_typecast(b)
-            ancs = MyOrderedDict{Symbol,Any}()
+            ancs = MyOrderedDict{Any,Any}()
             vars = Symbol[]
             for arg in _asvector(args1)
                 ancs[arg] = nothing

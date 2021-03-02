@@ -259,10 +259,8 @@ export @code_julia
 Get the interpreted expression of `ex`.
 
 ```jldoctest; setup=:(using NiLangCore)
-julia> using MacroTools
-
-julia> prettify(@code_julia x += exp(3.0))
-:(@assignback (PlusEq(exp))(x, 3.0))
+julia> @code_julia x += exp(3.0)
+:(@assignback ((PlusEq)(exp))(x, 3.0) true)
 ```
 """
 macro code_julia(ex)
@@ -370,7 +368,7 @@ return the reversed function if `reversed` is `true`.
 This IR is not directly executable on Julia, please use
 `macroexpand(Main, :(@i function .... end))` to get the julia expression of a reversible function.
 
-```jldoctest; setup=:(using NiLangCore, MacroTools)
+```jldoctest; setup=:(using NiLangCore)
 julia> ex = :(@inline function f(x!::T, y) where T
                anc ← zero(T)
                @routine anc += identity(x!)
@@ -378,7 +376,7 @@ julia> ex = :(@inline function f(x!::T, y) where T
                ~@routine
            end);
 
-julia> nilang_ir(ex) |> MacroTools.prettify
+julia> NiLangCore.nilang_ir(Main, ex) |> NiLangCore.rmlines
 :(@inline function f(x!::T, y) where T
           anc ← zero(T)
           anc += identity(x!)
@@ -387,7 +385,7 @@ julia> nilang_ir(ex) |> MacroTools.prettify
           anc → zero(T)
       end)
 
-julia> nilang_ir(ex; reversed=true) |> MacroTools.prettify
+julia> NiLangCore.nilang_ir(Main, ex; reversed=true) |> NiLangCore.rmlines
 :(@inline function (~f)(x!::T, y) where T
           anc ← zero(T)
           anc += identity(x!)
