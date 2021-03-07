@@ -165,5 +165,28 @@ end
 dotgetdual(f::Symbol) = getdual(removedot(f))
 
 function dual_body(m::Module, body)
-    out = Any[dual_ex(m, st) for st in Iterators.reverse(body)]
+    out = []
+    # fix function LineNumberNode
+    if length(body) > 1 && body[1] isa LineNumberNode && body[2] isa LineNumberNode
+        push!(out, body[1])
+        start = 2
+    else
+        start = 1
+    end
+    ptr = length(body)
+    # reverse the statements
+    len = 0
+    while ptr >= start
+        if  ptr-len==0 || body[ptr-len] isa LineNumberNode
+            ptr-len != 0 && push!(out, body[ptr-len])
+            for j=ptr:-1:ptr-len+1
+                push!(out, dual_ex(m, body[j]))
+            end
+            ptr -= len+1
+            len = 0
+        else
+            len += 1
+        end
+    end
+    return out
 end
