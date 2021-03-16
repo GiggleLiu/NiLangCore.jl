@@ -10,7 +10,13 @@ PreInfo(vars::Vector) = PreInfo(vars, MyOrderedDict{Any,Any}(), [])
 function precom(m::Module, ex)
     mc, fname, args, ts, body = match_function(ex)
     vars = Symbol[]
-    for arg in args
+    newargs = map(args) do arg
+        @smatch arg begin
+            :(::$tp)=>Expr(:(::), gensym(), tp)
+            _ => arg
+        end
+    end
+    for arg in newargs
         pushvar!(vars, arg)
     end
     info = PreInfo(vars)
@@ -18,7 +24,7 @@ function precom(m::Module, ex)
     if !isempty(info.routines)
         error("`@routine` and `~@routine` must appear in pairs, mising `~@routine`!")
     end
-    mc, fname, args, ts, body_out
+    mc, fname, newargs, ts, body_out
 end
 
 function precom_body(m::Module, body::AbstractVector, info)

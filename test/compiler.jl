@@ -787,3 +787,9 @@ end
     @test_throws InvertibilityError g(x)
     @test_throws InvertibilityError (~g)(x)
 end
+
+@testset "argument without argname" begin
+    @i function f(::Complex)
+    end
+    @test f(1+2im) == 1+2im
+end
