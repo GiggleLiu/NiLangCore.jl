@@ -97,14 +97,7 @@ end
 
 function precom_ex(m::Module, ex, info)
     @smatch ex begin
-        #:(($(args...),) → @destruct $line $x) => begin
-        #    symbol_transfer(Any[x], Any[ex.args[3]], args, info, true, false)
-        #    ex
-        #end
-        #:(($(args...),) ← @destruct $line $x) => begin
-        #    symbol_transfer(args, Any[:(getfield($x, $i)) for i=1:length(args)], Any[x], info, false, true)
-        #    ex
-        #end
+        # TODO: add variable analysis for `@unsafe_destruct`
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
             symbol_transfer(Any[x], Any[ex.args[3]], args, info, true, true)
