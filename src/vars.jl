@@ -205,15 +205,6 @@ end
 Base.show(io::IO, gv::Partial{FIELD}) where FIELD = print(io, "$(gv.x).$FIELD")
 Base.show(io::IO, ::MIME"plain/text", gv::Partial) = Base.show(io, gv)
 
-export tget
-
-"""
-    tget(i::Int)
-
-Get the i-th entry of a tuple.
-"""
-tget(i::Int) = x::Tuple -> x[i]
-
 export subarray
 
 """

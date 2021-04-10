@@ -16,7 +16,4 @@ include("preprocess.jl")
 include("compiler.jl")
 include("checks.jl")
 
-include("precompile.jl")
-_precompile_()
-
 end # module

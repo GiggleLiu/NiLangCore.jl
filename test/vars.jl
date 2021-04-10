@@ -13,23 +13,23 @@ using Test, NiLangCore
     @assign x' 0.1+1im
     @test x == 0.1-1im
     x = (3, 4)
-    @instr (x |> tget(1)) += 3
+    @instr (x.:1) += 3
     @test x == (6, 4)
     x = 3
     y = (4,)
-    @instr x += y |> tget(1)
+    @instr x += y.:1
     @test x == 7
     x = [3, 4]
     y = ([4, 4],)
-    @instr x .+= y |> tget(1)
+    @instr x .+= y.:1
     @test x == [7.0, 8.0]
     x = true
     y = (true,)
-    @instr x ⊻= y |> tget(1)
+    @instr x ⊻= y.:1
     @test x == false
     x = [true, false]
     y = ([true, true],)
-    @instr x .⊻= y |> tget(1)
+    @instr x .⊻= y.:1
     @test x == [false, true]
 
     x = ones(4)

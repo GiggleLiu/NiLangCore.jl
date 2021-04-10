@@ -793,3 +793,17 @@ end
     end
     @test f(1+2im) == 1+2im
 end
+
+@testset "unsafe_destruct" begin
+    @i function f(re, x)
+        r, i ← @unsafe_destruct x
+        re += r
+    end
+    @test f(0.0, 3.0+2im) == (3.0, 3.0 + 2.0im)
+    @i function f(re, x)
+        r, i ← @unsafe_destruct x
+        re += r
+        r, i → @unsafe_destruct x
+    end
+    @test f(0.0, 3.0+2im) == (3.0, 3.0 + 2.0im)
+end

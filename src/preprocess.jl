@@ -76,32 +76,43 @@ function precom_ox(f, out, arg2)
     end
 end
 
+# deconstruct `args`, create `x`
+function symbol_transfer(xs, xvals, args, info, delete, add)
+    if delete
+        for arg in args
+            # no need to deallocate `arg`.
+            if arg ∉ xs
+                delete!(info.ancs, arg)
+            end
+        end
+    end
+    if add
+        for (x, xval) in zip(xs, xvals)
+            if x ∉ args
+                info.ancs[x] = xval
+            end
+        end
+    end
+end
+
 function precom_ex(m::Module, ex, info)
     @smatch ex begin
+        #:(($(args...),) → @destruct $line $x) => begin
+        #    symbol_transfer(Any[x], Any[ex.args[3]], args, info, true, false)
+        #    ex
+        #end
+        #:(($(args...),) ← @destruct $line $x) => begin
+        #    symbol_transfer(args, Any[:(getfield($x, $i)) for i=1:length(args)], Any[x], info, false, true)
+        #    ex
+        #end
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
-            for arg in args
-                # no need to deallocate `arg`.
-                if arg != x
-                    delete!(info.ancs, arg)
-                end
-            end
-            if !(x in args)
-                info.ancs[x] = ex.args[3]
-            end
+            symbol_transfer(Any[x], Any[ex.args[3]], args, info, true, true)
             ex
         end
         :($x → new{$(_...)}($(args...))) ||
         :($x → new($(args...))) => begin
-            for (i, arg) in enumerate(args)
-                # no need to deallocate `arg`.
-                if arg != x
-                    info.ancs[arg] = :(getfield($x, $i))
-                end
-            end
-            if !(x in args)
-                delete!(info.ancs, x)
-            end
+            symbol_transfer(args, Any[:(getfield($x, $i)) for i=1:length(args)], Any[x], info, true, true)
             ex
         end
         :($x[$key] ← $val) => ex

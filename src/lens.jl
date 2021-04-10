@@ -25,14 +25,14 @@ end
 
 function lens_compile(ex, cache, value)
     @smatch ex begin
-        :($a.$(b::Symbol).$(c::Symbol) = $d) => begin
+        :($a.$b.$c = $d) => begin
             updated =
                 Expr(:let,
                     Expr(:block, :($cache = $cache.$b), :($value = $d)),
                     :($field_update($cache, $(Val(c)), $value)))
             lens_compile(:($a.$b = $updated), cache, value)
         end
-        :($a.$(b::Symbol) = $c) => begin
+        :($a.$b = $c) => begin
             Expr(:let,
                 Expr(:block, :($cache = $a), :($value=$c)),
                 :($field_update($cache, $(Val(b)), $value)))
