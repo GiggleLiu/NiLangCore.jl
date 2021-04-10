@@ -53,6 +53,12 @@ function compile_ex(m::Module, ex, info)
         :($a ⊻= $x && $y) => _instr(XorEq, logical_and, a, Any[x, y], info, false, false)
         :($a .⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, true, false)
         :($a .⊻= $f.($(args...))) => _instr(XorEq, f, a, args, info, true, true)
+        :(($(args...),) ← @unsafe_destruct $line $x) => begin
+            Expr(:block, line, :(($(args...),) = $type2tuple($x)))
+        end
+        :(($(args...),) → @unsafe_destruct $line $x) => begin
+            Expr(:block, line, Expr(:(=), x, Expr(:new, :(typeof($x)), args...)))
+        end
         :($x ← new{$(_...)}($(args...))) ||
         :($x ← new($(args...))) => begin
             :($x = $(ex.args[3]))

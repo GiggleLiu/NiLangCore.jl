@@ -149,6 +149,7 @@ end
     @test get_memory_kernel(:(cos.(x[2]))) === nothing
     @test get_memory_kernel(:(cos(x[2]))) === nothing
     @test get_memory_kernel(:((x |> g)...)) == :x
+    @test get_memory_kernel(:((x |> g, y.:1))) == [:x, :(y.:1)]
     @test get_memory_kernel(:((x |> g, y |> tget(1)))) == [:x, :(y |> tget(1))]
 
     @test_throws InvertibilityError check_shared_rw(:a, :(a |> grad))
