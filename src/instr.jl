@@ -170,6 +170,7 @@ assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
     :(@skip! $line $x) => nothing
     :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
     # tuples must be index through (x |> 1)
+    :($a |> tget($x)) => assign_ex(a, :(chfield($a, $x, $res)); invcheck=invcheck)
     :($a |> subarray($(ranges...))) => :(($res===view($a, $(ranges...))) || (view($a, $(ranges...)) .= $res))
     :($x |> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
     :($x .|> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
@@ -248,6 +249,7 @@ get_memory_kernel(ex) = @smatch ex begin
 
     :($x.$k) => :($(get_memory_kernel(x)).$k)
     # tuples must be index through (x |> 1)
+    :($a |> tget($x)) => :($(get_memory_kernel(a)) |> tget($x))
     :($a |> subarray($(ranges...))) => :($(get_memory_kernel(a))[$(ranges...)])
     :($x |> $f) => get_memory_kernel(x)
     :($x .|> $f) => get_memory_kernel(x)

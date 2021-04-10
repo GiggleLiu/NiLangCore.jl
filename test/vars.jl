@@ -29,7 +29,7 @@ using Test, NiLangCore
     @test x == false
     x = [true, false]
     y = ([true, true],)
-    @instr x .⊻= y.:1
+    @instr x .⊻= (y |> tget(1))
     @test x == [false, true]
 
     x = ones(4)
