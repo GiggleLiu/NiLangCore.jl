@@ -144,9 +144,9 @@ function compile_ex(m::Module, ex, info)
             fcall = @smatch args[end] begin
                 :($f($(args...))) => Expr(:call,
                     Expr(:->,
-                        Expr(:tuple, args...),
+                        :(args...),
                         Expr(:block,
-                            :($f($(args...))),
+                            :($f(args...)),
                             nothing
                         )
                     ),
