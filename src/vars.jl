@@ -8,6 +8,10 @@ function deanc(a::T, b::T) where T <: Number
         throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
     end
 end
+function deanc(a::T, b::T) where T <: Complex
+    deanc(a.re, b.re)
+    deanc(a.im, b.im)
+end
 deanc(x::T, val::T) where T<:Tuple = x === val || deanc.(x, val)
 deanc(x::T, val::T) where T<:AbstractArray = x === val || deanc.(x, val)
 deanc(a::T, b::T) where T<:AbstractString = a === b || throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
@@ -229,7 +233,7 @@ end
 _zero(::Type{T}) where T<:Real = zero(T)
 _zero(::Type{String}) = ""
 _zero(::Type{Char}) = '\0'
-_zero(::Type{T}) where {ET,N,T<:Array{ET,N}} = zeros(ET, ntuple(x->0, N))
+_zero(::Type{T}) where {ET,N,T<:Array{ET,N}} = reshape(ET[], ntuple(x->0, N))
 _zero(::Type{T}) where {A,B,T<:Dict{A,B}} = Dict{A,B}()
 
 #_zero(x::T) where T = _zero(T) # not adding this line!

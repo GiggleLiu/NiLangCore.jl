@@ -547,41 +547,6 @@ end
     @test check_inv(f, (0.0, [1,2,5]))
 end
 
-@testset "dual_pipline" begin
-    @i function f(x, y)
-        (x, y) |> ⊕(identity) |> ⊕(identity)
-    end
-    @test f(2,3) == (8, 3)
-    @test (~f)(f(2,3)...) == (2, 3)
-    x, y = 2, 3
-    @instr (x, y) |> f
-    @test (x, y) == (8,3)
-    x, y = 2, 3
-    @instr (x, y) |> f |> ~f
-    @test (x, y) == (2,3)
-    args = (2,3)
-    @instr (args...,) |> f
-    @test args == (8,3)
-    x, y = [2,3,1], [3,5,1]
-    @instr (x, y) .|> f
-    @test (x, y) == ([8, 13, 3],[3, 5, 1])
-    b = [1,3,5]
-    NEG(x) = -x
-    @selfdual NEG
-    @show NEG.(b)
-    @instr (b,) .|> NEG
-    @test b == [-1, -3, -5]
-    x, y = [2,3,1], [3,5,1]
-    @instr (x, y) .|> f .|> ~f
-    @test (x, y) == ([2, 3, 1],[3, 5, 1])
-    x, y = 1, 2
-    SWAP(x,y) = (y, x)
-    @selfdual SWAP
-    @instr (x, y) |> ⊕(identity) |> SWAP
-    @instr ~((x, y) |> ⊕(identity) |> SWAP)
-    @test (x, y) == (1, 2)
-end
-
 @testset "@simd and @threads" begin
     @i function f(x)
         @threads for i=1:length(x)
@@ -800,10 +765,58 @@ end
         re += r
     end
     @test f(0.0, 3.0+2im) == (3.0, 3.0 + 2.0im)
-    @i function f(re, x)
+    @i function f2(re, x)
         r, i ← @unsafe_destruct x
         re += r
         r, i → @unsafe_destruct x
     end
-    @test f(0.0, 3.0+2im) == (3.0, 3.0 + 2.0im)
+    @test f2(0.0, 3.0+2im) == (3.0, 3.0 + 2.0im)
+end
+
+@testset "tuple input" begin
+    @i function f(x::Tuple{<:Tuple, <:Real})
+        f(x.:1)
+        (x.:1).:1 += x.:2
+    end
+    @i function f(x::Tuple{<:Real, <:Real})
+        x.:1 += x.:2
+    end
+    @i function g(data)
+        f(((data.:1, data.:2), data.:3))
+    end
+    @test g((1,2,3)) == (6,2,3)
+end
+
+@testset "single argument" begin
+    @i function f(x)
+        neg(x)
+    end
+    @i function g(x::Vector)
+        neg.(x)
+    end
+    @test f(3) == -3
+    @test g([3, 2]) == [-3, -2]
+    x = (3,)
+    @instr f(x...)
+    @test x == (-3,)
+    x = ([3, 4],)
+    @instr f.(x...)
+    @test x == ([-3, -4],)
+end
+
+@testset "type constructor" begin
+    @i function f(x, y, a, b)
+        add(Complex{}(x, y), Complex{}(a, b))
+    end
+    @test f(1,2, 3, 4) == (4, 6, 3, 4)
+    @test_throws LoadError macroexpand(NiLangCore, :(@i function f(x, y, a, b)
+        add(Complex(x, y), Complex{}(a, b))
+    end))
+    @i function g(x::Inv, y::Inv)
+        add(x.f, y.f)
+    end
+    @i function g(x, y)
+        g(Inv{}(x), Inv{}(y))
+    end
+    @test g(2, 3) == (5, 3)
 end

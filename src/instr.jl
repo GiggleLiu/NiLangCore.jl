@@ -75,7 +75,7 @@ macro assignback(ex, invcheck=true)
     @smatch ex begin
         :($f($(args...))) => begin
             symres = gensym()
-            ex = :($symres = $wrap_tuple($f($(args...))))
+            ex = :($symres = $f($(args...)))
             if startwithdot(f)
                 esc(Expr(ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
             else
@@ -103,17 +103,18 @@ function assign_vars(args, symres; invcheck)
         exi = @smatch arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                assign_ex(ag, :($tailn($symres, Val($i-1))); invcheck=invcheck)
+                assign_ex(ag, :($tailn($symres, Val($i-1), $ag)); invcheck=invcheck)
             end
-            _ => assign_ex(arg, :($symres[$i]); invcheck=invcheck)
+            _ => if length(args) == 1
+                assign_ex(arg, symres; invcheck=invcheck)
+            else
+                assign_ex(arg, :($symres[$i]); invcheck=invcheck)
+            end
         end
         exi !== nothing && push!(exprs, exi)
     end
     Expr(:block, exprs...)
 end
-
-wrap_tuple(x) = (x,)
-wrap_tuple(x::Tuple) = x
 
 """The broadcast version of `assign_vars`"""
 function bcast_assign_vars(args, symres; invcheck)
@@ -130,7 +131,11 @@ function bcast_assign_vars(args, symres; invcheck)
                     i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
                     :($ag = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
                 end
-                _ => assign_ex(arg, :(getindex.($symres, $i)); invcheck=invcheck)
+                _ => if length(args) == 1
+                    assign_ex(arg, symres; invcheck=invcheck)
+                else
+                    assign_ex(arg, :(getindex.($symres, $i)); invcheck=invcheck)
+                end
             end
             exi !== nothing && (ex = :($ex; $exi))
         end
@@ -177,6 +182,13 @@ assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
     :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)); invcheck=invcheck)
     :(-$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, -, $res)); invcheck=invcheck)
     :(-.$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref(-), $res)); invcheck=invcheck)
+    :($t{$(p...)}($(args...))) => begin
+        if length(args) == 1
+            assign_ex(args[1], :($getfield($res, 1)); invcheck=invcheck)
+        else
+            assign_vars(args, :($type2tuple($res)); invcheck=invcheck)
+        end
+    end
     :($f($(args...))) => all(_isconst, args) || error(error_message_fcall(arg))
     :($f.($(args...))) => all(_isconst, args) || error(error_message_fcall(arg))
     :($a[$(x...)]) => begin
@@ -204,8 +216,16 @@ end
 
 iter_assign(a::AbstractArray, val, indices...) = (a[indices...] = val; a)
 iter_assign(a::Tuple, val, index) = TupleTools.insertat(a, index, (val,))
-tailn(t::Tuple, ::Val{n}) where n = tailn(TupleTools.tail(t), Val(n-1))
+# general
+@inline tailn(t::Tuple, ::Val{n}) where n = tailn(TupleTools.tail(t), Val{n-1}())
+@inline tailn(t::Tuple, ::Val{n}, input::Tuple) where n = tailn(t, Val{n}())
 tailn(t::Tuple, ::Val{0}) = t
+# single argument, the second field can be 0, 1
+tailn(t, ::Val{0}, input::NTuple{1}) = (t,)
+tailn(t, ::Val{1}, input::NTuple{0}) = ()
+# avoid ambiguity errors
+tailn(t::Tuple, ::Val{0}, input::NTuple{1}) = (t,)
+tailn(t::Tuple, ::Val{1}, input::NTuple{0}) = ()
 
 export @assign
 
@@ -256,6 +276,7 @@ get_memory_kernel(ex) = @smatch ex begin
     :($x') => get_memory_kernel(x)
     :(-$x) => get_memory_kernel(x)
     :(-.$x) => get_memory_kernel(x)  #?
+    :($t{$(p...)}($(args...))) => Any[get_memory_kernel(arg) for arg in args]
     :($f($(args...))) => nothing
     :($f.($(args...))) => nothing
     :($a[$(x...)]) => :($(get_memory_kernel(a))[$(x...)])

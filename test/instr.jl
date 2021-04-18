@@ -9,6 +9,11 @@ function add(a!::Number, b::Number)
     a!+b, b
 end
 
+function neg(b::Number)
+    -b
+end
+@selfdual neg
+
 @i function add(a!, b)
     add(a! |> value, b |> value)
 end
@@ -157,4 +162,12 @@ end
     @test_throws InvertibilityError check_shared_rw(:(a.x), :(b[3]), :(b[3]))
     @test_throws InvertibilityError check_shared_rw(:(a.x), :((b, a.x))) isa Nothing
     # TODO: check variable on the same tree, like `a.b` and `a`
+end
+
+@testset "tailn" begin
+    @test NiLangCore.tailn((1,2,3), Val(1), (1,2,3)) == (2,3)
+    @test NiLangCore.tailn((1,2,3), Val(0), (1,2,3)) == (1,2,3)
+    @test NiLangCore.tailn(1, Val(1), ()) == ()
+    @test NiLangCore.tailn(1, Val(0), (1,)) == (1,)
+    @test NiLangCore.tailn((1,), Val(0), ((1,),)) == ((1,),)
 end

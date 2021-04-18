@@ -13,7 +13,7 @@ function compile_body(m::Module, body::AbstractVector, info)
     return out
 end
 
-function _instr(opm, (@nospecialize f), out, args, info, ldot, rdot)
+function _instr(opm, f, out, args, info, ldot, rdot)
     check_shared_rw(out, args...)
     if length(args) > 0 && args[1] isa Expr && args[1].head == :parameters
         _args = Any[args[1], out, args[2:end]...]
@@ -90,18 +90,6 @@ function compile_ex(m::Module, ex, info)
             end
         end
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
-        :(($x |> $f)) => begin
-            vars, fcall = compile_pipline(x, f)
-            symres = gensym()
-            Expr(:block, :($symres = $fcall),
-                 assign_vars(vars, symres; invcheck=info.invcheckon[]))
-        end
-        :(($xs .|> $f)) => begin
-            vars, fcall = compile_dotpipline(xs, f)
-            symres = gensym()
-            Expr(:block, :($symres = $fcall),
-                 bcast_assign_vars(vars, symres; invcheck=info.invcheckon[]))
-        end
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
         :($f($(args...))) => begin
             check_shared_rw(args...)
@@ -168,17 +156,6 @@ function compile_ex(m::Module, ex, info)
         ::LineNumberNode => ex
         _ => error("statement $ex is not supported for invertible lang! got $ex")
     end
-end
-
-compile_pipline(x, f) = @smatch x begin
-    :(($(xx...),)) => begin
-        xx, :($f($(xx...)))
-    end
-    :($xx |> $ff) => begin
-        vars, newx = compile_pipline(xx, ff)
-        vars, :($f($NiLangCore.wrap_tuple($(newx))...))
-    end
-    _ => error("reversible pipline should start with a tuple, e.g. (x, y) |> f1 |> f2..., got $x")
 end
 
 struct TupleExpanded{FT} <: Function

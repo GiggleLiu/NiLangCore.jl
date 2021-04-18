@@ -17,7 +17,9 @@ Return true if `f(args..., kwargs...)` is reversible.
 """
 function check_inv(f, args; atol::Real=1e-8, verbose::Bool=false, kwargs...)
     args0 = deepcopy(args)
-    args = wrap_tuple(f(args...; kwargs...))
-    args = wrap_tuple((~f)(args...; kwargs...))
+    args_ = f(args...; kwargs...)
+    args = length(args) == 1 ? (args_,) : args_
+    args_ = (~f)(args...; kwargs...)
+    args = length(args) == 1 ? (args_,) : args_
     world_similar(args0, args, atol=atol, verbose=verbose)
 end
