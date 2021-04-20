@@ -71,10 +71,14 @@ end
 
 @generated function almost_same(a::T, b::T; kwargs...) where T
     nf = fieldcount(a)
-    quote
-        res = true
-        @nexprs $nf i-> res = res && almost_same(getfield(a, i), getfield(b, i); kwargs...)
-        res
+    if isprimitivetype(T)
+        :(a === b)
+    else
+        quote
+            res = true
+            @nexprs $nf i-> res = res && almost_same(getfield(a, i), getfield(b, i); kwargs...)
+            res
+        end
     end
 end
 

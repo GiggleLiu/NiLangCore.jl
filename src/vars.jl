@@ -66,10 +66,13 @@ GVar{Float64, Float64}(2.0, 0.0)
 """
 macro fieldview(ex)
     @smatch ex begin
-        :($f($obj::$tp) = begin $line; $obj.$prop end) => esc(quote
-            Base.@__doc__ $f($obj::$tp) = begin $line; $obj.$prop end
-            $NiLangCore.chfield($obj::$tp, ::typeof($f), xval) = chfield($obj, Val($(QuoteNode(prop))), xval)
-        end)
+        :($f($obj::$tp) = begin $line; $ex end) => begin
+            xval = gensym()
+            esc(Expr(:block,
+                :(Base.@__doc__ $f($obj::$tp) = begin $line; $ex end),
+                :($NiLangCore.chfield($obj::$tp, ::typeof($f), $xval) = $(Expr(:block, assign_ex(ex, xval;invcheck=false), obj)))
+            ))
+        end
         _ => error("expect expression `f(obj::type) = obj.prop`, got $ex")
     end
 end

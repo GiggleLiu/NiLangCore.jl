@@ -183,3 +183,10 @@ end
     @test_throws InvertibilityError f3()
     @test f4() == ()
 end
+
+@testset "fieldview" begin
+    @fieldview first_real(x::Vector{ComplexF64}) = x[1].re
+    x = [1.0im, 2+3im]
+    @instr (x |> first_real) += 3
+    @test x == [3+1.0im, 2+3.0im]
+end
