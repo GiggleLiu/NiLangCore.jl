@@ -2,6 +2,20 @@ using NiLangCore
 using Test
 using Base.Threads
 
+@testset "to_standard_format" begin
+    for (OP, FUNC) in [(:+=, PlusEq), (:-=, MinusEq), (:*=, MulEq), (:/=, DivEq), (:⊻=, XorEq)]
+        @test NiLangCore.to_standard_format(Expr(OP, :x, :y)) == :($FUNC(identity)(x, y))
+        @test NiLangCore.to_standard_format(Expr(OP, :x, :(sin(y; z=3)))) == :($FUNC(sin)(x, y; z=3))
+
+        OPD = Symbol(:., OP)
+        @test NiLangCore.to_standard_format(Expr(OPD, :x, :y)) == :($FUNC(identity).(x, y))
+        @test NiLangCore.to_standard_format(Expr(OPD, :x, :(sin.(y)))) == :($FUNC(sin).(x, y))
+        @test NiLangCore.to_standard_format(Expr(OPD, :x, :(y .* z))) == :($FUNC(*).(x, y, z))
+    end
+    @test NiLangCore.to_standard_format(Expr(:⊻=, :x, :(y && z))) == :($XorEq($(NiLangCore.logical_and))(x, y, z))
+    @test NiLangCore.to_standard_format(Expr(:⊻=, :x, :(y || z))) == :($XorEq($(NiLangCore.logical_or))(x, y, z))
+end
+
 @testset "i" begin
     @i function test1(a::T, b, out) where T<:Number
         add(a, b)

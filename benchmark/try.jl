@@ -108,7 +108,7 @@ ag.g = AG(0.0)
 using NiLang, NiLang.AD
 @i function test(x, one, N::Int)
     for i = 1:N
-        x ⊕ one
+        x += one
     end
 end
 

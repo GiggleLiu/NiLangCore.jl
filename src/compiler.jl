@@ -3,7 +3,6 @@ struct CompileInfo
 end
 CompileInfo() = CompileInfo(Ref(true))
 
-#using .NGG: rmlines
 function compile_body(m::Module, body::AbstractVector, info)
     out = []
     for ex in body
@@ -13,46 +12,66 @@ function compile_body(m::Module, body::AbstractVector, info)
     return out
 end
 
-function _instr(opm, f, out, args, info, ldot, rdot)
-    check_shared_rw(out, args...)
-    if length(args) > 0 && args[1] isa Expr && args[1].head == :parameters
-        _args = Any[args[1], out, args[2:end]...]
+deleteindex!(d::AbstractDict, index) = delete!(d, index)
+
+@inline function map_func(x::Symbol)
+    if x == :+=
+        PlusEq, false
+    elseif x == :.+=
+        PlusEq, true
+    elseif x == :-=
+        MinusEq, false
+    elseif x == :.-=
+        MinusEq, true
+    elseif x == :*=
+        MulEq, false
+    elseif x == :.*=
+        MulEq, true
+    elseif x == :/=
+        DivEq, false
+    elseif x == :./=
+        DivEq, true
+    elseif x == :⊻=
+        XorEq, false
+    elseif x == :.⊻=
+        XorEq, true
     else
-        _args = Any[out, args...]
-    end
-    if ldot && !rdot
-        f = debcast(f)
-    end
-    if ldot
-        :(@assignback $ibcast((@skip! $opm($f)), $(_args...))) |> rmlines
-    else
-        :(@assignback $opm($f)($(_args...)) $(info.invcheckon[])) |> rmlines
+        error("`$x` can not be mapped to a reversible function.")
     end
 end
 
-deleteindex!(d::AbstractDict, index) = delete!(d, index)
+function to_standard_format(ex::Expr)
+    head::Symbol = ex.head
+    F, isbcast = map_func(ex.head)
+    a, b = ex.args
+    if !isbcast
+        @smatch b begin
+            :($f($(args...); $(kwargs...))) => :($F($f)($a, $(args...); $(kwargs...)))
+            :($f($(args...))) => :($F($f)($a, $(args...)))
+            :($x || $y) => :($F($logical_or)($a, $x, $y))
+            :($x && $y) => :($F($logical_and)($a, $x, $y))
+            _ => :($F(identity)($a, $b))
+        end
+    else
+        @smatch b begin
+            :($f.($(args...); $(kwargs...))) => :($F($f).($a, $(args...); $(kwargs...)))
+            :($f.($(args...))) => :($F($f).($a, $(args...)))
+            :($f($(args...); $(kwargs...))) => :($F($(debcast(f))).($a, $(args...); $(kwargs...)))
+            :($f($(args...))) => :($F($(debcast(f))).($a, $(args...)))
+            _ => :($F(identity).($a, $b))
+        end
+    end
+end
 
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
 function compile_ex(m::Module, ex, info)
     @smatch ex begin
-        :($a += $f($(args...))) => _instr(PlusEq, f, a, args, info, false, false)
-        :($a .+= $f($(args...))) => _instr(PlusEq, f, a, args, info, true, false)
-        :($a .+= $f.($(args...))) => _instr(PlusEq, f, a, args, info, true, true)
-        :($a -= $f($(args...))) => _instr(MinusEq, f, a, args, info, false, false)
-        :($a .-= $f($(args...))) => _instr(MinusEq, f, a, args, info, true, false)
-        :($a .-= $f.($(args...))) => _instr(MinusEq, f, a, args, info, true, true)
-        :($a *= $f($(args...))) => _instr(MulEq, f, a, args, info, false, false)
-        :($a .*= $f($(args...))) => _instr(MulEq, f, a, args, info, true, false)
-        :($a .*= $f.($(args...))) => _instr(MulEq, f, a, args, info, true, true)
-        :($a /= $f($(args...))) => _instr(DivEq, f, a, args, info, false, false)
-        :($a ./= $f($(args...))) => _instr(DivEq, f, a, args, info, true, false)
-        :($a ./= $f.($(args...))) => _instr(DivEq, f, a, args, info, true, true)
-        :($a ⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, false, false)
-        :($a ⊻= $x || $y) => _instr(XorEq, logical_or, a, Any[x, y], info, false, false)
-        :($a ⊻= $x && $y) => _instr(XorEq, logical_and, a, Any[x, y], info, false, false)
-        :($a .⊻= $f($(args...))) => _instr(XorEq, f, a, args, info, true, false)
-        :($a .⊻= $f.($(args...))) => _instr(XorEq, f, a, args, info, true, true)
+        :($a += $b) || :($a .+= $b) ||
+        :($a -= $b) || :($a .-= $b) ||
+        :($a *= $b) || :($a .*= $b) ||
+        :($a /= $b) || :($a ./= $b) ||
+        :($a ⊻= $b) || :($a .⊻= $b) => compile_ex(m, to_standard_format(ex), info)
         :(($(args...),) ← @unsafe_destruct $line $x) => begin
             Expr(:block, line, :(($(args...),) = $type2tuple($x)))
         end
@@ -92,12 +111,12 @@ function compile_ex(m::Module, ex, info)
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
         :($f($(args...))) => begin
-            check_shared_rw(args...)
-            :(@assignback $f($(args...)) $(info.invcheckon[])) |> rmlines
+            check_shared_rw(args)
+            Expr(:macrocall, Symbol("@assignback"), LineNumberNode(0, "none"), ex, info.invcheckon[])
         end
         :($f.($(args...))) => begin
-            check_shared_rw(args...)
-            :(@assignback $ibcast((@skip! $f), $(args...))) |> rmlines
+            check_shared_rw(args)
+            Expr(:macrocall, Symbol("@assignback"), LineNumberNode(0, "none"), :($ibcast((@skip! $f), $(args...))), info.invcheckon[])
         end
         Expr(:if, _...) => compile_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
@@ -154,7 +173,7 @@ function compile_ex(m::Module, ex, info)
         :(nothing) => ex
         ::Nothing => ex
         ::LineNumberNode => ex
-        _ => error("statement $ex is not supported for invertible lang! got $ex")
+        _ => error("statement not supported: `$ex`")
     end
 end
 
@@ -424,10 +443,6 @@ _replace_opmx(ex) = @smatch ex begin
     :(:*=($f)) => :($(gensym())::MulEq{typeof($f)})
     :(:/=($f)) => :($(gensym())::DivEq{typeof($f)})
     :(:⊻=($f)) => :($(gensym())::XorEq{typeof($f)})
-    # TODO: DEPRECATE
-    :(⊕($f)) => :($(gensym())::PlusEq{typeof($f)})
-    :(⊖($f)) => :($(gensym())::MinusEq{typeof($f)})
-    :(⊻($f)) => :($(gensym())::XorEq{typeof($f)})
     _ => ex
 end
 

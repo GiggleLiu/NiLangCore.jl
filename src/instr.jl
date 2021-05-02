@@ -239,7 +239,7 @@ macro assign(a, b, invcheck=true)
     esc(assign_ex(a, b; invcheck=invcheck))
 end
 
-function check_shared_rw(args...)
+function check_shared_rw(args)
     args_kernel = []
     for arg in args
         out = get_memory_kernel(arg)

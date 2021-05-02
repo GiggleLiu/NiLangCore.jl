@@ -157,8 +157,6 @@ macro code_reverse(ex)
 end
 
 getdual(f) = @smatch f begin
-    :(⊕($f)) => :(⊖($f))
-    :(⊖($f)) => :(⊕($f))
     :(~$f) => f
     _ => :(~$f)
 end
