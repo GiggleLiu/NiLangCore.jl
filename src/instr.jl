@@ -74,19 +74,19 @@ macro assignback(ex, invcheck=true)
     ex = precom_ex(__module__, ex, PreInfo(Symbol[]))
     @smatch ex begin
         :($f($(args...))) => begin
-            symres = gensym()
+            symres = gensym("results")
             ex = :($symres = $f($(args...)))
             if startwithdot(f)
-                esc(Expr(ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
+                esc(Expr(ex, bcast_assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
             else
-                esc(Expr(:block, ex, assign_vars(notkey(args), symres; invcheck=invcheck)))
+                esc(Expr(:block, ex, assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
             end
         end
         # TODO: support multiple input
         :($f.($(args...))) => begin
-            symres = gensym()
+            symres = gensym("results")
             ex = :($symres = $f.($(args...)))
-            esc(Expr(:block, ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
+            esc(Expr(:block, ex, bcast_assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
         end
         _ => error("got $ex")
     end

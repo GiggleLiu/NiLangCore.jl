@@ -8,6 +8,8 @@ export chfield, value, unwrap
 export @fieldview
 """
     @fieldview fname(x::TYPE) = x.fieldname
+    @fieldview fname(x::TYPE) = x[i]
+    ...
 
 Create a function fieldview that can be accessed by a reversible program
 
@@ -26,7 +28,7 @@ GVar{Float64, Float64}(2.0, 0.0)
 macro fieldview(ex)
     @smatch ex begin
         :($f($obj::$tp) = begin $line; $ex end) => begin
-            xval = gensym()
+            xval = gensym("value")
             esc(Expr(:block,
                 :(Base.@__doc__ $f($obj::$tp) = begin $line; $ex end),
                 :($NiLangCore.chfield($obj::$tp, ::typeof($f), $xval) = $(Expr(:block, assign_ex(ex, xval;invcheck=false), obj)))
@@ -61,7 +63,7 @@ Base.eps(::Type{<:IWrapper{T}}) where T = Base.eps(T)
 """
     unwrap(x)
 
-Unwrap a wrapper instance (recursively) to get the original value.
+Unwrap a wrapper instance (recursively) to get the content value.
 """
 unwrap(x::IWrapper) = unwrap(value(x))
 unwrap(x) = x
@@ -151,7 +153,8 @@ end
 Base.show(io::IO, gv::Partial{FIELD}) where FIELD = print(io, "$(gv.x).$FIELD")
 Base.show(io::IO, ::MIME"plain/text", gv::Partial) = Base.show(io, gv)
 
-export tget
+############ dataview patches ############
+export tget, subarray
 
 """
     tget(i::Int)
@@ -160,48 +163,9 @@ Get the i-th entry of a tuple.
 """
 tget(i::Int) = x::Tuple -> x[i]
 
-export subarray
-
 """
     subarray(ranges...)
 
 Get a subarray, same as `view` in Base.
 """
 subarray(args...) = x -> view(x, args...)
-
-@inline @generated function _zero(::Type{T}) where {T<:Tuple}
-    Expr(:tuple, Any[:(_zero($field)) for field in T.types]...)
-end
-_zero(::Type{T}) where T<:Real = zero(T)
-_zero(::Type{String}) = ""
-_zero(::Type{Char}) = '\0'
-_zero(::Type{T}) where {ET,N,T<:Array{ET,N}} = reshape(ET[], ntuple(x->0, N))
-_zero(::Type{T}) where {A,B,T<:Dict{A,B}} = Dict{A,B}()
-
-#_zero(x::T) where T = _zero(T) # not adding this line!
-
-@inline @generated function _zero(x::T) where {ET,N,T<:Tuple{Vararg{ET,N}}}
-    Expr(:tuple, Any[:(_zero(x[$i])) for i=1:N]...)
-end
-_zero(x::T) where T<:Real = zero(x)
-_zero(::String) = ""
-_zero(::Char) = '\0'
-_zero(x::T) where T<:Array = zero(x)
-function _zero(d::T) where {A,B,T<:Dict{A,B}}
-    Dict{A,B}([x=>zero(y) for (x,y) in d])
-end
-
-@generated function chfield(x, ::Val{FIELD}, xval) where FIELD
-    if x.mutable
-        Expr(:block, :(x.$FIELD = xval), :x)
-    else
-        :(@with x.$FIELD = xval)
-    end
-end
-@generated function chfield(x, f::Function, xval)
-    :(@invcheck f(x) xval; x)
-end
-
-@generated function type2tuple(x::T) where T
-    Expr(:tuple, [:(x.$v) for v in fieldnames(T)]...)
-end

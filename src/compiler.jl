@@ -40,6 +40,7 @@ deleteindex!(d::AbstractDict, index) = delete!(d, index)
     end
 end
 
+# e.g. map `x += sin(z)` => `PlusEq(sin)(x, z)`.
 function to_standard_format(ex::Expr)
     head::Symbol = ex.head
     F, isbcast = map_func(ex.head)
@@ -65,8 +66,11 @@ end
 logical_or(a, b) = a || b
 logical_and(a, b) = a && b
 
-# TODO: add `-x` to expression.
-"""translate to normal julia code."""
+"""
+    compile_ex(m::Module, ex, info)
+
+Compile a NiLang statement to a regular julia statement.
+"""
 function compile_ex(m::Module, ex, info)
     @smatch ex begin
         :($a += $b) || :($a .+= $b) ||
@@ -116,9 +120,12 @@ function compile_ex(m::Module, ex, info)
             check_shared_rw(args)
             Expr(:macrocall, Symbol("@assignback"), nothing, ex, info.invcheckon[])
         end
-        :($f.($(args...))) => begin
+        :($f.($(allargs...))) => begin
+            args, kwargs = seperate_kwargs(allargs)
             check_shared_rw(args)
-            Expr(:macrocall, Symbol("@assignback"), nothing, :($ibcast((@skip! $f), $(args...))), info.invcheckon[])
+            symres = gensym("results")
+            ex = :($symres = $unzipped_broadcast($kwargs, $f, $(args...)))
+            Expr(:block, ex, assign_vars(args, symres; invcheck=info.invcheckon[]).args...)
         end
         Expr(:if, _...) => compile_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
@@ -165,7 +172,7 @@ function compile_ex(m::Module, ex, info)
             Expr(:macrocall, Symbol("@cuda"), line, args[1:end-1]..., fcall)
         end
         :(@launchkernel $line $device $thread $ndrange $f($(args...))) => begin
-            res = gensym()
+            res = gensym("results")
             Expr(:block,
                 :($res = $f($device, $thread)($(args...); ndrange=$ndrange)),
                 :(wait($res))
@@ -178,11 +185,6 @@ function compile_ex(m::Module, ex, info)
     end
 end
 
-struct TupleExpanded{FT} <: Function
-    f::FT
-end
-(tf::TupleExpanded)(x) = tf.f(x...)
-
 function compile_if(m::Module, ex, info)
     pres = []
     posts = []
@@ -191,7 +193,7 @@ function compile_if(m::Module, ex, info)
 end
 
 function analyse_if(m::Module, ex, info, pres, posts)
-    var = gensym()
+    var = gensym("branch")
     if ex.head == :if
         pre, post = ex.args[1].args
         ex.args[1] = var
@@ -304,20 +306,21 @@ See `test/compiler.jl` and `test/invtype.jl` for more examples.
 """
 macro i(ex)
     if ex isa Expr && ex.head == :struct
-        ex = _gen_istruct(__module__, ex)
+        ex = gen_istruct(__module__, ex)
     else
-        ex = _gen_ifunc(__module__, ex)
+        ex = gen_ifunc(__module__, ex)
     end
     ex.args[1] = :(Base.@__doc__ $(ex.args[1]))
     esc(ex)
 end
 
-function _gen_istruct(m::Module, ex)
+# generate the reversed functions in a reversible `struct`
+function gen_istruct(m::Module, ex)
     invlist = []
     for (i, st) in enumerate(ex.args[3].args)
         @smatch st begin
             :(@i $line $funcdef) => begin
-                fdefs = _gen_ifunc(m, funcdef).args
+                fdefs = gen_ifunc(m, funcdef).args
                 ex.args[3].args[i] = fdefs[1]
                 append!(invlist, fdefs[2:end])
             end
@@ -327,7 +330,8 @@ function _gen_istruct(m::Module, ex)
     Expr(:block, ex, invlist...)
 end
 
-function _gen_ifunc(m::Module, ex)
+# generate the reversed function
+function gen_ifunc(m::Module, ex)
     mc, fname, args, ts, body = precom(m, ex)
     fname = _replace_opmx(fname)
 
@@ -337,9 +341,9 @@ function _gen_ifunc(m::Module, ex)
     head = :($fname($(args...)) where {$(ts...)})
     dfname = dual_fname(fname)
     dftype = get_ftype(dfname)
-    fdef1 = Expr(:function, head, Expr(:block, compile_body(m, body, CompileInfo())..., invfuncfoot(args)))
+    fdef1 = Expr(:function, head, Expr(:block, compile_body(m, body, CompileInfo())..., functionfoot(args)))
     dualhead = :($dfname($(args...)) where {$(ts...)})
-    fdef2 = Expr(:function, dualhead, Expr(:block, compile_body(m, dual_body(m, body), CompileInfo())..., invfuncfoot(args)))
+    fdef2 = Expr(:function, dualhead, Expr(:block, compile_body(m, dual_body(m, body), CompileInfo())..., functionfoot(args)))
     if mc !== nothing
         fdef1 = Expr(:macrocall, mc[1], mc[2], fdef1)
         fdef2 = Expr(:macrocall, mc[1], mc[2], fdef2)
@@ -406,16 +410,18 @@ function nilang_ir(m::Module, ex; reversed::Bool=false)
     fdef
 end
 
-function notkey(args)
+# seperate and return `args` and `kwargs`
+@inline function seperate_kwargs(args)
     if length(args) > 0 && args[1] isa Expr && args[1].head == :parameters
-        args = args[2:end]
+        args = args[2:end], args[1]
     else
-        args
+        args, Expr(:parameters)
     end
 end
 
-function invfuncfoot(args)
-    args = get_argname.(notkey(args))
+# add a `return` statement to the end of the function body.
+function functionfoot(args)
+    args = get_argname.(seperate_kwargs(args)[1])
     if length(args) == 1
         if args[1] isa Expr && args[1].head == :(...)
             args[1].args[1]
@@ -427,6 +433,7 @@ function invfuncfoot(args)
     end
 end
 
+# to provide the eye candy for defining `x += f(args...)` like functions
 _replace_opmx(ex) = @smatch ex begin
     :(:+=($f)) => :($(gensym())::PlusEq{typeof($f)})
     :(:-=($f)) => :($(gensym())::MinusEq{typeof($f)})
@@ -434,26 +441,6 @@ _replace_opmx(ex) = @smatch ex begin
     :(:/=($f)) => :($(gensym())::DivEq{typeof($f)})
     :(:⊻=($f)) => :($(gensym())::XorEq{typeof($f)})
     _ => ex
-end
-
-function interpret_func(m::Module, ex)
-    @smatch ex begin
-        :(function $fname($(args...)) $(body...) end) ||
-        :($fname($(args...)) = $(body...)) => begin
-            ftype = get_ftype(fname)
-            esc(:(
-            function $fname($(args...))
-                $(compile_body(m, body)...)
-                ($(args...),)
-            end;
-            ))
-        end
-        _=>error("$ex is not a function def")
-    end
-end
-
-function _hasmethod1(f::TF, argt) where TF
-    any(m->Tuple{TF, argt} == m.sig, methods(f).ms)
 end
 
 export @instr
@@ -467,9 +454,10 @@ macro instr(ex)
     esc(Expr(:block, NiLangCore.compile_ex(__module__, precom_ex(__module__, ex, NiLangCore.PreInfo(Symbol[])), CompileInfo()), nothing))
 end
 
+# the range of for statement
 compile_range(range) = @smatch range begin
     :($start:$step:$stop) => begin
-        start_, step_, stop_ = gensym(), gensym(), gensym()
+        start_, step_, stop_ = gensym("start"), gensym("step"), gensym("stop")
         Any[:($start_ = $start),
         :($step_ = $step),
         :($stop_ = $stop)],
@@ -478,15 +466,30 @@ compile_range(range) = @smatch range begin
         :(@invcheck $stop_  $stop)]
     end
     :($start:$stop) => begin
-        start_, stop_ = gensym(), gensym()
+        start_, stop_ = gensym("start"), gensym("stop")
         Any[:($start_ = $start),
         :($stop_ = $stop)],
         Any[:(@invcheck $start_  $start),
         :(@invcheck $stop_  $stop)]
     end
     :($list) => begin
-        list_ = gensym()
+        list_ = gensym("iterable")
         Any[:($list_ = deepcopy($list))],
         Any[:(@invcheck $list_  $list)]
+    end
+end
+
+"""
+    get_ftype(fname)
+
+Return the function type, e.g.
+
+* `obj::ABC` => `ABC`
+* `f` => `typeof(f)`
+"""
+function get_ftype(fname)
+    @smatch fname begin
+        :($x::$tp) => tp
+        _ => :($NiLangCore._typeof($fname))
     end
 end

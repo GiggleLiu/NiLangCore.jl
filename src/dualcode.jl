@@ -20,9 +20,11 @@ function dual_fname(op)
         :($x::$tp) => :($x::$invtype($tp))
         :(~$x) => x
         #_ => :(_::Inv{typeof($op)})
-        _ => :($(gensym())::$_typeof(~$op))
+        _ => :($(gensym("~$op"))::$_typeof(~$op))
     end
 end
+_typeof(x) = typeof(x)
+_typeof(x::Type{T}) where T = Type{T}
 
 """
     dual_ex(m::Module, ex)
@@ -62,7 +64,7 @@ function dual_ex(m::Module, ex)
             Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(m, body)...))
         end
         :(for $i=$start:$stop; $(body...); end) => begin
-            j = gensym()
+            j = gensym("j")
             Expr(:for, :($j=$start:$stop), Expr(:block, :($i ← $stop-$j+$start), dual_body(m, body)..., :($i → $stop-$j+$start)))
         end
         :(for $i=$itr; $(body...); end) => begin
