@@ -15,46 +15,51 @@ end
 deleteindex!(d::AbstractDict, index) = delete!(d, index)
 
 @inline function map_func(x::Symbol)
-    if x == :+= || x == :.+=
-        PlusEq
-    elseif x == :-= || x == :.-=
-        MinusEq
-    elseif x == :*= || x == :.*=
-        MulEq
-    elseif x == :/= || x == :./=
-        DivEq
-    elseif x == :⊻= || x == :.⊻=
-        XorEq
+    if x == :+=
+        PlusEq, false
+    elseif x == :.+=
+        PlusEq, true
+    elseif x == :-=
+        MinusEq, false
+    elseif x == :.-=
+        MinusEq, true
+    elseif x == :*=
+        MulEq, false
+    elseif x == :.*=
+        MulEq, true
+    elseif x == :/=
+        DivEq, false
+    elseif x == :./=
+        DivEq, true
+    elseif x == :⊻=
+        XorEq, false
+    elseif x == :.⊻=
+        XorEq, true
     else
         error("`$x` can not be mapped to a reversible function.")
     end
 end
 
 function to_standard_format(ex::Expr)
-    @smatch ex begin
-        :($a += $b) || :($a -= $b) || :($a *= $b) ||
-        :($a /= $b) || :($a ⊻= $b) => begin
-            F = map_func(ex.head)
-            @smatch b begin
-                :($f($(args...); $(kwargs...))) => :($F($f)($a, $(args...); $(kwargs...)))
-                :($f($(args...))) => :($F($f)($a, $(args...)))
-                :($x || $y) => :($F($logical_or)($a, $x, $y))
-                :($x && $y) => :($F($logical_and)($a, $x, $y))
-                _ => :($F(identity)($a, $b))
-            end
+    head::Symbol = ex.head
+    F, isbcast = map_func(ex.head)
+    a, b = ex.args
+    if !isbcast
+        @smatch b begin
+            :($f($(args...); $(kwargs...))) => :($F($f)($a, $(args...); $(kwargs...)))
+            :($f($(args...))) => :($F($f)($a, $(args...)))
+            :($x || $y) => :($F($logical_or)($a, $x, $y))
+            :($x && $y) => :($F($logical_and)($a, $x, $y))
+            _ => :($F(identity)($a, $b))
         end
-        :($a .+= $b) || :($a .-= $b) || :($a .*= $b) ||
-        :($a ./= $b) || :($a .⊻= $b) => begin
-            F = map_func(ex.head)
-            @smatch b begin
-                :($f.($(args...); $(kwargs...))) => :($F($f).($a, $(args...); $(kwargs...)))
-                :($f.($(args...))) => :($F($f).($a, $(args...)))
-                :($f($(args...); $(kwargs...))) => :($F($(debcast(f))).($a, $(args...); $(kwargs...)))
-                :($f($(args...))) => :($F($(debcast(f))).($a, $(args...)))
-                _ => :($F(identity).($a, $b))
-            end
+    else
+        @smatch b begin
+            :($f.($(args...); $(kwargs...))) => :($F($f).($a, $(args...); $(kwargs...)))
+            :($f.($(args...))) => :($F($f).($a, $(args...)))
+            :($f($(args...); $(kwargs...))) => :($F($(debcast(f))).($a, $(args...); $(kwargs...)))
+            :($f($(args...))) => :($F($(debcast(f))).($a, $(args...)))
+            _ => :($F(identity).($a, $b))
         end
-        _ => ex
     end
 end
 
@@ -106,12 +111,12 @@ function compile_ex(m::Module, ex, info)
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
         :($f($(args...))) => begin
-            check_shared_rw(args...)
-            :(@assignback $f($(args...)) $(info.invcheckon[]))
+            check_shared_rw(args)
+            Expr(:macrocall, Symbol("@assignback"), LineNumberNode(0, "none"), ex, info.invcheckon[])
         end
         :($f.($(args...))) => begin
-            check_shared_rw(args...)
-            :(@assignback $ibcast((@skip! $f), $(args...)))
+            check_shared_rw(args)
+            Expr(:macrocall, Symbol("@assignback"), LineNumberNode(0, "none"), :($ibcast((@skip! $f), $(args...))), info.invcheckon[])
         end
         Expr(:if, _...) => compile_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin

@@ -148,10 +148,10 @@ end
     @test get_memory_kernel(:((x |> g, y.:1))) == [:x, :(y.:1)]
     @test get_memory_kernel(:((x |> g, y |> tget(1)))) == [:x, :(y |> tget(1))]
 
-    @test_throws InvertibilityError check_shared_rw(:a, :(a |> grad))
-    @test check_shared_rw(:(a.x), :(a.g |> grad)) isa Nothing
-    @test_throws InvertibilityError check_shared_rw(:(a.x), :(b[3]), :(b[3]))
-    @test_throws InvertibilityError check_shared_rw(:(a.x), :((b, a.x))) isa Nothing
+    @test_throws InvertibilityError check_shared_rw([:a, :(a |> grad)])
+    @test check_shared_rw([:(a.x), :(a.g |> grad)]) isa Nothing
+    @test_throws InvertibilityError check_shared_rw([:(a.x), :(b[3]), :(b[3])])
+    @test_throws InvertibilityError check_shared_rw([:(a.x), :((b, a.x))]) isa Nothing
     # TODO: check variable on the same tree, like `a.b` and `a`
 end
 
