@@ -363,7 +363,7 @@ end
     @test ee == a .+ b .+ c .+ d .+ e
 
     x = (2,1,5)
-    @test_throws DimensionMismatch @instr x .+= c
+    @test_throws AssertionError @instr x .+= c
 end
 
 @testset "broadcast 2" begin

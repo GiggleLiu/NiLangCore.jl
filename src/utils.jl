@@ -1,5 +1,6 @@
 const GLOBAL_ATOL = Ref(1e-8)
-# Compile utilities
+
+########### macro tools #############
 startwithdot(sym::Symbol) = string(sym)[1] == '.'
 startwithdot(sym::Expr) = false
 startwithdot(sym) = false
@@ -11,13 +12,11 @@ function debcast(f)
     Symbol(string(f)[2:end])
 end
 
-function get_ftype(fname)
-    @smatch fname begin
-        :($x::$tp) => tp
-        _ => :($NiLangCore._typeof($fname))
-    end
-end
+"""
+    get_argname(ex)
 
+Return the argument name of a function argument expression, e.g. `x::Float64 = 4` gives `x`.
+"""
 get_argname(arg::Symbol) = arg
 function get_argname(fname::Expr)
     @smatch fname begin
@@ -31,6 +30,11 @@ function get_argname(fname::Expr)
     end
 end
 
+"""
+    match_function(ex)
+
+Analyze a function expression, returns a tuple of `(macros, function name, arguments, type parameters (in where {...}), statements in the body)`
+"""
 function match_function(ex)
     @smatch ex begin
         :(function $(fname)($(args...)) $(body...) end) ||
@@ -41,130 +45,23 @@ function match_function(ex)
     end
 end
 
-
-gentup(struct_T) = NamedTuple{( fieldnames(struct_T)...,), Tuple{(fieldtype(struct_T,i) for i=1:fieldcount(struct_T))...}}
-
-"""convert an object to a named tuple."""
-@generated function struct2namedtuple(x)
-   nt = Expr(:quote, gentup(x))
-   tup = Expr(:tuple)
-   for i=1:fieldcount(x)
-       push!(tup.args, :(getfield(x, $i)) )
-   end
-   return :($nt($tup))
-end
-
-export almost_same
-
 """
-    almost_same(a, b; atol=GLOBAL_ATOL[], kwargs...) -> Bool
+    rmlines(ex::Expr)
 
-Return true if `a` and `b` are almost same w.r.t. `atol`.
+Remove line number nodes for pretty printing.
 """
-function almost_same(a::T, b::T; atol=GLOBAL_ATOL[], kwargs...) where T <: AbstractFloat
-    isapprox(a, b; atol=atol, kwargs...)
-end
-
-function almost_same(a::TA, b::TB; kwargs...) where {TA, TB}
-    false
-end
-
-@generated function almost_same(a::T, b::T; kwargs...) where T
-    nf = fieldcount(a)
-    if isprimitivetype(T)
-        :(a === b)
-    else
-        quote
-            res = true
-            @nexprs $nf i-> res = res && almost_same(getfield(a, i), getfield(b, i); kwargs...)
-            res
-        end
-    end
-end
-
-almost_same(x::T, y::T; kwargs...) where T<:AbstractArray = all(almost_same.(x, y; kwargs...))
-
-
 rmlines(ex::Expr) = begin
     hd = ex.head
     if hd == :macrocall
         Expr(:macrocall, ex.args[1], nothing, rmlines.(ex.args[3:end])...)
     else
-        tl = Any[rmlines(ex) for ex in ex.args if !islinenumbernode(ex)]
+        tl = Any[rmlines(ex) for ex in ex.args if !(ex isa LineNumberNode)]
         Expr(hd, tl...)
     end
 end
 rmlines(@nospecialize(a)) = a
-islinenumbernode(@nospecialize(x)) = x isa LineNumberNode
 
-_typeof(x) = typeof(x)
-_typeof(x::Type{T}) where T = Type{T}
-
-function ibcast(f, x)
-    f, f.(x)
-end
-
-function ibcast(f, x, y)
-    res = f.(x, y)
-    f, getindex.(res, 1), getindex.(res, 2)
-end
-
-function ibcast(f, x, y, z)
-    res = f.(x, y, z)
-    f, getindex.(res, 1), getindex.(res, 2), getindex.(res, 3)
-end
-
-function ibcast(f, x, y, z, a)
-    res = f.(x, y, z, a)
-    f, getindex.(res, 1), getindex.(res, 2), getindex.(res, 3), getindex.(res, 4)
-end
-
-function ibcast(f, x, y, z, a, b)
-    res = f.(x, y, z, a, b)
-    f, getindex.(res, 1), getindex.(res, 2), getindex.(res, 3), getindex.(res, 4), getindex.(res, 5)
-end
-
-function ibcast(f, x::AbstractArray)
-    for i=1:length(x)
-        @inbounds x[i] = f(x[i])
-    end
-    f, x
-end
-
-function ibcast(f, x::AbstractArray, y)
-    @assert length(x) == length(y)
-    for i=1:length(x)
-        (x[i], y[i]) = f(x[i], y[i])
-    end
-    f, x, y
-end
-
-function ibcast(f, x::AbstractArray, y, z)
-    @assert length(x) == length(y) == length(z)
-    for i=1:length(x)
-        (x[i], y[i], z[i]) = f(x[i], y[i], z[i])
-    end
-    f, x, y, z
-end
-
-function ibcast(f, x::AbstractArray, y, z, a)
-    @assert length(x) == length(y) == length(z) == length(a)
-    for i=1:length(x)
-        (x[i], y[i], z[i], a[i]) = f(x[i], y[i], z[i], a[i])
-    end
-    f, x, y, z, a
-end
-
-function ibcast(f, x::AbstractArray, y, z, a, b)
-    @assert length(x) == length(y) == length(z) == length(a) == length(b)
-    for i=1:length(x)
-        (x[i], y[i], z[i], a[i], b[i]) = f(x[i], y[i], z[i], a[i], b[i])
-    end
-    f, x, y, z, a, b
-end
-
-ibcast(f, args...) = ArgumentError("Sorry, number of arguments in broadcasting only supported to 5, got $(length(args)).")
-
+########### ordered dict ###############
 struct MyOrderedDict{TK,TV}
     keys::Vector{TK}
     vals::Vector{TV}
@@ -213,3 +110,45 @@ function Base.pop!(d::MyOrderedDict)
 end
 
 Base.isempty(d::MyOrderedDict) = length(d.keys) == 0
+
+########### broadcasting ###############
+
+"""
+    unzipped_broadcast(f, args...)
+
+unzipped broadcast for arrays and tuples, e.g. `SWAP.([1,2,3], [4,5,6])` will do inplace element-wise swap, and return `[4,5,6], [1,2,3]`.
+"""
+unzipped_broadcast(f) = error("must provide at least one argument in broadcasting!")
+function unzipped_broadcast(f, arg::AbstractArray; kwargs...)
+    f.(arg)
+end
+function unzipped_broadcast(f, arg::Tuple; kwargs...)
+    f.(arg)
+end
+@generated function unzipped_broadcast(f, args::Vararg{<:AbstractArray,N}; kwargs...) where N
+    argi = [:(args[$k][i]) for k=1:N]
+    quote
+        for i = 1:same_length(args)
+            ($(argi...),) = f($(argi...); kwargs...)
+        end
+        return args
+    end
+end
+@generated function unzipped_broadcast(f, args::Vararg{<:Tuple,N}; kwargs...) where N
+    quote
+        same_length(args)
+        res = map(f, args...)
+        ($([:($getindex.(res, $i)) for i=1:N]...),)
+    end
+end
+
+function same_length(args)
+    if length(args) == 0
+        return 0
+    end
+    l = length(args[1])
+    for j=2:length(args)
+        @assert l == length(args[j]) "length of arguments should be the same `$(length(args[j])) != $l`"
+    end
+    return l
+end

@@ -20,9 +20,11 @@ function dual_fname(op)
         :($x::$tp) => :($x::$invtype($tp))
         :(~$x) => x
         #_ => :(_::Inv{typeof($op)})
-        _ => :($(gensym())::$_typeof(~$op))
+        _ => :($(gensym("~$op"))::$_typeof(~$op))
     end
 end
+_typeof(x) = typeof(x)
+_typeof(x::Type{T}) where T = Type{T}
 
 """
     dual_ex(m::Module, ex)
@@ -35,14 +37,6 @@ function dual_ex(m::Module, ex)
         :($x ← $val) => :($x → $val)
         :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
         :(($t1=>$t2).($x)) => :(($t2=>$t1).($x))
-        :($a |> $b) => begin
-            pipline = get_pipline!(ex, Any[])
-            rev_pipline!(pipline[1], pipline[2:end], dot=false)
-        end
-        :($a .|> $b) => begin
-            pipline = get_dotpipline!(ex, Any[])
-            rev_pipline!(pipline[1], pipline[2:end]; dot=true)
-        end
         :($f($(args...))) => begin
             if startwithdot(f)
                 :($(dotgetdual(f)).($(args...)))
@@ -70,7 +64,7 @@ function dual_ex(m::Module, ex)
             Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(m, body)...))
         end
         :(for $i=$start:$stop; $(body...); end) => begin
-            j = gensym()
+            j = gensym("j")
             Expr(:for, :($j=$start:$stop), Expr(:block, :($i ← $stop-$j+$start), dual_body(m, body)..., :($i → $stop-$j+$start)))
         end
         :(for $i=$itr; $(body...); end) => begin
@@ -91,33 +85,6 @@ function dual_ex(m::Module, ex)
         :() => ex
         _ => error("can not invert target expression $ex")
     end
-end
-
-get_pipline!(ex, out!) = @smatch ex begin
-    :($a |> $f) => begin
-        get_pipline!(a, out!)
-        push!(out!, f)
-        out!
-    end
-    _ => push!(out!, ex)
-end
-
-get_dotpipline!(ex, out!) = @smatch a begin
-    :($a .|> $f) => begin
-        get_dotpipline!(a, out!)
-        push!(out, f)
-        out!
-    end
-    _ => push!(out!, ex)
-end
-
-function rev_pipline!(var, fs; dot)
-    if isempty(fs)
-        return var
-    end
-    token = dot ? :(.|>) : :(|>)
-    nvar = :($token($var, $(getdual(pop!(fs)))))
-    rev_pipline!(nvar, fs; dot=dot)
 end
 
 function dual_if(m::Module, ex)

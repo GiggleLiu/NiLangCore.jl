@@ -1,4 +1,5 @@
 using Test, NiLangCore
+using NiLangCore: type2tuple
 
 @testset "dataview" begin
     x = 1.0
@@ -110,18 +111,12 @@ end
     x = [1,2,3]
     @test chfield(x, length, 3) == x
     @test_throws InvertibilityError chfield(x, length, 2)
-
-    @test chfield((1,2,3), 3, 'k') == (1,2,'k')
-    @test chfield([1,2,3], 2, 4) == [1,4,3]
-    @test chfield([1,2,3], (2,), 4) == [1,4,3]
-    @test chfield(Ref(3), (), 4).x == Ref(4).x
 end
 
 @testset "invcheck" begin
     @test (@invcheck 0.3 0.3) isa Any
     @test_throws InvertibilityError (@invcheck 0.3 0.4)
     @test_throws InvertibilityError (@invcheck 3 3.0)
-    @test (@invcheck 3 == 3.0) isa Any
 end
 
 @testset "partial" begin
@@ -189,4 +184,117 @@ end
     x = [1.0im, 2+3im]
     @instr (x |> first_real) += 3
     @test x == [3+1.0im, 2+3.0im]
+end
+
+struct NiTypeTest{T} <: IWrapper{T}
+    x::T
+    g::T
+end
+NiTypeTest(x) = NiTypeTest(x, zero(x))
+@fieldview NiLangCore.value(invtype::NiTypeTest) = invtype.x
+@fieldview gg(invtype::NiTypeTest) = invtype.g
+
+@testset "inv type" begin
+    it = NiTypeTest(0.5)
+    @test eps(typeof(it)) === eps(Float64)
+    @test value(it) == 0.5
+    @test it ≈ NiTypeTest(0.5)
+    @test it > 0.4
+    @test it < NiTypeTest(0.6)
+    @test it < 7
+    @test 0.4 < it
+    @test 7 > it
+    @test chfield(it, value, 0.3) == NiTypeTest(0.3)
+    it = chfield(it, Val(:g), 0.2)
+    @test almost_same(NiTypeTest(0.5+1e-15), NiTypeTest(0.5))
+    @test !almost_same(NiTypeTest(1.0), NiTypeTest(1))
+    it = NiTypeTest(0.5)
+    @test chfield(it, gg, 0.3) == NiTypeTest(0.5, 0.3)
+end
+
+@i struct BVar{T}
+    x::T
+    function BVar{T}(x::T) where T
+        new{T}(g, x)
+    end
+    # currently variable types can not be infered
+    @i function BVar(xx::T) where T
+        xx ← new{T}(xx)
+    end
+end
+
+@i struct CVar{T}
+    g::T
+    x::T
+    function CVar{T}(x::T, g::T) where T
+        new{T}(x, g)
+    end
+    function CVar(x::T, g::T) where T
+        new{T}(x, g)
+    end
+    # currently variable types can not be infered
+    # TODO: fix the type inference!
+    @i function CVar(xx::T) where T
+        gg ← zero(xx)
+        gg += 1
+        xx ← new{T}(gg, xx)
+    end
+end
+
+@i struct DVar{GT,CT,T}
+    x::T
+    k::CT
+    l
+    @i function DVar{Float64}(xx::T) where {T}
+        gg ← zero(xx)
+        gg += xx
+        ll ← zero(gg)
+        xx ← new{Float64, typeof(gg), T}(xx, gg, ll)
+    end
+end
+
+@testset "revtype" begin
+    @test type2tuple(CVar(1.0)) == (1.0, 1.0)
+    @test CVar(0.5) == CVar(1.0, 0.5)
+    @test (~BVar)(BVar(0.5)) == 0.5
+    @test (~CVar)(CVar(0.5)) == 0.5
+    @test_throws InvertibilityError (~CVar)(CVar(0.5, 0.4))
+    @test (~DVar{Float64})(DVar{Float64}(0.5)) == 0.5
+end
+
+struct PVar{T}
+    g::T
+    x::T
+end
+
+struct SVar{T}
+    x::T
+    g::T
+end
+
+@testset "mutable struct set field" begin
+    mutable struct MS{T}
+        x::T
+        y::T
+        z::T
+    end
+
+    ms = MS(0.5, 0.6, 0.7)
+    @i function f(ms)
+        ms.x += 1
+        ms.y += 1
+        ms.z -= ms.x ^ 2
+    end
+    ms2 = f(ms)
+    @test (ms2.x, ms2.y, ms2.z) == (1.5, 1.6, -1.55)
+
+    struct IMS{T}
+        x::T
+        y::T
+        z::T
+    end
+
+    ms = IMS(0.5, 0.6, 0.7)
+    ms2 = f(ms)
+    @test (ms2.x, ms2.y, ms2.z) == (1.5, 1.6, -1.55)
 end

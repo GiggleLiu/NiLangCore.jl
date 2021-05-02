@@ -1,5 +1,6 @@
 export precom
 
+# precompiling information
 struct PreInfo
     vars::Vector{Symbol}
     ancs::MyOrderedDict{Any, Any}
@@ -7,6 +8,11 @@ struct PreInfo
 end
 PreInfo(vars::Vector) = PreInfo(vars, MyOrderedDict{Any,Any}(), [])
 
+"""
+    precom(module, ex)
+
+Precompile a function, returns a tuple of (macros, function name, arguments, type parameters, function body).
+"""
 function precom(m::Module, ex)
     mc, fname, args, ts, body = match_function(ex)
     vars = Symbol[]
@@ -31,6 +37,11 @@ function precom_body(m::Module, body::AbstractVector, info)
     Any[precom_ex(m, ex, info) for ex in body]
 end
 
+"""
+    flushancs(out, info)
+
+Deallocate all remaining ancillas.
+"""
 function flushancs(out, info)
     for i in 1:length(info.ancs)
         (x, tp) = pop!(info.ancs)
@@ -40,6 +51,7 @@ function flushancs(out, info)
     return out
 end
 
+# precompile `+=`, `-=`, `*=` and `/=`
 function precom_opm(f, out, arg2)
     if f in [:(+=), :(-=), :(*=), :(/=)]
         @smatch arg2 begin
@@ -57,6 +69,7 @@ function precom_opm(f, out, arg2)
     end
 end
 
+# precompile `⊻=`
 function precom_ox(f, out, arg2)
     if f == :(⊻=)
         @smatch arg2 begin
@@ -95,6 +108,11 @@ function symbol_transfer(xs, xvals, args, info, delete, add)
     end
 end
 
+"""
+    precom_ex(module, ex, info)
+
+Precompile a single statement `ex`, where `info` is a `PreInfo` instance.
+"""
 function precom_ex(m::Module, ex, info)
     @smatch ex begin
         # TODO: add variable analysis for `@unsafe_destruct`
@@ -239,6 +257,7 @@ end
 
 precom_ex(m::Module, ex) = precom_ex(m, ex, PreInfo(Symbol[]))
 
+# push a new variable to variable set `x`, for allocating `target`
 function pushvar!(x::Vector{Symbol}, target)
     @smatch target begin
         ::Symbol => begin
@@ -269,6 +288,7 @@ function pushvar!(x::Vector{Symbol}, target)
     nothing
 end
 
+# pop a variable from variable set `x`, for deallocating `target`
 function popvar!(x::Vector{Symbol}, target)
     @smatch target begin
         ::Symbol => begin

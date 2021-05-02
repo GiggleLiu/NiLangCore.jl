@@ -1,4 +1,4 @@
-# Properties
+############# function properties #############
 export isreversible, isreflexive, isprimitive
 export protectf
 """
@@ -22,34 +22,79 @@ Return `true` if `f` is an `instruction` that can not be decomposed anymore.
 """
 isprimitive(f) = false
 
-# inv check
+############# ancillas ################
 export InvertibilityError, @invcheck
+
+"""
+    deanc(a, b)
+
+Deallocate varialbe `a` with value `b`. It will throw an error if
+
+* `a` and `b` are objects with different types,
+* `a` is not equal to `b` (for floating point numbers, an error within `NiLangCore.GLOBAL_ATOL[]` is allowed),
+"""
+function deanc end
+
+function deanc(a::T, b::T) where T <: AbstractFloat
+    if !(a === b || isapprox(a, b; atol=GLOBAL_ATOL[]))
+        throw(InvertibilityError("deallocate fail (floating point numbers): $a ≂̸ $b"))
+    end
+end
+deanc(x::T, val::T) where T<:Tuple = deanc.(x, val)
+deanc(x::T, val::T) where T<:AbstractArray = x === val || deanc.(x, val)
+deanc(a::T, b::T) where T<:AbstractString = a === b || throw(InvertibilityError("deallocate fail (string): $a ≂̸ $b"))
+function deanc(x::T, val::T) where T<:Dict
+    if x !== val
+        if length(x) != length(val)
+            throw(InvertibilityError("deallocate fail (dict): length of dict not the same, got $(length(x)) and $(length(val))!"))
+        else
+            for (k, v) in x
+                if haskey(val, k)
+                    deanc(x[k], val[k])
+                else
+                    throw(InvertibilityError("deallocate fail (dict): key $k of dict does not exist!"))
+                end
+            end
+        end
+    end
+end
+deanc(a, b) = throw(InvertibilityError("deallocate fail (type mismatch): `$(typeof(a))` and `$(typeof(b))`"))
+
+@generated function deanc(a::T, b::T) where T
+    nf = fieldcount(a)
+    if isprimitivetype(T)
+        :(a === b || throw(InvertibilityError("deallocate fail (primitive): $a ≂̸ $b")))
+    else
+        quote
+            @nexprs $nf i-> deanc(getfield(a, i), getfield(b, i))
+        end
+    end
+end
 
 """
     InvertibilityError <: Exception
     InvertibilityError(ex)
 
-The error thrown when a irreversible statement appears in a reversible context.
+The error for irreversible statements.
 """
 struct InvertibilityError <: Exception
     ex
 end
 
 """
-    @invcheck ex
     @invcheck x val
 
-Pass the check it if `ex` is true or `x ≈ val`.
+The macro version `NiLangCore.deanc`, with more informative error.
 """
-macro invcheck(ex)
-    esc(:($ex || throw(InvertibilityError($(QuoteNode(ex))))))
-end
-
 macro invcheck(x, val)
-    esc(rmlines(:(
-    if !($x === $val || $almost_same($x, $val))
-        throw(InvertibilityError("$($(QuoteNode(x))) (=$($x)) ≂̸ $($(QuoteNode(val))) (=$($val))"))
-    end)))
+    esc(quote
+        try
+            $deanc($x, $val)
+        catch e
+            @warn "Error while checking `$($(QuoteNode(x)))` and `$($(QuoteNode(val)))`"
+            throw(e)
+        end
+    end)
 end
 
 """
@@ -82,7 +127,7 @@ GVar{Float64, Float64}(2.0, 0.0)
 """
 function chfield end
 
-######## Inv
+########### Inv  ##########
 export Inv, invtype
 """
     Inv{FT} <: Function
@@ -99,6 +144,11 @@ Base.:~(::Type{Inv{T}}) where T = T  # for type, it is a destructor
 Base.:~(::Type{T}) where T = Inv{T}  # for type, it is a destructor
 Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
 Base.display(bf::Inv) where f = print(bf)
+"""
+    protectf(f)
+
+Protect a function from being inverted, useful when using an callable object.
+"""
 protectf(x) = x
 protectf(x::Inv) = x.f
 
@@ -166,7 +216,6 @@ end
 """
     XorEq{FT} <: Function
     XorEq(f)
-    ⊙(f)
 
 Called when executing `out ⊻= f(args...)` instruction. See `PlusEq` for detail.
 """
@@ -177,17 +226,9 @@ isreflexive(::XorEq) = true
 
 const OPMX{FT} = Union{PlusEq{FT}, MinusEq{FT}, XorEq{FT}, MulEq{FT}, DivEq{FT}}
 
-logical_or(a, b) = a || b
-logical_and(a, b) = a && b
-
-_add(x, y) = x + y
-_sub(x, y) = x - y
-_xor(x, y) = x ⊻ y
-_add(x::Tuple, y::Tuple) = x .+ y
-_sub(x::Tuple, y::Tuple) = x .- y
-_xor(x::Tuple, y::Tuple) = x .⊻ y
-for (TP, OP) in [(:PlusEq, _add), (:MinusEq, _sub), (:XorEq, _xor)]
+for (TP, OP) in [(:PlusEq, :+), (:MinusEq, :-), (:XorEq, :⊻)]
     @eval (inf::$TP)(out!, args...; kwargs...) = $OP(out!, inf.f(args...; kwargs...)), args...
+    @eval (inf::$TP)(out!::Tuple, args...; kwargs...) = $OP.(out!, inf.f(args...; kwargs...)), args...  # e.g. allow `(x, y) += sincos(a)`
 end
 
 Base.:~(op::PlusEq) = MinusEq(op.f)

@@ -74,19 +74,19 @@ macro assignback(ex, invcheck=true)
     ex = precom_ex(__module__, ex, PreInfo(Symbol[]))
     @smatch ex begin
         :($f($(args...))) => begin
-            symres = gensym()
+            symres = gensym("results")
             ex = :($symres = $f($(args...)))
             if startwithdot(f)
-                esc(Expr(ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
+                esc(Expr(ex, bcast_assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
             else
-                esc(Expr(:block, ex, assign_vars(notkey(args), symres; invcheck=invcheck)))
+                esc(Expr(:block, ex, assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
             end
         end
         # TODO: support multiple input
         :($f.($(args...))) => begin
-            symres = gensym()
+            symres = gensym("results")
             ex = :($symres = $f.($(args...)))
-            esc(Expr(:block, ex, bcast_assign_vars(notkey(args), symres; invcheck=invcheck)))
+            esc(Expr(:block, ex, bcast_assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
         end
         _ => error("got $ex")
     end
@@ -175,7 +175,7 @@ assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
     :(@skip! $line $x) => nothing
     :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
     # tuples must be index through (x |> 1)
-    :($a |> tget($x)) => assign_ex(a, :(chfield($a, $x, $res)); invcheck=invcheck)
+    :($a |> tget($x)) => assign_ex(a, :($(TupleTools.insertat)($a, $x, ($res,))); invcheck=invcheck)
     :($a |> subarray($(ranges...))) => :(($res===view($a, $(ranges...))) || (view($a, $(ranges...)) .= $res))
     :($x |> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
     :($x .|> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)

@@ -1,54 +1,15 @@
+using Base.Cartesian
+
 export @pure_wrapper
 export IWrapper, Partial
 export chfield, value, unwrap
 
 ############# ancillas ################
-function deanc(a::T, b::T) where T <: Number
-    if !(a === b || isapprox(a, b; atol=GLOBAL_ATOL[]))
-        throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
-    end
-end
-function deanc(a::T, b::T) where T <: Complex
-    deanc(a.re, b.re)
-    deanc(a.im, b.im)
-end
-deanc(x::T, val::T) where T<:Tuple = x === val || deanc.(x, val)
-deanc(x::T, val::T) where T<:AbstractArray = x === val || deanc.(x, val)
-deanc(a::T, b::T) where T<:AbstractString = a === b || throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
-function deanc(x::T, val::T) where T<:Dict
-    if x !== val
-        if length(x) != length(val)
-            throw(InvertibilityError("length of dict not the same, got $(length(x)) and $(length(val))!"))
-        else
-            for (k, v) in x
-                if haskey(val, k)
-                    deanc(x[k], val[k])
-                else
-                    throw(InvertibilityError("key $k of dict does not exist!"))
-                end
-            end
-        end
-    end
-end
-
-deanc(a, b) = throw(InvertibilityError("can not deallocate because type mismatch `$(typeof(a))` and `$(typeof(b))`"))
-
-@generated function deanc(a::T, b::T) where T
-    nf = fieldcount(a)
-    if isstructtype(T)
-        quote
-            @nexprs $nf i-> deanc(getfield(a, i), getfield(b, i))
-        end
-    else
-        a === b || throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
-    end
-end
-
-# variables
-# TODO: allow reversible mapping
 export @fieldview
 """
     @fieldview fname(x::TYPE) = x.fieldname
+    @fieldview fname(x::TYPE) = x[i]
+    ...
 
 Create a function fieldview that can be accessed by a reversible program
 
@@ -67,7 +28,7 @@ GVar{Float64, Float64}(2.0, 0.0)
 macro fieldview(ex)
     @smatch ex begin
         :($f($obj::$tp) = begin $line; $ex end) => begin
-            xval = gensym()
+            xval = gensym("value")
             esc(Expr(:block,
                 :(Base.@__doc__ $f($obj::$tp) = begin $line; $ex end),
                 :($NiLangCore.chfield($obj::$tp, ::typeof($f), $xval) = $(Expr(:block, assign_ex(ex, xval;invcheck=false), obj)))
@@ -83,21 +44,9 @@ end
 Get the `value` from a wrapper instance.
 """
 value(x) = x
-chfield(x::T, ::typeof(value), y::T) where T = y
-
 chfield(a, b, c) = error("chfield($a, $b, $c) not defined!")
+chfield(x::T, ::typeof(value), y::T) where T = y
 chfield(x, ::typeof(identity), xval) = xval
-function chfield(tp::Tuple, i::Int, val)
-    TupleTools.insertat(tp, i, (val,))
-end
-
-for VTYPE in [:AbstractArray, :Ref]
-    @eval function chfield(a::$VTYPE, indices::Tuple, val)
-        setindex!(a, val, indices...)
-        a
-    end
-    @eval chfield(tp::$VTYPE, i::Int, val) = chfield(tp, (i,), val)
-end
 chfield(x::T, ::typeof(-), y::T) where T = -y
 chfield(x::T, ::typeof(adjoint), y) where T = adjoint(y)
 
@@ -110,19 +59,11 @@ It will forward `>, <, >=, <=, ≈` operations.
 abstract type IWrapper{T} <: Real end
 chfield(x, ::Type{T}, v) where {T<:IWrapper} = (~T)(v)
 Base.eps(::Type{<:IWrapper{T}}) where T = Base.eps(T)
-@generated function almost_same(a::T, b::T; kwargs...) where T<:IWrapper
-    nf = fieldcount(a)
-    quote
-        res = true
-        @nexprs $nf i-> res = res && almost_same(getfield(a, i), getfield(b, i); kwargs...)
-        res
-    end
-end
 
 """
     unwrap(x)
 
-Unwrap a wrapper instance (recursively) to get the original value.
+Unwrap a wrapper instance (recursively) to get the content value.
 """
 unwrap(x::IWrapper) = unwrap(value(x))
 unwrap(x) = x
@@ -212,7 +153,8 @@ end
 Base.show(io::IO, gv::Partial{FIELD}) where FIELD = print(io, "$(gv.x).$FIELD")
 Base.show(io::IO, ::MIME"plain/text", gv::Partial) = Base.show(io, gv)
 
-export tget
+############ dataview patches ############
+export tget, subarray
 
 """
     tget(i::Int)
@@ -221,33 +163,9 @@ Get the i-th entry of a tuple.
 """
 tget(i::Int) = x::Tuple -> x[i]
 
-export subarray
-
 """
     subarray(ranges...)
 
 Get a subarray, same as `view` in Base.
 """
 subarray(args...) = x -> view(x, args...)
-
-@inline @generated function _zero(::Type{T}) where {T<:Tuple}
-    Expr(:tuple, Any[:(_zero($field)) for field in T.types]...)
-end
-_zero(::Type{T}) where T<:Real = zero(T)
-_zero(::Type{String}) = ""
-_zero(::Type{Char}) = '\0'
-_zero(::Type{T}) where {ET,N,T<:Array{ET,N}} = reshape(ET[], ntuple(x->0, N))
-_zero(::Type{T}) where {A,B,T<:Dict{A,B}} = Dict{A,B}()
-
-#_zero(x::T) where T = _zero(T) # not adding this line!
-
-@inline @generated function _zero(x::T) where {ET,N,T<:Tuple{Vararg{ET,N}}}
-    Expr(:tuple, Any[:(_zero(x[$i])) for i=1:N]...)
-end
-_zero(x::T) where T<:Real = zero(x)
-_zero(::String) = ""
-_zero(::Char) = '\0'
-_zero(x::T) where T<:Array = zero(x)
-function _zero(d::T) where {A,B,T<:Dict{A,B}}
-    Dict{A,B}([x=>zero(y) for (x,y) in d])
-end
