@@ -96,6 +96,7 @@ macro invcheck(x, val)
         end
     end)
 end
+_invcheck(a, b) = Expr(:macrocall, Symbol("@invcheck"), nothing, a, b)
 
 """
     chfield(x, field, val)

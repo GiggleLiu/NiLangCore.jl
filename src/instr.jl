@@ -146,7 +146,7 @@ end
 
 function _invcheck(docheck, arg, res)
     if docheck
-        :(@invcheck $arg $res)
+        _invcheck(arg, res)
     else
         nothing
     end

@@ -744,7 +744,7 @@ end
     @test (@code_reverse (x,y) ← var) == :((x, y) → var)
     @test (@code_reverse (x,y) → var) == :((x, y) ← var)
     @test (@code_julia (x,y) ← var) == :((x, y) = var)
-    @test (@code_julia (x,y) → var) == :($(NiLangCore.deanc)((x, y), var))
+    @test (@code_julia (x,y) → var) == Expr(:macrocall, Symbol("@invcheck"), nothing, :((x, y)), :var)
 
     x = randn(2,4)
     @i function f(y, x)

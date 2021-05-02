@@ -86,7 +86,7 @@ end
     end
 end
 @generated function chfield(x, f::Function, xval)
-    :(@invcheck f(x) xval; x)
+    Expr(:block, _invcheck(:(f(x)), :xval), :x)
 end
 
 # convert field of an object to a tuple

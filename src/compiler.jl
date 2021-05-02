@@ -104,14 +104,14 @@ function compile_ex(m::Module, ex, info)
         :($x[$index] → $tp) => begin
             delete_expr = :($(deleteindex!)($x, $index))
             if info.invcheckon[]
-                Expr(:block, :($deanc($x[$index], $tp)), delete_expr)
+                Expr(:block, _invcheck(:($x[$index]), tp), delete_expr)
             else
                 delete_expr
             end
         end
         :($x → $tp) => begin
             if info.invcheckon[]
-                :($deanc($x, $tp))
+                _invcheck(x, tp)
             end
         end
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
@@ -203,7 +203,7 @@ function analyse_if(m::Module, ex, info, pres, posts)
     end
     push!(pres, :($var = $pre))
     if info.invcheckon[]
-        push!(posts, Expr(:macrocall, Symbol("@invcheck"), nothing, var, post))
+        push!(posts, _invcheck(var, post))
     end
     ex.args[2] = Expr(:block, compile_body(m, ex.args[2].args, info)...)
     if length(ex.args) == 3
@@ -224,9 +224,9 @@ function whilestatement(precond, postcond, body, info)
         ),
     )
     if info.invcheckon[]
-        pushfirst!(ex.args, :(@invcheck $postcond false))
+        pushfirst!(ex.args, _invcheck(postcond, false))
         push!(ex.args[end].args[end].args,
-            :(@invcheck $postcond true)
+            _invcheck(postcond, true)
         )
     end
     ex
@@ -461,21 +461,21 @@ compile_range(range) = @smatch range begin
         Any[:($start_ = $start),
         :($step_ = $step),
         :($stop_ = $stop)],
-        Any[:(@invcheck $start_  $start),
-        :(@invcheck $step_  $step),
-        :(@invcheck $stop_  $stop)]
+        Any[_invcheck(start_, start),
+        _invcheck(step_, step),
+        _invcheck(stop_, stop)]
     end
     :($start:$stop) => begin
         start_, stop_ = gensym("start"), gensym("stop")
         Any[:($start_ = $start),
         :($stop_ = $stop)],
-        Any[:(@invcheck $start_  $start),
-        :(@invcheck $stop_  $stop)]
+        Any[_invcheck(start_, start),
+        _invcheck(stop_, stop)]
     end
     :($list) => begin
         list_ = gensym("iterable")
         Any[:($list_ = deepcopy($list))],
-        Any[:(@invcheck $list_  $list)]
+        Any[_invcheck(list_, list)]
     end
 end
 
