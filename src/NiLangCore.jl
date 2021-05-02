@@ -8,7 +8,6 @@ include("lens.jl")
 include("utils.jl")
 include("Core.jl")
 include("vars.jl")
-include("invtype.jl")
 
 include("instr.jl")
 include("dualcode.jl")

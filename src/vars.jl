@@ -1,51 +1,10 @@
+using Base.Cartesian
+
 export @pure_wrapper
 export IWrapper, Partial
 export chfield, value, unwrap
 
 ############# ancillas ################
-function deanc(a::T, b::T) where T <: Number
-    if !(a === b || isapprox(a, b; atol=GLOBAL_ATOL[]))
-        throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
-    end
-end
-function deanc(a::T, b::T) where T <: Complex
-    deanc(a.re, b.re)
-    deanc(a.im, b.im)
-end
-deanc(x::T, val::T) where T<:Tuple = x === val || deanc.(x, val)
-deanc(x::T, val::T) where T<:AbstractArray = x === val || deanc.(x, val)
-deanc(a::T, b::T) where T<:AbstractString = a === b || throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
-function deanc(x::T, val::T) where T<:Dict
-    if x !== val
-        if length(x) != length(val)
-            throw(InvertibilityError("length of dict not the same, got $(length(x)) and $(length(val))!"))
-        else
-            for (k, v) in x
-                if haskey(val, k)
-                    deanc(x[k], val[k])
-                else
-                    throw(InvertibilityError("key $k of dict does not exist!"))
-                end
-            end
-        end
-    end
-end
-
-deanc(a, b) = throw(InvertibilityError("can not deallocate because type mismatch `$(typeof(a))` and `$(typeof(b))`"))
-
-@generated function deanc(a::T, b::T) where T
-    nf = fieldcount(a)
-    if isstructtype(T)
-        quote
-            @nexprs $nf i-> deanc(getfield(a, i), getfield(b, i))
-        end
-    else
-        a === b || throw(InvertibilityError("can not deallocate because $a ≂̸ $b"))
-    end
-end
-
-# variables
-# TODO: allow reversible mapping
 export @fieldview
 """
     @fieldview fname(x::TYPE) = x.fieldname
@@ -83,21 +42,9 @@ end
 Get the `value` from a wrapper instance.
 """
 value(x) = x
-chfield(x::T, ::typeof(value), y::T) where T = y
-
 chfield(a, b, c) = error("chfield($a, $b, $c) not defined!")
+chfield(x::T, ::typeof(value), y::T) where T = y
 chfield(x, ::typeof(identity), xval) = xval
-function chfield(tp::Tuple, i::Int, val)
-    TupleTools.insertat(tp, i, (val,))
-end
-
-for VTYPE in [:AbstractArray, :Ref]
-    @eval function chfield(a::$VTYPE, indices::Tuple, val)
-        setindex!(a, val, indices...)
-        a
-    end
-    @eval chfield(tp::$VTYPE, i::Int, val) = chfield(tp, (i,), val)
-end
 chfield(x::T, ::typeof(-), y::T) where T = -y
 chfield(x::T, ::typeof(adjoint), y) where T = adjoint(y)
 
@@ -110,14 +57,6 @@ It will forward `>, <, >=, <=, ≈` operations.
 abstract type IWrapper{T} <: Real end
 chfield(x, ::Type{T}, v) where {T<:IWrapper} = (~T)(v)
 Base.eps(::Type{<:IWrapper{T}}) where T = Base.eps(T)
-@generated function almost_same(a::T, b::T; kwargs...) where T<:IWrapper
-    nf = fieldcount(a)
-    quote
-        res = true
-        @nexprs $nf i-> res = res && almost_same(getfield(a, i), getfield(b, i); kwargs...)
-        res
-    end
-end
 
 """
     unwrap(x)
@@ -250,4 +189,19 @@ _zero(::Char) = '\0'
 _zero(x::T) where T<:Array = zero(x)
 function _zero(d::T) where {A,B,T<:Dict{A,B}}
     Dict{A,B}([x=>zero(y) for (x,y) in d])
+end
+
+@generated function chfield(x, ::Val{FIELD}, xval) where FIELD
+    if x.mutable
+        Expr(:block, :(x.$FIELD = xval), :x)
+    else
+        :(@with x.$FIELD = xval)
+    end
+end
+@generated function chfield(x, f::Function, xval)
+    :(@invcheck f(x) xval; x)
+end
+
+@generated function type2tuple(x::T) where T
+    Expr(:tuple, [:(x.$v) for v in fieldnames(T)]...)
 end

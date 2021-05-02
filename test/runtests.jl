@@ -17,10 +17,6 @@ end
     include("instr.jl")
 end
 
-@testset "invtype.jl" begin
-    include("invtype.jl")
-end
-
 @testset "vars.jl" begin
     include("vars.jl")
 end

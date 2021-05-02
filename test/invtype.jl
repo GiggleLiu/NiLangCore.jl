@@ -88,32 +88,6 @@ struct SVar{T}
     g::T
 end
 
-@icast PVar(g, x) => SVar(x, k) begin
-    g → zero(x)
-    k ← zero(x)
-    k += x
-end
-
-@icast x::Float64 => SVar(x, gg) begin
-    gg ← zero(x)
-    gg += x
-end
-
-@testset "@icast" begin
-    @test convert(PVar, convert(SVar, PVar(0.0, 0.5))) == PVar(0.0, 0.5)
-    @test convert(Float64, convert(SVar,0.5)) == 0.5
-    @i function test(x)
-        (Float64=>SVar)(x)
-    end
-    @test test(0.5) == convert(SVar, 0.5)
-    @test (~test)(test(0.5)) == 0.5
-    @i function test2(x)
-        (Float64=>SVar).(x)
-    end
-    @test test2([0.5, 0.6]) == [convert(SVar,0.5), convert(SVar,0.6)]
-    @test (~test2)(test2([0.5, 0.6])) == [0.5, 0.6]
-end
-
 @testset "mutable struct set field" begin
     mutable struct MS{T}
         x::T

@@ -62,6 +62,8 @@ function to_standard_format(ex::Expr)
         end
     end
 end
+logical_or(a, b) = a || b
+logical_and(a, b) = a && b
 
 # TODO: add `-x` to expression.
 """translate to normal julia code."""
@@ -112,17 +114,16 @@ function compile_ex(m::Module, ex, info)
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
         :($f($(args...))) => begin
             check_shared_rw(args)
-            Expr(:macrocall, Symbol("@assignback"), LineNumberNode(0, "none"), ex, info.invcheckon[])
+            Expr(:macrocall, Symbol("@assignback"), nothing, ex, info.invcheckon[])
         end
         :($f.($(args...))) => begin
             check_shared_rw(args)
-            Expr(:macrocall, Symbol("@assignback"), LineNumberNode(0, "none"), :($ibcast((@skip! $f), $(args...))), info.invcheckon[])
+            Expr(:macrocall, Symbol("@assignback"), nothing, :($ibcast((@skip! $f), $(args...))), info.invcheckon[])
         end
         Expr(:if, _...) => compile_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
             whilestatement(pre, post, compile_body(m, body, info), info)
         end
-        # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) => begin
             forstatement(i, range, compile_body(m, body, info), info, nothing)
         end
@@ -182,17 +183,6 @@ struct TupleExpanded{FT} <: Function
 end
 (tf::TupleExpanded)(x) = tf.f(x...)
 
-compile_dotpipline(x, f) = @smatch x begin
-    :(($(xx...),)) => begin
-        xx, :($f.($(xx...)))
-    end
-    :($xx .|> $ff) => begin
-        vars, newx = compile_dotpipline(xx, ff)
-        vars, :($TupleExpanded($f).($(newx)))
-    end
-    _ => error("reversible pipline broadcasting should start with a tuple, e.g. (x, y) .|> f1 .|> f2..., got $x")
-end
-
 function compile_if(m::Module, ex, info)
     pres = []
     posts = []
@@ -232,9 +222,9 @@ function whilestatement(precond, postcond, body, info)
         ),
     )
     if info.invcheckon[]
-        pushfirst!(ex.args, :(@invcheck !($postcond)))
+        pushfirst!(ex.args, :(@invcheck $postcond false))
         push!(ex.args[end].args[end].args,
-            :(@invcheck $postcond)
+            :(@invcheck $postcond true)
         )
     end
     ex

@@ -35,14 +35,6 @@ function dual_ex(m::Module, ex)
         :($x ← $val) => :($x → $val)
         :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
         :(($t1=>$t2).($x)) => :(($t2=>$t1).($x))
-        :($a |> $b) => begin
-            pipline = get_pipline!(ex, Any[])
-            rev_pipline!(pipline[1], pipline[2:end], dot=false)
-        end
-        :($a .|> $b) => begin
-            pipline = get_dotpipline!(ex, Any[])
-            rev_pipline!(pipline[1], pipline[2:end]; dot=true)
-        end
         :($f($(args...))) => begin
             if startwithdot(f)
                 :($(dotgetdual(f)).($(args...)))
@@ -91,33 +83,6 @@ function dual_ex(m::Module, ex)
         :() => ex
         _ => error("can not invert target expression $ex")
     end
-end
-
-get_pipline!(ex, out!) = @smatch ex begin
-    :($a |> $f) => begin
-        get_pipline!(a, out!)
-        push!(out!, f)
-        out!
-    end
-    _ => push!(out!, ex)
-end
-
-get_dotpipline!(ex, out!) = @smatch a begin
-    :($a .|> $f) => begin
-        get_dotpipline!(a, out!)
-        push!(out, f)
-        out!
-    end
-    _ => push!(out!, ex)
-end
-
-function rev_pipline!(var, fs; dot)
-    if isempty(fs)
-        return var
-    end
-    token = dot ? :(.|>) : :(|>)
-    nvar = :($token($var, $(getdual(pop!(fs)))))
-    rev_pipline!(nvar, fs; dot=dot)
 end
 
 function dual_if(m::Module, ex)
