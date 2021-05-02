@@ -109,7 +109,6 @@ export PlusEq, MinusEq, XorEq, MulEq, DivEq
 """
     PlusEq{FT} <: Function
     PlusEq(f)
-    ⊕(f)
 
 Called when executing `out += f(args...)` instruction. The following two statements are same
 
@@ -137,7 +136,6 @@ end
 """
     MinusEq{FT} <: Function
     MinusEq(f)
-    ⊖(f)
 
 Called when executing `out -= f(args...)` instruction. See `PlusEq` for detail.
 """
@@ -197,17 +195,9 @@ Base.:~(om::MinusEq) = PlusEq(om.f)
 Base.:~(op::MulEq) = DivEq(op.f)
 Base.:~(om::DivEq) = MulEq(om.f)
 Base.:~(om::XorEq) = om
-_str(::PlusEq) = "+="
-_str(::MinusEq) = "-="
-_str(::MulEq) = "*="
-_str(::DivEq) = "/="
-_str(::XorEq) = "⊻="
-Base.display(o::OPMX) = print(_str(o), "(", o.f, ")")
-Base.show_function(io::IO, o::OPMX, compact::Bool) = print(io, "$(_str(o))($(o.f))")
-Base.show_function(io::IO, ::MIME"plain/text", o::OPMX, compact::Bool) = Base.show(io, o)
-
-# TODO deprecate
-export ⊕, ⊖, ⊙
-⊕(f) = PlusEq(f)
-⊖(f) = MinusEq(f)
-⊙(f) = XorEq(f)
+for (T, S) in [(:PlusEq, "+="), (:MinusEq, "-="), (:MulEq, "*="), (:DivEq, "/="), (:XorEq, "⊻=")]
+    @eval Base.display(o::$T) = print($S, "(", o.f, ")")
+    @eval Base.display(o::Type{$T}) = print($S)
+    @eval Base.show_function(io::IO, o::$T, compact::Bool) = print(io, "$($S)($(o.f))")
+    @eval Base.show_function(io::IO, ::MIME"plain/text", o::$T, compact::Bool) = Base.show(io, o)
+end

@@ -3,8 +3,6 @@ using NiLangCore: compile_ex, dual_ex, precom_ex, get_memory_kernel, check_share
 
 using Test
 import Base: +, -
-import NiLangCore: ⊕, ⊖
-
 function add(a!::Number, b::Number)
     a!+b, b
 end
@@ -84,20 +82,13 @@ end
     @test a == 2
 end
 
-@testset "dual_ex" begin
-    @test dual_ex(@__MODULE__, :(⊕(+)(out, x, y))) == :(⊖(+)(out, x, y))
-    @test dual_ex(@__MODULE__, :((+).(x, y))) == :((~(+)).(x, y))
-    @test dual_ex(@__MODULE__, :(⊕(+).(out, x, y))) == :(⊖(+).(out, x, y))
-    @test dual_ex(@__MODULE__, :(⊕(XOR).(out, x, y))) == :(⊖(XOR).(out, x, y))
-end
-
-@testset "⊕" begin
+@testset "+=, -=" begin
     x = 1.0
     y = 1.0
-    @instr ⊕(exp)(y, x)
+    @instr PlusEq(exp)(y, x)
     @test x ≈ 1
     @test y ≈ 1+exp(1.0)
-    @instr (~⊕(exp))(y, x)
+    @instr (~PlusEq(exp))(y, x)
     @test x ≈ 1
     @test y ≈ 1
 end
