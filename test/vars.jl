@@ -5,9 +5,6 @@ using NiLangCore: type2tuple
     x = 1.0
     @test_throws ErrorException chfield(x, "asdf", 3.0)
     @test chfield(x, identity, 2.0) === 2.0
-    @test value(x) === 1.0
-    @assign (x |> value) 0.2
-    @test x == 0.2
     @assign -x 0.1
     @test x == -0.1
     x = 1+2.0im
@@ -119,43 +116,6 @@ end
     @test_throws InvertibilityError (@invcheck 3 3.0)
 end
 
-@testset "partial" begin
-    x = Partial{:im}(3+2im)
-    println(x)
-    @test x === Partial{:im,Complex{Int64},Int64}(3+2im)
-    @test value(x) == 2
-    @test chfield(x, value, 4) == Partial{:im}(3+4im)
-    @test zero(x) == Partial{:im}(0.0+0.0im)
-    @test (~Partial{:im})(x) == 3+2im
-end
-
-@testset "pure wrapper" begin
-    @pure_wrapper A
-    a = A(0.5)
-    @test a isa A
-    @test zero(a) == A(0.0)
-    @test (~A)(a) === 0.5
-    @test -A(0.5) == A(-0.5)
-
-    a2 = A{Float64}(a)
-    @test a2 === a
-    println(a2)
-    @test chfield(a2, A, A(0.4)) === 0.4
-end
-
-@testset ">, <" begin
-    @pure_wrapper A
-    a = A(0.5)
-    @test unwrap(A(a)) == 0.5
-    @test A(a) < 0.6
-    @test A(a) <= 0.6
-    @test A(a) >= 0.4
-    @test a ≈ 0.5
-    @test a == 0.5
-    @test a > 0.4
-    @test isless(a, 0.6)
-end
-
 @testset "dict" begin
     @i function f1()
         d ← Dict(1=>1, 2=>2)
@@ -184,32 +144,6 @@ end
     x = [1.0im, 2+3im]
     @instr (x |> first_real) += 3
     @test x == [3+1.0im, 2+3.0im]
-end
-
-struct NiTypeTest{T} <: IWrapper{T}
-    x::T
-    g::T
-end
-NiTypeTest(x) = NiTypeTest(x, zero(x))
-@fieldview NiLangCore.value(invtype::NiTypeTest) = invtype.x
-@fieldview gg(invtype::NiTypeTest) = invtype.g
-
-@testset "inv type" begin
-    it = NiTypeTest(0.5)
-    @test eps(typeof(it)) === eps(Float64)
-    @test value(it) == 0.5
-    @test it ≈ NiTypeTest(0.5)
-    @test it > 0.4
-    @test it < NiTypeTest(0.6)
-    @test it < 7
-    @test 0.4 < it
-    @test 7 > it
-    @test chfield(it, value, 0.3) == NiTypeTest(0.3)
-    it = chfield(it, Val(:g), 0.2)
-    @test almost_same(NiTypeTest(0.5+1e-15), NiTypeTest(0.5))
-    @test !almost_same(NiTypeTest(1.0), NiTypeTest(1))
-    it = NiTypeTest(0.5)
-    @test chfield(it, gg, 0.3) == NiTypeTest(0.5, 0.3)
 end
 
 @i struct BVar{T}

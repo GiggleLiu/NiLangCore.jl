@@ -245,6 +245,30 @@ function forstatement(i, range, body, info, mcr)
     end
 end
 
+# error on shared read or shared write.
+function check_shared_rw(args)
+    args_kernel = []
+    for arg in args
+        out = get_memory_kernel(arg)
+        if out isa Vector
+            for o in out
+                if o !== nothing
+                    push!(args_kernel, o)
+                end
+            end
+        elseif out !== nothing
+            push!(args_kernel, out)
+        end
+    end
+    for i=1:length(args_kernel)
+        for j in i+1:length(args_kernel)
+            if args_kernel[i] == args_kernel[j]
+                throw(InvertibilityError("$i-th argument and $j-th argument shares the same memory $(args_kernel[i]), shared read and shared write are not allowed!"))
+            end
+        end
+    end
+end
+
 export @code_julia
 
 """
