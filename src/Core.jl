@@ -36,7 +36,7 @@ Deallocate varialbe `a` with value `b`. It will throw an error if
 function deanc end
 
 function deanc(a::T, b::T) where T <: AbstractFloat
-    if !(a === b || isapprox(a, b; atol=GLOBAL_ATOL[]))
+    if a !== b && abs(b - a) > GLOBAL_ATOL[]
         throw(InvertibilityError("deallocate fail (floating point numbers): $a ≂̸ $b"))
     end
 end
@@ -96,6 +96,7 @@ macro invcheck(x, val)
         end
     end)
 end
+_invcheck(a, b) = Expr(:macrocall, Symbol("@invcheck"), nothing, a, b)
 
 """
     chfield(x, field, val)
