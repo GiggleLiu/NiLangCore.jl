@@ -3,6 +3,10 @@ using NiLangCore: compile_ex, dual_ex, precom_ex, get_memory_kernel, check_share
 
 using Test
 import Base: +, -
+
+value(x) = x
+NiLangCore.chfield(x::T, ::typeof(value), y::T) where T = y
+
 function add(a!::Number, b::Number)
     a!+b, b
 end
@@ -30,9 +34,6 @@ function XOR(a!::Integer, b::Integer)
     xor(a!, b), b
 end
 
-@i function XOR(a!::T, b::T) where T<:IWrapper
-    XOR(a! |> value, b |> value)
-end
 @selfdual XOR
 #@nograd XOR
 

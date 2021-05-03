@@ -7,7 +7,7 @@ struct NiTypeTest{T} <: IWrapper{T}
     g::T
 end
 NiTypeTest(x) = NiTypeTest(x, zero(x))
-@fieldview NiLangCore.value(invtype::NiTypeTest) = invtype.x
+@fieldview value(invtype::NiTypeTest) = invtype.x
 @fieldview gg(invtype::NiTypeTest) = invtype.g
 
 @testset "inv type" begin
