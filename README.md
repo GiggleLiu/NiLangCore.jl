@@ -69,7 +69,7 @@ julia> julia> @code_reverse if (precond, postcond) y += f(x) else y += g(x) end
   end)
 
 julia> @code_reverse while (precond, postcond) y += f(x) end
-:(while (postcond, precond)
+:(@from !postcond while precond
       #= /home/leo/.julia/dev/NiLangCore/src/dualcode.jl:72 =#
       y -= f(x)
       #= REPL[49]:1 =#
