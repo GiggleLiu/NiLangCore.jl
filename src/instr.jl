@@ -6,20 +6,20 @@ export @dual, @selfdual, @dualtype
 Define `f` and `invf` as a pair of dual instructions, i.e. reverse to each other.
 """
 macro dual(f, invf)
-    esc(:(
-        $NiLangCore.isprimitive($f) || begin
+    esc(quote
+        if !$NiLangCore.isprimitive($f)
             $NiLangCore.isprimitive(::typeof($f)) = true
-        end;
-        $NiLangCore.isprimitive($invf) || begin
+        end
+        if !$NiLangCore.isprimitive($invf)
             $NiLangCore.isprimitive(::typeof($invf)) = true
-        end;
-        Base.:~($f) === $invf || begin
+        end
+        if Base.:~($f) !== $invf
             Base.:~(::typeof($f)) = $invf;
-        end;
-        Base.:~($invf) === $f || begin
+        end
+        if Base.:~($invf) !== $f
             Base.:~(::typeof($invf)) = $f;
         end
-    ))
+    end)
 end
 
 macro dualtype(t, invt)
@@ -44,17 +44,7 @@ end
 Define `f` as a self-dual instructions.
 """
 macro selfdual(f)
-    esc(:(
-        $NiLangCore.isreflexive($f) || begin
-            $NiLangCore.isreflexive(::typeof($f)) = true
-        end;
-        $NiLangCore.isprimitive($f) || begin
-            $NiLangCore.isprimitive(::typeof($f)) = true
-        end;
-        Base.:~($f) === $f || begin
-            Base.:~(::typeof($f)) = $f
-        end
-    ))
+    esc(:(@dual $f $f))
 end
 
 export @const

@@ -13,7 +13,7 @@ isreversible(f, ::Type{ARGT}) where ARGT = hasmethod(~f, ARGT)
 
 Return `true` if a function is self-inverse.
 """
-isreflexive(f) = false
+isreflexive(f) = (~f) === f
 
 """
     isprimitive(f)
@@ -223,7 +223,6 @@ Called when executing `out ⊻= f(args...)` instruction. See `PlusEq` for detail
 struct XorEq{FT} <: Function
     f::FT
 end
-isreflexive(::XorEq) = true
 
 const OPMX{FT} = Union{PlusEq{FT}, MinusEq{FT}, XorEq{FT}, MulEq{FT}, DivEq{FT}}
 

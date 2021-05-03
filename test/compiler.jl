@@ -669,25 +669,6 @@ end
     @test macroexpand(Main, ex10) isa Expr
 end
 
-@testset "inv type" begin
-    struct AddX{T}
-        x::T
-    end
-    struct SubX{T}
-        x::T
-    end
-    @dualtype AddX SubX
-    @dualtype AddX SubX
-    @i function (f::AddX)(x::Real) end
-    @test hasmethod(AddX(3), Tuple{Real})
-    @test hasmethod(SubX(3), Tuple{Real})
-    @test invtype(AddX) == SubX
-    @test invtype(AddX{Float64}) == SubX{Float64}
-    @test invtype(SubX) == AddX
-    @test invtype(SubX{Float64}) == AddX{Float64}
-end
-
-
 @testset "dict access" begin
     d = Dict(3=>4)
     @instr d[3] → 4
