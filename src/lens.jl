@@ -66,10 +66,6 @@ _zero(::Type{T}) where {ET,N,T<:Array{ET,N}} = reshape(ET[], ntuple(x->0, N))
 _zero(::Type{T}) where {A,B,T<:Dict{A,B}} = Dict{A,B}()
 
 #_zero(x::T) where T = _zero(T) # not adding this line!
-
-@inline @generated function _zero(x::T) where {ET,N,T<:Tuple{Vararg{ET,N}}}
-    Expr(:tuple, Any[:(_zero(x[$i])) for i=1:N]...)
-end
 _zero(x::T) where T<:Real = zero(x)
 _zero(::String) = ""
 _zero(::Char) = '\0'

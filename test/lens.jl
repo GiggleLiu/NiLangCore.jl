@@ -22,4 +22,6 @@ end
     @test _zero(ComplexF64) == 0.0 + 0.0im
     @test _zero((1,2.0,"adsf",randn(2,2),'d',Dict(2=>5))) == (0, 0.0,"",zeros(2,2),'\0',Dict(2=>0))
     @test _zero(1+2.0im) == 0.0 + 0.0im
+    @test _zero(()) == ()
+    @test _zero((1,2)) == (0, 0)
 end

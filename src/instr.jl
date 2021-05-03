@@ -71,17 +71,7 @@ macro assignback(ex, invcheck=true)
         :($f($(args...))) => begin
             symres = gensym("results")
             ex = :($symres = $f($(args...)))
-            if startwithdot(f)
-                esc(Expr(ex, bcast_assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
-            else
-                esc(Expr(:block, ex, assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
-            end
-        end
-        # TODO: support multiple input
-        :($f.($(args...))) => begin
-            symres = gensym("results")
-            ex = :($symres = $f.($(args...)))
-            esc(Expr(:block, ex, bcast_assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
+            esc(Expr(:block, ex, assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
         end
         _ => error("got $ex")
     end
@@ -110,34 +100,6 @@ function assign_vars(args, symres; invcheck)
     end
     Expr(:block, exprs...)
 end
-
-"""The broadcast version of `assign_vars`"""
-function bcast_assign_vars(args, symres; invcheck)
-    if length(args) == 1
-        @smatch args[1] begin
-            :($args...) => :($args = ([getindex.($symres, j) for j=1:length($symres[1])]...,))
-            _ => assign_ex(args[1], symres; invcheck=invcheck)
-        end
-    else
-        ex = :()
-        for (i,arg) in enumerate(args)
-            exi = @smatch arg begin
-                :($ag...) => begin
-                    i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                    :($ag = ([getindex.($symres, j) for j=$i:length($symres[1])]...,))
-                end
-                _ => if length(args) == 1
-                    assign_ex(arg, symres; invcheck=invcheck)
-                else
-                    assign_ex(arg, :(getindex.($symres, $i)); invcheck=invcheck)
-                end
-            end
-            exi !== nothing && (ex = :($ex; $exi))
-        end
-        ex
-    end
-end
-
 
 function _invcheck(docheck, arg, res)
     if docheck
@@ -209,8 +171,6 @@ _isconst(x::Expr) = @smatch x begin
     _ => false
 end
 
-iter_assign(a::AbstractArray, val, indices...) = (a[indices...] = val; a)
-iter_assign(a::Tuple, val, index) = TupleTools.insertat(a, index, (val,))
 # general
 @inline tailn(t::Tuple, ::Val{n}) where n = tailn(TupleTools.tail(t), Val{n-1}())
 @inline tailn(t::Tuple, ::Val{n}, input::Tuple) where n = tailn(t, Val{n}())
