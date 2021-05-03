@@ -163,3 +163,23 @@ end
     @test NiLangCore.tailn(1, Val(0), (1,)) == (1,)
     @test NiLangCore.tailn((1,), Val(0), ((1,),)) == ((1,),)
 end
+
+@testset "dual type" begin
+    struct AddX{T}
+        x::T
+    end
+    struct SubX{T}
+        x::T
+    end
+    @dualtype AddX SubX
+    @dualtype AddX SubX
+    @i function (f::AddX)(x::Real) end
+    @test hasmethod(AddX(3), Tuple{Real})
+    @test hasmethod(SubX(3), Tuple{Real})
+    for (TA, TB) in [(AddX, SubX), (MulEq, DivEq), (XorEq, XorEq), (PlusEq, MinusEq)]
+        @test invtype(TA) == TB
+        @test invtype(TA{typeof(*)}) == TB{typeof(*)}
+        @test invtype(TB) == TA
+        @test invtype(TB{typeof(*)}) == TA{typeof(*)}
+    end
+end
