@@ -87,16 +87,17 @@ end
 The macro version `NiLangCore.deanc`, with more informative error.
 """
 macro invcheck(x, val)
-    esc(quote
-        try
-            $deanc($x, $val)
-        catch e
-            @warn "deallocate assertion fail: `$($(QuoteNode(x))) → $($(QuoteNode(val)))`"
-            throw(e)
-        end
-    end)
+    esc(_invcheck(x, val))
 end
-_invcheck(a, b) = Expr(:macrocall, Symbol("@invcheck"), nothing, a, b)
+
+# the expression for reversibility checking
+function _invcheck(x, val)
+    Expr(:try, Expr(:block, :($deanc($x, $val))), :e, Expr(:block, 
+            Expr(:macrocall, Symbol("@warn"), nothing, "deallocate fail: `$x → $val`"),
+            :(throw(e)))
+        )
+end
+_invcheck(docheck::Bool, arg, res) = docheck ? _invcheck(arg, res) : nothing
 
 """
     chfield(x, field, val)

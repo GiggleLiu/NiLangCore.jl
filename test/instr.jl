@@ -120,8 +120,10 @@ end
 end
 
 @testset "+=, -=, *=, /=" begin
-    @test compile_ex(@__MODULE__, :(x += y * z), NiLangCore.CompileInfo()) == compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x -= y * z)), NiLangCore.CompileInfo())
-    @test compile_ex(@__MODULE__, :(x /= y * z), NiLangCore.CompileInfo()) == compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x *= y * z)), NiLangCore.CompileInfo())
+    @test compile_ex(@__MODULE__, :(x += y * z), NiLangCore.CompileInfo()).args[1].args[2] == :($PlusEq(*)(x, y, z))
+    @test compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x -= y * z)), NiLangCore.CompileInfo()).args[1].args[2] ==  :($PlusEq(*)(x, y, z))
+    @test compile_ex(@__MODULE__, :(x /= y * z), NiLangCore.CompileInfo()).args[1].args[2] == :($DivEq(*)(x, y, z))
+    @test compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x *= y * z)), NiLangCore.CompileInfo()).args[1].args[2] ==  :($DivEq(*)(x, y, z))
     @test ~MulEq(*) == DivEq(*)
     @test ~DivEq(*) == MulEq(*)
     function (g::MulEq)(y, a, b)

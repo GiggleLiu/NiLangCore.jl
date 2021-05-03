@@ -67,13 +67,19 @@ Assign input variables with output values: `args... = f(args...)`, turn off inve
 """
 macro assignback(ex, invcheck=true)
     ex = precom_ex(__module__, ex, PreInfo(Symbol[]))
+    esc(assignback_ex(ex, invcheck))
+end
+
+function assignback_ex(ex::Expr, invcheck::Bool)
     @smatch ex begin
         :($f($(args...))) => begin
             symres = gensym("results")
             ex = :($symres = $f($(args...)))
-            esc(Expr(:block, ex, assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
+            res = assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)
+            pushfirst!(res.args, ex)
+            return res
         end
-        _ => error("got $ex")
+        _ => error("assign back fail, got $ex")
     end
 end
 
@@ -101,13 +107,6 @@ function assign_vars(args, symres; invcheck)
     Expr(:block, exprs...)
 end
 
-function _invcheck(docheck, arg, res)
-    if docheck
-        _invcheck(arg, res)
-    else
-        nothing
-    end
-end
 function assign_ex(arg::Union{Symbol,GlobalRef}, res; invcheck)
     if _isconst(arg)
         _invcheck(invcheck, arg, res)

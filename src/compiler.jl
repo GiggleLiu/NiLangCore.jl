@@ -118,7 +118,7 @@ function compile_ex(m::Module, ex, info)
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
         :($f($(args...))) => begin
             check_shared_rw(args)
-            Expr(:macrocall, Symbol("@assignback"), nothing, ex, info.invcheckon[])
+            assignback_ex(ex, info.invcheckon[])
         end
         :($f.($(allargs...))) => begin
             args, kwargs = seperate_kwargs(allargs)
