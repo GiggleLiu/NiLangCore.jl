@@ -75,8 +75,7 @@ function precom_ox(f, out, arg2)
         @smatch arg2 begin
             :($x |> $view) => Expr(f, out, :(identity($arg2)))
             :($subf($(subargs...))) ||
-            :($a || $b) ||
-            :($a && $b) => Expr(f, out, arg2)
+            :($a || $b) || :($a && $b) => Expr(f, out, arg2)
             _ => Expr(f, out, :(identity($arg2)))
         end
     elseif f == :(.⊻=)
@@ -91,19 +90,15 @@ end
 
 # deconstruct `args`, create `x`
 function symbol_transfer(xs, xvals, args, info, delete, add)
-    if delete
-        for arg in args
-            # no need to deallocate `arg`.
-            if arg ∉ xs
-                delete!(info.ancs, arg)
-            end
+    delete && for arg in args
+        # no need to deallocate `arg`.
+        if arg ∉ xs
+            delete!(info.ancs, arg)
         end
     end
-    if add
-        for (x, xval) in zip(xs, xvals)
-            if x ∉ args
-                info.ancs[x] = xval
-            end
+    add && for (x, xval) in zip(xs, xvals)
+        if x ∉ args
+            info.ancs[x] = xval
         end
     end
 end

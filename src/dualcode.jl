@@ -8,18 +8,8 @@ end
 # get the function name of the inverse function
 function dual_fname(op)
     @smatch op begin
-        :($x::MinusEq{$tp}) => :($x::PlusEq{$tp})
-        :($x::PlusEq{$tp}) => :($x::MinusEq{$tp})
-        :($x::MinusEq) => :($x::PlusEq)
-        :($x::PlusEq) => :($x::MinusEq)
-        :($x::DivEq{$tp}) => :($x::MulEq{$tp})
-        :($x::MulEq{$tp}) => :($x::DivEq{$tp})
-        :($x::DivEq) => :($x::MulEq)
-        :($x::MulEq) => :($x::DivEq)
-        :($x::XorEq{$tp}) => :($x::XorEq{$tp})
         :($x::$tp) => :($x::$invtype($tp))
         :(~$x) => x
-        #_ => :(_::Inv{typeof($op)})
         _ => :($(gensym("~$op"))::$_typeof(~$op))
     end
 end
@@ -37,13 +27,7 @@ function dual_ex(m::Module, ex)
         :($x ← $val) => :($x → $val)
         :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
         :(($t1=>$t2).($x)) => :(($t2=>$t1).($x))
-        :($f($(args...))) => begin
-            if startwithdot(f)
-                :($(dotgetdual(f)).($(args...)))
-            else
-                :($(getdual(f))($(args...)))
-            end
-        end
+        :($f($(args...))) => startwithdot(f) ? :($(getdual(removedot(sym))).($(args...))) : :($(getdual(f))($(args...)))
         :($f.($(args...))) => :($(getdual(f)).($(args...)))
         :($a += $b) => :($a -= $b)
         :($a .+= $b) => :($a .-= $b)
@@ -59,7 +43,6 @@ function dual_ex(m::Module, ex)
         :(while ($pre, $post); $(body...); end) => begin
             Expr(:while, :(($post, $pre)), Expr(:block, dual_body(m, body)...))
         end
-        # TODO: allow ommit step.
         :(for $i=$start:$step:$stop; $(body...); end) => begin
             Expr(:for, :($i=$stop:(-$step):$start), Expr(:block, dual_body(m, body)...))
         end
@@ -127,7 +110,6 @@ getdual(f) = @smatch f begin
     :(~$f) => f
     _ => :(~$f)
 end
-dotgetdual(f::Symbol) = getdual(removedot(f))
 
 function dual_body(m::Module, body)
     out = []

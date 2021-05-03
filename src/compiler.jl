@@ -57,8 +57,8 @@ function to_standard_format(ex::Expr)
         @smatch b begin
             :($f.($(args...); $(kwargs...))) => :($F($f).($a, $(args...); $(kwargs...)))
             :($f.($(args...))) => :($F($f).($a, $(args...)))
-            :($f($(args...); $(kwargs...))) => :($F($(debcast(f))).($a, $(args...); $(kwargs...)))
-            :($f($(args...))) => :($F($(debcast(f))).($a, $(args...)))
+            :($f($(args...); $(kwargs...))) => :($F($(removedot(f))).($a, $(args...); $(kwargs...)))
+            :($f($(args...))) => :($F($(removedot(f))).($a, $(args...)))
             _ => :($F(identity).($a, $b))
         end
     end
@@ -326,7 +326,7 @@ CVar{Float64}(1.0, 0.2)
 julia> (~CVar)(CVar(0.2))
 0.2
 ```
-See `test/compiler.jl` and `test/invtype.jl` for more examples.
+See `test/compiler.jl` for more examples.
 """
 macro i(ex)
     if ex isa Expr && ex.head == :struct

@@ -23,15 +23,20 @@ macro dual(f, invf)
 end
 
 macro dualtype(t, invt)
-    esc(:(
-        invtype($t) === $invt || begin
-            $NiLangCore.invtype(::Type{$t}) = $invt;
-        end;
-        invtype($invt) === $t || begin
-            $NiLangCore.invtype(::Type{$invt}) = $t;
+    esc(quote
+        $invtype($t) === $invt || begin
+            $NiLangCore.invtype(::Type{$t}) = $invt
+            $NiLangCore.invtype(::Type{T}) where T<:$t = $invt{T.parameters...}
         end
-    ))
+        $invtype($invt) === $t || begin
+            $NiLangCore.invtype(::Type{$invt}) = $t
+            $NiLangCore.invtype(::Type{T}) where T<:$invt = $t{T.parameters...}
+        end
+    end)
 end
+@dualtype PlusEq MinusEq
+@dualtype DivEq MulEq
+@dualtype XorEq XorEq
 
 """
     @selfdual f

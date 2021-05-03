@@ -4,10 +4,7 @@ const GLOBAL_ATOL = Ref(1e-8)
 startwithdot(sym::Symbol) = string(sym)[1] == '.'
 startwithdot(sym::Expr) = false
 startwithdot(sym) = false
-endwithpang(sym::Symbol) = string(sym)[end] == '!'
-endwithpang(sym::Expr) = false
-removedot(sym::Symbol) = startwithdot(sym) ? Symbol(string(sym)[2:end]) : sym
-function debcast(f)
+function removedot(f)
     string(f)[1] == '.' || error("$f is not a broadcasting.")
     Symbol(string(f)[2:end])
 end
@@ -143,9 +140,7 @@ end
 end
 
 function same_length(args)
-    if length(args) == 0
-        return 0
-    end
+    length(args) == 0 && error("can not broadcast over an empty set of arguments.")
     l = length(args[1])
     for j=2:length(args)
         @assert l == length(args[j]) "length of arguments should be the same `$(length(args[j])) != $l`"
