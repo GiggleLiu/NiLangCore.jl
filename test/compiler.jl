@@ -681,6 +681,10 @@ end
     @i function (f::AddX)(x::Real) end
     @test hasmethod(AddX(3), Tuple{Real})
     @test hasmethod(SubX(3), Tuple{Real})
+    @test invtype(AddX) == SubX
+    @test invtype(AddX{Float64}) == SubX{Float64}
+    @test invtype(SubX) == AddX
+    @test invtype(SubX{Float64}) == AddX{Float64}
 end
 
 
