@@ -91,7 +91,7 @@ macro invcheck(x, val)
         try
             $deanc($x, $val)
         catch e
-            @warn "Error while checking `$($(QuoteNode(x)))` and `$($(QuoteNode(val)))`"
+            @warn "deallocate assertion fail: `$($(QuoteNode(x))) → $($(QuoteNode(val)))`"
             throw(e)
         end
     end)
