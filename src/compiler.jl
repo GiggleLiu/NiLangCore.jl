@@ -121,10 +121,10 @@ function compile_ex(m::Module, ex, info)
             tmp = gensym("temp")
             Expr(:block, :($tmp = $y), assign_ex(y, x; invcheck=info.invcheckon[]), assign_ex(x, tmp; invcheck=info.invcheckon[]))
         end
-        :(PUSH!($x)) => compile_ex(m, :(PUSH!($select_stack($x), $x)), info)
-        :(COPYPUSH!($x)) => compile_ex(m, :(COPYPUSH!($select_stack($x), $x)), info)
-        :(POP!($x)) => compile_ex(m, :(POP!($select_stack($x), $x)), info)
-        :(COPYPOP!($x)) => compile_ex(m, :(COPYPOP!($select_stack($x), $x)), info)
+        :(PUSH!($x)) => compile_ex(m, :(PUSH!($select_instack($x), $x)), info)
+        :(COPYPUSH!($x)) => compile_ex(m, :(COPYPUSH!($select_instack($x), $x)), info)
+        :(POP!($x)) => compile_ex(m, :(POP!($select_outstack($x), $x)), info)
+        :(COPYPOP!($x)) => compile_ex(m, :(COPYPOP!($select_outstack($x), $x)), info)
         :(POP!($s, $x)) => begin
             ex = assign_ex(x, :($pop!($s)); invcheck=info.invcheckon[])
             info.invcheckon[] ? Expr(:block, _invcheck(x, :(_zero($x))), ex) : ex

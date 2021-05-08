@@ -7,7 +7,8 @@ using NiLangCore, Test
                 (NiLangCore.GLOBAL_STACK_UInt8, UInt8(2)), (NiLangCore.GLOBAL_STACK_Bool, true),
                 ]
         println(stack)
-        @test NiLangCore.select_stack(x) === stack
+        @test NiLangCore.select_instack(x) === stack
+        @test NiLangCore.select_outstack(x) === stack
         push!(stack, x)
         @test pop!(stack) === x
     end

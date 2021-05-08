@@ -25,6 +25,12 @@ bg["Julia"] = @benchmarkable begin
     x = pop!(stack)
 end seconds=1 setup=(x=3.0; stack=Float64[])
 
+# Julia pop!/push!
+bg["Julia-Any"] = @benchmarkable begin 
+    push!(stack, x)
+    x = pop!(stack)
+end seconds=1 setup=(x=3.0; stack=Any[])
+
 # setindex
 bg["setindex"] = @benchmarkable begin 
     stack[2] = x

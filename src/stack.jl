@@ -36,7 +36,9 @@ let
     for DT in [:Float64, :Float32, :ComplexF64, :ComplexF32, :Int64, :Int32, :Bool, :UInt8]
         STACK = Symbol(:GLOBAL_STACK_, DT)
         @eval const $STACK = FastStack{$DT}(1000000)
-        @eval select_stack(::$DT) = $STACK
+        # allow in-stack and out-stack different, to support loading data to GVar.
+        @eval select_instack(::$DT) = $STACK
+        @eval select_outstack(::$DT) = $STACK
         push!(empty_exprs, Expr(:call, empty!, STACK))
     end
     @eval function empty_global_stacks!()
