@@ -116,13 +116,38 @@ function compile_ex(m::Module, ex, info)
         end
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
         :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
+        # NOTE: this is a patch for POP!
+        :($x ↔ $y) => begin
+            tmp = gensym("temp")
+            Expr(:block, :($tmp = $y), assign_ex(y, x; invcheck=info.invcheckon[]), assign_ex(x, tmp; invcheck=info.invcheckon[]))
+        end
+        :(PUSH!($x)) => compile_ex(m, :(PUSH!($select_stack($x), $x)), info)
+        :(COPYPUSH!($x)) => compile_ex(m, :(COPYPUSH!($select_stack($x), $x)), info)
+        :(POP!($x)) => compile_ex(m, :(POP!($select_stack($x), $x)), info)
+        :(COPYPOP!($x)) => compile_ex(m, :(COPYPOP!($select_stack($x), $x)), info)
+        :(POP!($s, $x)) => begin
+            ex = assign_ex(x, :($pop!($s)); invcheck=info.invcheckon[])
+            info.invcheckon[] ? Expr(:block, _invcheck(x, :(_zero($x))), ex) : ex
+        end
+        :(PUSH!($s, $x)) => begin
+            Expr(:block, :($push!($s, $x)), assign_ex(x, :(_zero($x)); invcheck=info.invcheckon[]))
+        end
+        :(COPYPOP!($s, $x)) => begin
+            if info.invcheckon[]
+                y = gensym("result")
+                Expr(:block, :($y=$pop!($s)),_invcheck(x, y), assign_ex(x, :($loaddata(typeof($x), $y)); invcheck=info.invcheckon[]))
+            else
+                assign_ex(x, :($loaddata(typeof($x), $pop!($s))), invcheck=false)  # assign back can help remove roundoff error
+            end
+        end
+        :(COPYPUSH!($s, $x)) => :($push!($s, $x))
         :($f($(args...))) => begin
-            check_shared_rw(args)
+            check_args!(args)
             assignback_ex(ex, info.invcheckon[])
         end
         :($f.($(allargs...))) => begin
             args, kwargs = seperate_kwargs(allargs)
-            check_shared_rw(args)
+            check_args!(args)
             symres = gensym("results")
             ex = :($symres = $unzipped_broadcast($kwargs, $f, $(args...)))
             Expr(:block, ex, assign_vars(args, symres; invcheck=info.invcheckon[]).args...)
@@ -245,11 +270,10 @@ function forstatement(i, range, body, info, mcr)
     end
 end
 
-# error on shared read or shared write.
-function check_shared_rw(args)
+function check_args!(args)
     args_kernel = []
-    for arg in args
-        out = get_memory_kernel(arg)
+    for i=1:length(args)
+        args[i], out = analyse_arg!(args[i])
         if out isa Vector
             for o in out
                 if o !== nothing
@@ -260,6 +284,7 @@ function check_shared_rw(args)
             push!(args_kernel, out)
         end
     end
+    # error on shared read or shared write.
     for i=1:length(args_kernel)
         for j in i+1:length(args_kernel)
             if args_kernel[i] == args_kernel[j]

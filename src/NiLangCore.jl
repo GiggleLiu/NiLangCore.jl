@@ -6,6 +6,7 @@ using TupleTools
 include("lens.jl")
 
 include("utils.jl")
+include("stack.jl")
 include("Core.jl")
 include("vars.jl")
 
