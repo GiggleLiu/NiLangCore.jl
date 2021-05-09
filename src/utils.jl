@@ -14,9 +14,9 @@ end
 
 Return the argument name of a function argument expression, e.g. `x::Float64 = 4` gives `x`.
 """
-get_argname(arg::Symbol) = arg
-function get_argname(fname::Expr)
+function get_argname(fname)
     @smatch fname begin
+        ::Symbol => fname
         :($x::$t) => x
         :($x::$t=$y) => x
         :($x=$y) => x

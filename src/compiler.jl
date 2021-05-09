@@ -111,7 +111,7 @@ function compile_ex(m::Module, ex, info)
         end
         :($x → $tp) => begin
             if info.invcheckon[]
-                _invcheck(x, tp)
+                _invcheck(x, tp)  # TODO: avoid using `x` in the following context.
             end
         end
         :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
@@ -140,7 +140,7 @@ function compile_ex(m::Module, ex, info)
                 assign_ex(x, :($loaddata($x, $pop!($s))), invcheck=false)  # assign back can help remove roundoff error
             end
         end
-        :(COPYPUSH!($s, $x)) => :($push!($s, $copy($x)))
+        :(COPYPUSH!($s, $x)) => :($push!($s, $_copy($x)))
         :($f($(args...))) => begin
             check_args!(args)
             assignback_ex(ex, info.invcheckon[])
@@ -293,6 +293,9 @@ function check_args!(args)
         end
     end
 end
+
+_copy(x) = copy(x)
+_copy(x::Tuple) = copy.(x)
 
 export @code_julia
 
