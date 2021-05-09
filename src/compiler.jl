@@ -140,7 +140,7 @@ function compile_ex(m::Module, ex, info)
                 assign_ex(x, :($loaddata($x, $pop!($s))), invcheck=false)  # assign back can help remove roundoff error
             end
         end
-        :(COPYPUSH!($s, $x)) => :($push!($s, $x))
+        :(COPYPUSH!($s, $x)) => :($push!($s, $copy($x)))
         :($f($(args...))) => begin
             check_args!(args)
             assignback_ex(ex, info.invcheckon[])

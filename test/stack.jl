@@ -111,10 +111,10 @@ end
 
     x =0.3
     st = Float64[]
-    @instr COPYPUSH!(st, x)
+    @instr ~(COPYPOP!(st, x))
     @test x === 0.3
     @test length(st) == 1
-    @instr COPYPOP!(st, x)
+    @instr ~(COPYPUSH!(st, x))
     @test length(st) == 0
     @test x === 0.3
     @instr @invcheckoff COPYPUSH!(st, x)
