@@ -1,5 +1,5 @@
 using NiLangCore
-using NiLangCore: compile_ex, dual_ex, precom_ex, get_memory_kernel, check_shared_rw
+using NiLangCore: compile_ex, dual_ex, precom_ex, analyse_arg!, check_args!
 
 using Test
 import Base: +, -
@@ -120,8 +120,10 @@ end
 end
 
 @testset "+=, -=, *=, /=" begin
-    @test compile_ex(@__MODULE__, :(x += y * z), NiLangCore.CompileInfo()) == compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x -= y * z)), NiLangCore.CompileInfo())
-    @test compile_ex(@__MODULE__, :(x /= y * z), NiLangCore.CompileInfo()) == compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x *= y * z)), NiLangCore.CompileInfo())
+    @test compile_ex(@__MODULE__, :(x += y * z), NiLangCore.CompileInfo()).args[1].args[2] == :($PlusEq(*)(x, y, z))
+    @test compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x -= y * z)), NiLangCore.CompileInfo()).args[1].args[2] ==  :($PlusEq(*)(x, y, z))
+    @test compile_ex(@__MODULE__, :(x /= y * z), NiLangCore.CompileInfo()).args[1].args[2] == :($DivEq(*)(x, y, z))
+    @test compile_ex(@__MODULE__, dual_ex(@__MODULE__, :(x *= y * z)), NiLangCore.CompileInfo()).args[1].args[2] ==  :($DivEq(*)(x, y, z))
     @test ~MulEq(*) == DivEq(*)
     @test ~DivEq(*) == MulEq(*)
     function (g::MulEq)(y, a, b)
@@ -139,20 +141,25 @@ end
 end
 
 @testset "shared read write check" begin
-    @test get_memory_kernel(:((-x[3].g' |> NEG).k[5])) == :((x[3]).g.k[5])
-    @test get_memory_kernel(:((-(x |> subarray(3)).g' |> NEG).k[5])) == :((x[3]).g.k[5])
-    @test get_memory_kernel(:(@skip! x.g)) === nothing
-    @test get_memory_kernel(:(@const x .|> g)) == :x
-    @test get_memory_kernel(:(cos.(x[2]))) === nothing
-    @test get_memory_kernel(:(cos(x[2]))) === nothing
-    @test get_memory_kernel(:((x |> g)...)) == :x
-    @test get_memory_kernel(:((x |> g, y.:1))) == [:x, :(y.:1)]
-    @test get_memory_kernel(:((x |> g, y |> tget(1)))) == [:x, :(y |> tget(1))]
+    for (x, y) in [
+        (:((-x[3].g' |> NEG).k[5]) , :((x[3]).g.k[5]))
+        (:((-(x |> subarray(3)).g' |> NEG).k[5]) , :((x[3]).g.k[5]))
+        (:(@skip! x.g) , nothing)
+        (:(@const x .|> g) , :x)
+        (:(cos.(x[2])) , nothing)
+        (:(cos(x[2])) , nothing)
+        (:((x |> g)...) , :x)
+        (:((x |> g, y.:1)) , [:x, :(y.:1)])
+        (:((x |> g, y |> tget(1))) , [:x, :(y[1])])]
+        @test analyse_arg!(deepcopy(x)) == (x, y)
+    end
+    @test analyse_arg!(:(x.y.[2:3])) == (:(x.y |> subarray(2:3)), :(x.y[2:3]))
+    @test analyse_arg!(:(x.y.[2:3] |> value)) == (:(x.y |> subarray(2:3) |> value), :(x.y[2:3]))
 
-    @test_throws InvertibilityError check_shared_rw([:a, :(a |> grad)])
-    @test check_shared_rw([:(a.x), :(a.g |> grad)]) isa Nothing
-    @test_throws InvertibilityError check_shared_rw([:(a.x), :(b[3]), :(b[3])])
-    @test_throws InvertibilityError check_shared_rw([:(a.x), :((b, a.x))]) isa Nothing
+    @test_throws InvertibilityError check_args!([:a, :(a |> grad)])
+    @test check_args!([:(a.x), :(a.g |> grad)]) isa Nothing
+    @test_throws InvertibilityError check_args!([:(a.x), :(b[3]), :(b[3])])
+    @test_throws InvertibilityError check_args!([:(a.x), :((b, a.x))]) isa Nothing
     # TODO: check variable on the same tree, like `a.b` and `a`
 end
 

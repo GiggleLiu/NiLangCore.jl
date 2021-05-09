@@ -729,7 +729,12 @@ end
     @test (@code_reverse (x,y) ← var) == :((x, y) → var)
     @test (@code_reverse (x,y) → var) == :((x, y) ← var)
     @test (@code_julia (x,y) ← var) == :((x, y) = var)
-    @test (@code_julia (x,y) → var) == Expr(:macrocall, Symbol("@invcheck"), nothing, :((x, y)), :var)
+    @test (@code_julia (x,y) → var) == :(try
+        $(NiLangCore.deanc)((x, y), var)
+    catch e
+        $(:(@warn "deallocate fail: `(x, y) → var`") |> NiLangCore.rmlines)
+        throw(e)
+    end)
 
     x = randn(2,4)
     @i function f(y, x)

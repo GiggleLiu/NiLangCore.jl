@@ -24,4 +24,6 @@ end
     @test _zero(1+2.0im) == 0.0 + 0.0im
     @test _zero(()) == ()
     @test _zero((1,2)) == (0, 0)
+    @test _zero(Symbol) == Symbol("")
+    @test _zero(:x) == Symbol("")
 end

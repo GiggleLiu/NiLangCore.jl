@@ -5,6 +5,10 @@ using Test
     include("Core.jl")
 end
 
+@testset "stack.jl" begin
+    include("stack.jl")
+end
+
 @testset "lens.jl" begin
     include("lens.jl")
 end

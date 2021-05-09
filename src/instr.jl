@@ -67,13 +67,19 @@ Assign input variables with output values: `args... = f(args...)`, turn off inve
 """
 macro assignback(ex, invcheck=true)
     ex = precom_ex(__module__, ex, PreInfo(Symbol[]))
+    esc(assignback_ex(ex, invcheck))
+end
+
+function assignback_ex(ex::Expr, invcheck::Bool)
     @smatch ex begin
         :($f($(args...))) => begin
             symres = gensym("results")
             ex = :($symres = $f($(args...)))
-            esc(Expr(:block, ex, assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)))
+            res = assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)
+            pushfirst!(res.args, ex)
+            return res
         end
-        _ => error("got $ex")
+        _ => error("assign back fail, got $ex")
     end
 end
 
@@ -101,13 +107,6 @@ function assign_vars(args, symres; invcheck)
     Expr(:block, exprs...)
 end
 
-function _invcheck(docheck, arg, res)
-    if docheck
-        _invcheck(arg, res)
-    else
-        nothing
-    end
-end
 function assign_ex(arg::Union{Symbol,GlobalRef}, res; invcheck)
     if _isconst(arg)
         _invcheck(invcheck, arg, res)
@@ -138,7 +137,6 @@ assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
     :($x .|> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
     :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)); invcheck=invcheck)
     :(-$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, -, $res)); invcheck=invcheck)
-    :(-.$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref(-), $res)); invcheck=invcheck)
     :($t{$(p...)}($(args...))) => begin
         if length(args) == 1
             assign_ex(args[1], :($getfield($res, 1)); invcheck=invcheck)
@@ -162,9 +160,10 @@ assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
 end
 
 _isconst(x) = false
-_isconst(x::Symbol) = x in [:im, :π, :true, :false]
+# NOTE: declare constants here
+_isconst(x::Symbol) = x ∈ Symbol[:im, :π, :Float64, :Float32, :Int, :Int64, :Int32, :Bool, :UInt8, :String, :Char, :ComplexF64, :ComplexF32]
 _isconst(::QuoteNode) = true
-_isconst(x::Union{Number,String}) = true
+_isconst(x::Union{Bool,Char,Number,String}) = true
 _isconst(x::Expr) = @smatch x begin
     :($f($(args...))) => all(_isconst, args)
     :(@const $line $ex) => true
@@ -194,25 +193,76 @@ macro assign(a, b, invcheck=true)
     esc(assign_ex(a, b; invcheck=invcheck))
 end
 
-get_memory_kernel(ex) = @smatch ex begin
-    ::Symbol => ex
-    :(@skip! $line $x) => nothing
-    :(@const $line $x) => get_memory_kernel(x)
-
-    :($x.$k) => :($(get_memory_kernel(x)).$k)
-    # tuples must be index through (x |> 1)
-    :($a |> tget($x)) => :($(get_memory_kernel(a)) |> tget($x))
-    :($a |> subarray($(ranges...))) => :($(get_memory_kernel(a))[$(ranges...)])
-    :($x |> $f) => get_memory_kernel(x)
-    :($x .|> $f) => get_memory_kernel(x)
-    :($x') => get_memory_kernel(x)
-    :(-$x) => get_memory_kernel(x)
-    :(-.$x) => get_memory_kernel(x)  #?
-    :($t{$(p...)}($(args...))) => Any[get_memory_kernel(arg) for arg in args]
-    :($f($(args...))) => nothing
-    :($f.($(args...))) => nothing
-    :($a[$(x...)]) => :($(get_memory_kernel(a))[$(x...)])
-    :(($(args...),)) => Any[get_memory_kernel(arg) for arg in args]
-    :($ag...) => get_memory_kernel(ag)
-    _ => nothing
+# Returns (the modified argument, the memory `identifier` of this argument)
+analyse_arg!(ex) = @smatch ex begin
+    ::Symbol => (ex, ex)
+    :(@skip! $line $x) => (ex, nothing)  # Julia scope
+    :(@const $line $x) => begin
+        ex.args[3], k = analyse_arg!(x)
+        ex, k
+    end
+    :($x.[$(inds...)]) => begin
+        analyse_arg!(:($x |> subarray($(inds...))))
+    end
+    :($x.$y) => begin
+        ex.args[1], k = analyse_arg!(x)
+        ex, :($k.$y)
+    end
+    :($a |> tget($x)) => begin
+        ex.args[2], k = analyse_arg!(a)
+        ex, :($k[$x])
+    end
+    :($a |> subarray($(ranges...))) => begin
+        ex.args[2], k = analyse_arg!(a)
+        ex, :($k[$(ranges...)])
+    end
+    :($x |> $f) => begin
+        ex.args[2], k = analyse_arg!(x)
+        ex, k
+    end
+    :($x .|> $f) => begin
+        ex.args[2], k = analyse_arg!(x)
+        ex, k
+    end
+    :($x') => begin
+        ex.args[1], k = analyse_arg!(x)
+        ex, k
+    end
+    :(-$x) => begin
+        ex.args[2], k = analyse_arg!(x)
+        ex, k
+    end
+    :($t{$(p...)}($(args...))) => begin
+        l2 = []
+        for i=1:length(args)
+            a, k = analyse_arg!(args[i])
+            ex.args[i+1] = a
+            push!(l2, k)
+        end
+        ex, l2
+    end
+    :($f($(args...))) => begin  # Julia scope
+        ex, nothing
+    end
+    :($f.($(args...))) => begin  # Julia scope
+        ex, nothing
+    end
+    :($a[$(x...)]) => begin
+        ex.args[1], k = analyse_arg!(a)
+        ex, :($k[$(x...)])
+    end
+    :(($(args...),)) => begin
+        l2 = []
+        for i=1:length(args)
+            a, k = analyse_arg!(args[i])
+            ex.args[i] = a
+            push!(l2, k)
+        end
+        ex, l2
+    end
+    :($ag...) => begin
+        ex.args[1], k = analyse_arg!(ag)
+        ex, k
+    end
+    _ => (ex, nothing)   # Julia scope
 end
