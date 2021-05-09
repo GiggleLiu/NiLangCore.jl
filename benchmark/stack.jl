@@ -25,6 +25,12 @@ bg["Julia"] = @benchmarkable begin
     x = pop!(stack)
 end seconds=1 setup=(x=3.0; stack=Float64[])
 
+# FastStack-inbounds-Any
+bg["FastStack-inbounds-Any"] = @benchmarkable begin 
+    @inbounds push!(stack, x)
+    @inbounds pop!(stack)
+end seconds=1 setup=(x=3.0; stack=FastStack(10))
+
 # Julia pop!/push!
 bg["Julia-Any"] = @benchmarkable begin 
     push!(stack, x)

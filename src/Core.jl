@@ -65,9 +65,7 @@ deanc(a, b) = throw(InvertibilityError("deallocate fail (type mismatch): `$(type
     if isprimitivetype(T)
         :(a === b || throw(InvertibilityError("deallocate fail (primitive): $a ≂̸ $b")))
     else
-        quote
-            @nexprs $nf i-> deanc(getfield(a, i), getfield(b, i))
-        end
+        Expr(:block, [:($deanc(a.$NAME, b.$NAME)) for NAME in fieldnames(T)]...)
     end
 end
 

@@ -121,23 +121,23 @@ function compile_ex(m::Module, ex, info)
             tmp = gensym("temp")
             Expr(:block, :($tmp = $y), assign_ex(y, x; invcheck=info.invcheckon[]), assign_ex(x, tmp; invcheck=info.invcheckon[]))
         end
-        :(PUSH!($x)) => compile_ex(m, :(PUSH!($select_instack($x), $x)), info)
-        :(COPYPUSH!($x)) => compile_ex(m, :(COPYPUSH!($select_instack($x), $x)), info)
-        :(POP!($x)) => compile_ex(m, :(POP!($select_outstack($x), $x)), info)
-        :(COPYPOP!($x)) => compile_ex(m, :(COPYPOP!($select_outstack($x), $x)), info)
+        :(PUSH!($x)) => compile_ex(m, :(PUSH!($GLOBAL_STACK, $x)), info)
+        :(COPYPUSH!($x)) => compile_ex(m, :(COPYPUSH!($GLOBAL_STACK, $x)), info)
+        :(POP!($x)) => compile_ex(m, :(POP!($GLOBAL_STACK, $x)), info)
+        :(COPYPOP!($x)) => compile_ex(m, :(COPYPOP!($GLOBAL_STACK, $x)), info)
         :(POP!($s, $x)) => begin
-            ex = assign_ex(x, :($pop!($s)); invcheck=info.invcheckon[])
-            info.invcheckon[] ? Expr(:block, _invcheck(x, :(_zero($x))), ex) : ex
+            ex = assign_ex(x, :($loaddata($x, $pop!($s))); invcheck=info.invcheckon[])
+            info.invcheckon[] ? Expr(:block, _invcheck(x, :($_zero($typeof($x)))), ex) : ex
         end
         :(PUSH!($s, $x)) => begin
-            Expr(:block, :($push!($s, $x)), assign_ex(x, :(_zero($x)); invcheck=info.invcheckon[]))
+            Expr(:block, :($push!($s, $x)), assign_ex(x, :($_zero($typeof($x))); invcheck=info.invcheckon[]))
         end
         :(COPYPOP!($s, $x)) => begin
             if info.invcheckon[]
                 y = gensym("result")
-                Expr(:block, :($y=$pop!($s)),_invcheck(x, y), assign_ex(x, :($loaddata(typeof($x), $y)); invcheck=info.invcheckon[]))
+                Expr(:block, :($y=$loaddata($x, $pop!($s))), _invcheck(x, y), assign_ex(x, y; invcheck=info.invcheckon[]))
             else
-                assign_ex(x, :($loaddata(typeof($x), $pop!($s))), invcheck=false)  # assign back can help remove roundoff error
+                assign_ex(x, :($loaddata($x, $pop!($s))), invcheck=false)  # assign back can help remove roundoff error
             end
         end
         :(COPYPUSH!($s, $x)) => :($push!($s, $x))

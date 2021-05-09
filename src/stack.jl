@@ -1,4 +1,4 @@
-export FastStack
+export FastStack, GLOBAL_STACK, FLOAT64_STACK, FLOAT32_STACK, COMPLEXF64_STACK, COMPLEXF32_STACK, BOOL_STACK, INT64_STACK, INT32_STACK
 
 const GLOBAL_STACK = []
 
@@ -8,7 +8,11 @@ struct FastStack{T}
 end
 
 function FastStack{T}(n::Int) where T
-    FastStack{T}(zeros(T, n), Ref(0))
+    FastStack{T}(Vector{T}(undef, n), Ref(0))
+end
+
+function FastStack(n::Int) where T
+    FastStack{Any}(Vector{Any}(undef, n), Ref(0))
 end
 
 Base.show(io::IO, x::FastStack{T}) where T = print(io, "FastStack{$T}($(x.top[])/$(length(x.data)))")
@@ -33,12 +37,10 @@ end
 # default stack size is 10^6 (~8M for Float64)
 let
     empty_exprs = Expr[:($empty!($GLOBAL_STACK))]
-    for DT in [:Float64, :Float32, :ComplexF64, :ComplexF32, :Int64, :Int32, :Bool, :UInt8]
-        STACK = Symbol(:GLOBAL_STACK_, DT)
+    for DT in [:Float64, :Float32, :ComplexF64, :ComplexF32, :Int64, :Int32, :Bool]
+        STACK = Symbol(uppercase(String(DT)), :_STACK)
         @eval const $STACK = FastStack{$DT}(1000000)
         # allow in-stack and out-stack different, to support loading data to GVar.
-        @eval select_instack(::$DT) = $STACK
-        @eval select_outstack(::$DT) = $STACK
         push!(empty_exprs, Expr(:call, empty!, STACK))
     end
     @eval function empty_global_stacks!()
@@ -47,8 +49,8 @@ let
 end
 
 """
-    loaddata(T, x)
+    loaddata(t, x)
 
-load data from stack, matching target type `T`.
+load data `x`, matching type of `t`.
 """
-loaddata(::Type{T}, x::T) where T = x
+loaddata(::T, x::T) where T = x

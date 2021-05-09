@@ -1,14 +1,13 @@
 using NiLangCore, Test
 
 @testset "stack" begin
-    for (stack, x) in [(NiLangCore.GLOBAL_STACK_Float64, 0.3), (NiLangCore.GLOBAL_STACK_Float32, 0f4),
-                (NiLangCore.GLOBAL_STACK_Int64, 3), (NiLangCore.GLOBAL_STACK_Int32, Int32(3)),
-                (NiLangCore.GLOBAL_STACK_ComplexF64, 4.0+0.3im), (NiLangCore.GLOBAL_STACK_ComplexF32, 4f0+0f3im),
-                (NiLangCore.GLOBAL_STACK_UInt8, UInt8(2)), (NiLangCore.GLOBAL_STACK_Bool, true),
+    for (stack, x) in [
+                (FLOAT64_STACK, 0.3), (FLOAT32_STACK, 0f4),
+                (INT64_STACK, 3), (INT32_STACK, Int32(3)),
+                (COMPLEXF64_STACK, 4.0+0.3im), (COMPLEXF32_STACK, 4f0+0f3im),
+                (BOOL_STACK, true),
                 ]
         println(stack)
-        @test NiLangCore.select_instack(x) === stack
-        @test NiLangCore.select_outstack(x) === stack
         push!(stack, x)
         @test pop!(stack) === x
     end
@@ -16,19 +15,20 @@ end
 
 @testset "stack operations" begin
     z = 1.0
+    NiLangCore.empty_global_stacks!()
     @test_throws InvertibilityError (@instr POP!(z))
     y = 0.0
-    @test_throws BoundsError (@instr POP!(y))
-    @test_throws BoundsError (@instr COPYPOP!(y))
-    @test_throws BoundsError (@instr @invcheckoff POP!(y))
-    @test_throws BoundsError (@instr @invcheckoff COPYPOP!(y))
+    @test_throws ArgumentError (@instr POP!(y))
+    @test_throws ArgumentError (@instr COPYPOP!(y))
+    @test_throws ArgumentError (@instr @invcheckoff POP!(y))
+    @test_throws ArgumentError (@instr @invcheckoff COPYPOP!(y))
     x = 0.3
     NiLangCore.empty_global_stacks!()
     @instr PUSH!(x)
     @test x === 0.0
     @instr POP!(x)
     @test x === 0.3
-    @instr PUSH!(x)
+    @instr @invcheckoff PUSH!(x)
     x = 0.4
     @test_throws InvertibilityError @instr POP!(x)
     y = 0.5
@@ -55,6 +55,10 @@ end
     @instr @invcheckoff POP!(st, x)
     @test x == 0.5
 
+    VEC = [1,3,3]
+    @instr PUSH!(VEC)
+    @test VEC == Int[]
+
     @i function test(x)
         x2 ← zero(x)
         x2 += x^2
@@ -62,9 +66,9 @@ end
         x ↔ x2
     end
     @test test(3.0) == 9.0
-    l = length(NiLangCore.GLOBAL_STACK_Float64)
+    l = length(NiLangCore.GLOBAL_STACK)
     @test check_inv(test, (3.0,))
-    @test length(NiLangCore.GLOBAL_STACK_Float64) == l
+    @test length(NiLangCore.GLOBAL_STACK) == l
 
     @i function test2(x)
         x2 ← zero(x)
@@ -73,18 +77,19 @@ end
         x ↔ x2
     end
     @test test2(3.0) == 9.0
-    l = length(NiLangCore.GLOBAL_STACK_Float64)
+    l = length(NiLangCore.GLOBAL_STACK)
     @test check_inv(test2, (3.0,))
-    @test length(NiLangCore.GLOBAL_STACK_Float64) == l
+    @test length(NiLangCore.GLOBAL_STACK) == l
 
     x = 3.0
     @instr PUSH!(x)
     NiLangCore.empty_global_stacks!()
-    l = length(NiLangCore.GLOBAL_STACK_Float64)
+    l = length(NiLangCore.GLOBAL_STACK)
     @test l == 0
 end
 
 @testset "copied push/pop stack operations" begin
+    NiLangCore.empty_global_stacks!()
     x =0.3
     @instr COPYPUSH!(x)
     @test x === 0.3
@@ -112,7 +117,7 @@ end
     @instr COPYPOP!(st, x)
     @test length(st) == 0
     @test x === 0.3
-    @instr COPYPUSH!(st, x)
+    @instr @invcheckoff COPYPUSH!(st, x)
     @test length(st) == 1
     x = 0.4
     @test_throws InvertibilityError @instr COPYPOP!(st, x)
