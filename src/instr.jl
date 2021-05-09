@@ -107,27 +107,18 @@ function assign_vars(args, symres; invcheck)
     Expr(:block, exprs...)
 end
 
-function assign_ex(arg::Union{Symbol,GlobalRef}, res; invcheck)
-    if _isconst(arg)
-        _invcheck(invcheck, arg, res)
-    else
-        :($arg = $res)
-    end
-end
-
 error_message_fcall(arg) = """
 function arguments should not contain function calls on variables, got `$arg`, try to decompose it into elementary statements, e.g. statement `z += f(g(x))` should be written as
-
     y += g(x)
     z += y
 
 If `g` is a dataview (a function map an object to its field or a bijective function), one can also use the pipline like
-
     z += f(x |> g)
 """
 
-assign_ex(arg::Union{Number,String}, res; invcheck) = _invcheck(invcheck, arg, res)
-assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
+assign_ex(arg, res; invcheck) = @smatch arg begin
+    ::Number || ::String => _invcheck(invcheck, arg, res)
+    ::Symbol || ::GlobalRef => _isconst(arg) ? _invcheck(invcheck, arg, res) : :($arg = $res)
     :(@skip! $line $x) => nothing
     :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
     # tuples must be index through (x |> 1)
@@ -157,17 +148,6 @@ assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
         ex
     end
     _ => _invcheck(invcheck, arg, res)
-end
-
-_isconst(x) = false
-# NOTE: declare constants here
-_isconst(x::Symbol) = x ∈ Symbol[:im, :π, :Float64, :Float32, :Int, :Int64, :Int32, :Bool, :UInt8, :String, :Char, :ComplexF64, :ComplexF32]
-_isconst(::QuoteNode) = true
-_isconst(x::Union{Bool,Char,Number,String}) = true
-_isconst(x::Expr) = @smatch x begin
-    :($f($(args...))) => all(_isconst, args)
-    :(@const $line $ex) => true
-    _ => false
 end
 
 # general

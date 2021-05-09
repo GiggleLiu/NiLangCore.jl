@@ -25,11 +25,15 @@ function precom(m::Module, ex)
     for arg in newargs
         pushvar!(vars, arg)
     end
-    info = PreInfo(vars)
+    info = PreInfo(copy(vars))
     body_out = flushancs(precom_body(m, body, info), info)
     if !isempty(info.routines)
         error("`@routine` and `~@routine` must appear in pairs, mising `~@routine`!")
     end
+    st = SymbolTable(vars, Symbol[], Symbol[])
+    st_after = copy(st)
+    variable_analysis_ex.(body_out, Ref(st))
+    checksyms(st_after, st)
     mc, fname, newargs, ts, body_out
 end
 
