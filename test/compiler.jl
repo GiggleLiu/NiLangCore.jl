@@ -824,3 +824,25 @@ end
     end
     @test g(2, 3) == (5, 3)
 end
+
+@testset "variable_analysis" begin
+    # kwargs should not be assigned
+    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
+        y ← 5
+        y → 5
+    end))
+    # deallocated variables should not be used
+    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
+        z ← 5
+        z → 5
+        x += 2 * z
+    end))
+    # deallocated variables should not be used in local scope
+    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
+        z ← 5
+        z → 5
+        for i=1:10
+            x += 2 * z
+        end
+    end))
+end

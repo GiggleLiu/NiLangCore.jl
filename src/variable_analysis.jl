@@ -130,11 +130,15 @@ julia_usevar!(syms::SymbolTable, ex) = @smatch ex begin
     :($a:$c) => julia_usevar!.(Ref(syms), [a, c])
     :($a && $b) || :($a || $b) || :($a[$b]) => julia_usevar!.(Ref(syms), [a, b])
     :($a.$b) => julia_usevar!(syms, a)
-    :(($(v...),)) || :($f($(v...))) => begin
+    :(($(v...),)) || :(begin $(v...) end) => julia_usevar!.(Ref(syms), v)
+    :($f($(v...))) || :($f[$(v...)]) => begin
         julia_usevar!(syms, f)
         julia_usevar!.(Ref(syms), v)
     end
-    _ => _isconst(arg) || error("unknown Julia expression $ex.")
+    Expr(:parameters, targets...) => julia_usevar!.(Ref(syms), targets)
+    Expr(:kw, tar, val) => julia_usevar!(x, val)
+    ::LineNumberNode => nothing
+    _ => _isconst(ex) || @info("unknown Julia expression $ex.")
 end
 
 # push a new variable to variable set `x`, for allocating `target`
@@ -239,34 +243,33 @@ function variable_analysis_ex(ex, syms::SymbolTable)
         :($x ↔ $y) => begin
             swapvars!(syms, x, y)
         end
-        :($a += $f($(b...))) || :($a -= $f($(b...))) ||
-        :($a *= $f($(b...))) || :($a /= $f($(b...))) || 
-        :($a .+= $f($(b...))) ||  :($a .-= $f($(b...))) || 
-        :($a .*= $f($(b...))) ||  :($a ./= $f($(b...))) || 
-        :($a ⊻= $f($(b...))) || :($a .⊻= $f($(b...))) => begin
-            use!(f)
+        :($a += $b) || :($a -= $b) ||
+        :($a *= $b) || :($a /= $b) || 
+        :($a .+= $b) ||  :($a .-= $b) || 
+        :($a .*= $b) ||  :($a ./= $b) || 
+        :($a ⊻= $b) || :($a .⊻= $b) => begin
             use!(a)
-            use!.(b)
+            variable_analysis_ex(b, syms)
         end
         Expr(:if, _...) => variable_analysis_if(ex, syms)
         :(while $condition; $(body...); end) => begin
             julia_usevar!(syms, condition)
-            localsyms = copy(syms)
-            variable_analysis_ex.(body, Ref(syms))
-            checksyms(syms, localsyms)
+            localsyms = SymbolTable(Symbol[], copy(syms.deallocated), Symbol[])
+            variable_analysis_ex.(body, Ref(localsyms))
+            checksyms(localsyms)
         end
         :(begin $(body...) end) => begin
             variable_analysis_ex.(body, Ref(syms))
         end
         # TODO: allow ommit step.
-        :(for $i=$range; $(body...); end) ||
-        :(for $i in $range; $(body...); end) => begin
+        :(for $i=$range; $(body...); end) => begin
             julia_usevar!(syms, range)
-            localsyms = copy(syms)
-            variable_analysis_ex.(body, Ref(syms))
-            checksyms(syms, localsyms)
+            localsyms = SymbolTable(Symbol[], copy(syms.deallocated), Symbol[])
+            variable_analysis_ex.(body, Ref(localsyms))
+            checksyms(localsyms)
             ex
         end
+        :(@safe $line $subex) => julia_usevar!(syms, subex)
         :(@cuda $line $(args...)) => variable_analysis_ex(args[end], syms)
         :(@launchkernel $line $(args...)) => variable_analysis_ex(args[end], syms)
         :(@inbounds $line $subex) => variable_analysis_ex(subex, syms)
@@ -312,7 +315,7 @@ _isconst(x) = @smatch x begin
     _ => false
 end
 
-function checksyms(a::SymbolTable, b::SymbolTable)
+function checksyms(a::SymbolTable, b::SymbolTable=SymbolTable())
     diff = setdiff(a.existing, b.existing)
     if !isempty(diff)
         error("Some variables not deallocated correctly: $diff")
