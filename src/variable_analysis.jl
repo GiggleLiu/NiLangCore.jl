@@ -102,15 +102,11 @@ end
 usevar!(syms::SymbolTable, arg) = @smatch arg begin
     ::Number || ::String => nothing
     ::Symbol => _isconst(arg) || operate!(syms, arg)
-    :(@skip! $line $x) => usevar!(syms, x)
+    :(@skip! $line $x) => julia_usevar!(syms, x)
     :($x.$k) => usevar!(syms, x)
-    # tuples must be index through (x |> 1)
-    :($a |> tget($x)) => (usevar!(syms, a); julia_usevar!(syms, x))
-    :($a |> subarray($(ranges...))) => (usevar!(syms, a); julia_usevar!(syms, ranges))
-    :($x |> $f) => (usevar!(syms, x); usevar!(syms, f))
-    :($x .|> $f) => (usevar!(syms, x); usevar!(syms, f))
-    :($x') => usevar!(syms, x)
-    :(-$x) => usevar!(syms, x)
+    :($a |> subarray($(ranges...))) => (usevar!(syms, a); julia_usevar!.(Ref(syms), ranges))
+    :($x |> tget($f)) || :($x |> $f) || :($x .|> $f) || :($x::$f) => (usevar!(syms, x); julia_usevar!(syms, f))
+    :($x') || :(-$x) => usevar!(syms, x)
     :($t{$(p...)}($(args...))) => begin
         usevar!(syms, t)
         usevar!.(Ref(syms), p)
@@ -135,10 +131,11 @@ julia_usevar!(syms::SymbolTable, ex) = @smatch ex begin
         julia_usevar!(syms, f)
         julia_usevar!.(Ref(syms), v)
     end
+    :($args...) => julia_usevar!(syms, args)
     Expr(:parameters, targets...) => julia_usevar!.(Ref(syms), targets)
-    Expr(:kw, tar, val) => julia_usevar!(x, val)
+    Expr(:kw, tar, val) => julia_usevar!(syms, val)
     ::LineNumberNode => nothing
-    _ => _isconst(ex) || @info("unknown Julia expression $ex.")
+    _ => nothing
 end
 
 # push a new variable to variable set `x`, for allocating `target`
@@ -219,6 +216,7 @@ function variable_analysis_ex(ex, syms::SymbolTable)
     deallocate!(x) = deallocatevar!(syms, x)
     @smatch ex begin
         # TODO: add variable analysis for `@destruct`
+        #=
         :(($(args...),) ↔ @destruct $line $x) => begin
             if x ∈ syms.existing
                 deallocate!(x)
@@ -228,28 +226,18 @@ function variable_analysis_ex(ex, syms::SymbolTable)
                 allocate!(x)
             end
         end
-        :($x[$key] ← $val) => begin
-            use!.(Any[x, key, val])
-        end
-        :($x[$key] → $val) => begin
-            use!.(Any[x, key, val])
-        end
-        :($x ← $val) => begin
-            allocate!(x)
-        end
-        :($x → $val) => begin
-            deallocate!(x)
-        end
-        :($x ↔ $y) => begin
-            swapvars!(syms, x, y)
-        end
+        =#
+        :($x[$key] ← $val) || :($x[$key] → $val) => (use!(x); use!(key); use!(val))
+        :($x ← $val) => allocate!(x)
+        :($x → $val) => deallocate!(x)
+        :($x ↔ $y) => swapvars!(syms, x, y)
         :($a += $b) || :($a -= $b) ||
         :($a *= $b) || :($a /= $b) || 
         :($a .+= $b) ||  :($a .-= $b) || 
         :($a .*= $b) ||  :($a ./= $b) || 
         :($a ⊻= $b) || :($a .⊻= $b) => begin
             use!(a)
-            variable_analysis_ex(b, syms)
+            use!(b)
         end
         Expr(:if, _...) => variable_analysis_if(ex, syms)
         :(while $condition; $(body...); end) => begin

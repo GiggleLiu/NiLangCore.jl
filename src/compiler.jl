@@ -84,14 +84,6 @@ function compile_ex(m::Module, ex, info)
         :(($(args...),) → @unsafe_destruct $line $x) => begin
             Expr(:block, line, Expr(:(=), x, Expr(:new, :(typeof($x)), args...)))
         end
-        :($x ← new{$(_...)}($(args...))) ||
-        :($x ← new($(args...))) => begin
-            :($x = $(ex.args[3]))
-        end
-        :($x → new{$(_...)}($(args...))) ||
-        :($x → new($(args...))) => begin
-            :($(Expr(:tuple, args...)) = $type2tuple($x))
-        end
         :($x[$index] ← $tp) => begin
             assign_expr = :($x[$index] = $tp)
             if info.invcheckon[]
@@ -345,29 +337,6 @@ julia> @i function test(out!, x)
 
 julia> test(0.2, 0.8)
 (1.0, 0.8)
-
-julia> @i struct CVar{T}
-           g::T
-           x::T
-           function CVar{T}(x::T, g::T) where T
-               new{T}(x, g)
-           end
-           function CVar(x::T, g::T) where T
-               new{T}(x, g)
-           end
-           # warning: infered type `T` should be used in `← new` statement only.
-           @i function CVar(xx::T) where T
-               gg ← zero(xx)
-               gg += identity(1)
-               xx ← new{T}(gg, xx)
-           end
-       end
-
-julia> CVar(0.2)
-CVar{Float64}(1.0, 0.2)
-
-julia> (~CVar)(CVar(0.2))
-0.2
 ```
 See `test/compiler.jl` for more examples.
 """
@@ -518,7 +487,7 @@ export @instr
 Execute a reversible instruction.
 """
 macro instr(ex)
-    esc(Expr(:block, NiLangCore.compile_ex(__module__, precom_ex(__module__, ex, NiLangCore.PreInfo(Symbol[])), CompileInfo()), nothing))
+    esc(Expr(:block, NiLangCore.compile_ex(__module__, precom_ex(__module__, ex, NiLangCore.PreInfo()), CompileInfo()), nothing))
 end
 
 # the range of for statement

@@ -66,7 +66,7 @@ export @assignback
 Assign input variables with output values: `args... = f(args...)`, turn off invertibility error check if the second argument is false.
 """
 macro assignback(ex, invcheck=true)
-    ex = precom_ex(__module__, ex, PreInfo(Symbol[]))
+    ex = precom_ex(__module__, ex, PreInfo())
     esc(assignback_ex(ex, invcheck))
 end
 

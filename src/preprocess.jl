@@ -2,11 +2,10 @@ export precom
 
 # precompiling information
 struct PreInfo
-    vars::Vector{Symbol}
     ancs::MyOrderedDict{Any, Any}
     routines::Vector{Any}
 end
-PreInfo(vars::Vector) = PreInfo(vars, MyOrderedDict{Any,Any}(), [])
+PreInfo() = PreInfo(MyOrderedDict{Any,Any}(), [])
 
 """
     precom(module, ex)
@@ -25,7 +24,7 @@ function precom(m::Module, ex)
     for arg in newargs
         pushvar!(vars, arg)
     end
-    info = PreInfo(copy(vars))
+    info = PreInfo()
     body_out = flushancs(precom_body(m, body, info), info)
     if !isempty(info.routines)
         error("`@routine` and `~@routine` must appear in pairs, mising `~@routine`!")
@@ -49,7 +48,6 @@ Deallocate all remaining ancillas.
 function flushancs(out, info)
     for i in 1:length(info.ancs)
         (x, tp) = pop!(info.ancs)
-        popvar!(info.vars, x)
         push!(out, :($x → $tp))
     end
     return out
@@ -115,25 +113,13 @@ Precompile a single statement `ex`, where `info` is a `PreInfo` instance.
 function precom_ex(m::Module, ex, info)
     @smatch ex begin
         # TODO: add variable analysis for `@unsafe_destruct`
-        :($x ← new{$(_...)}($(args...))) ||
-        :($x ← new($(args...))) => begin
-            symbol_transfer(Any[x], Any[ex.args[3]], args, info, true, true)
-            ex
-        end
-        :($x → new{$(_...)}($(args...))) ||
-        :($x → new($(args...))) => begin
-            symbol_transfer(args, Any[:(getfield($x, $i)) for i=1:length(args)], Any[x], info, true, true)
-            ex
-        end
         :($x[$key] ← $val) => ex
         :($x[$key] → $val) => ex
         :($x ← $val) => begin
             info.ancs[x] = val
-            pushvar!(info.vars, x)
             ex
         end
         :($x → $val) => begin
-            popvar!(info.vars, x)
             delete!(info.ancs, x)
             ex
         end
@@ -152,7 +138,7 @@ function precom_ex(m::Module, ex, info)
         Expr(:if, _...) => precom_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
-            info = PreInfo(info.vars)
+            info = PreInfo()
             Expr(:while, :(($pre, $post)), Expr(:block, flushancs(precom_body(m, body, info), info)...))
         end
         :(@from $line $post while $pre; $(body...); end) => precom_ex(m, Expr(:while, :(($pre, !$post)), ex.args[4].args[2]), info)
@@ -162,7 +148,7 @@ function precom_ex(m::Module, ex, info)
         # TODO: allow ommit step.
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
-            info = PreInfo(info.vars)
+            info = PreInfo()
             Expr(:for, :($i=$(precom_range(range))), Expr(:block, flushancs(precom_body(m, body, info), info)...))
         end
         :(@safe $line $subex) => ex
@@ -195,7 +181,7 @@ function precom_ex(m::Module, ex, info)
         # 1. precompile to expand macros
         # 2. get dual expression
         # 3. precompile to analyze vaiables
-        :(~$expr) => precom_ex(m, dual_ex(m, precom_ex(m, expr, PreInfo(Symbol[]))), info)
+        :(~$expr) => precom_ex(m, dual_ex(m, precom_ex(m, expr, PreInfo())), info)
         :($f($(args...))) => :($f($(args...)))
         :($f.($(args...))) => :($f.($(args...)))
         :(nothing) => ex
@@ -221,13 +207,13 @@ function precom_if(m, ex, exinfo)
     elseif ex.head == :elseif
         ex.args[1].args[2] = _expand_cond(ex.args[1].args[2])
     end
-    info = PreInfo(exinfo.vars)
+    info = PreInfo()
     ex.args[2] = Expr(:block, flushancs(precom_body(m, ex.args[2].args, info), info)...)
     if length(ex.args) == 3
         if ex.args[3].head == :elseif
             ex.args[3] = precom_if(m, ex.args[3], exinfo)
         elseif ex.args[3].head == :block
-            info = PreInfo(exinfo.vars)
+            info = PreInfo()
             ex.args[3] = Expr(:block, flushancs(precom_body(m, ex.args[3].args, info), info)...)
         else
             error("unknown statement following `if` $ex.")
@@ -251,10 +237,10 @@ julia> NiLangCore.rmlines(@code_preprocess if (x < 3, ~) x += exp(3.0) end)
 ```
 """
 macro code_preprocess(ex)
-    QuoteNode(precom_ex(__module__, ex, PreInfo(Symbol[])))
+    QuoteNode(precom_ex(__module__, ex, PreInfo()))
 end
 
-precom_ex(m::Module, ex) = precom_ex(m, ex, PreInfo(Symbol[]))
+precom_ex(m::Module, ex) = precom_ex(m, ex, PreInfo())
 
 # push a new variable to variable set `x`, for allocating `target`
 function pushvar!(x::Vector{Symbol}, target)

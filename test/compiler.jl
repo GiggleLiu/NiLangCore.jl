@@ -721,11 +721,9 @@ end
 end
 
 @testset "allocation multiple vars" begin
-    info = NiLangCore.PreInfo(Symbol[])
+    info = NiLangCore.PreInfo()
     @test NiLangCore.precom_ex(NiLangCore, :(x,y ← var), info) == :((x, y) ← var)
-    @test info.vars == [:x, :y]
     @test NiLangCore.precom_ex(NiLangCore, :(x,y → var), info) == :((x, y) → var)
-    @test isempty(info.vars)
     @test (@code_reverse (x,y) ← var) == :((x, y) → var)
     @test (@code_reverse (x,y) → var) == :((x, y) ← var)
     @test (@code_julia (x,y) ← var) == :((x, y) = var)

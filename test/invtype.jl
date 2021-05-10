@@ -28,66 +28,6 @@ NiTypeTest(x) = NiTypeTest(x, zero(x))
     @test chfield(it, gg, 0.3) == NiTypeTest(0.5, 0.3)
 end
 
-@i struct BVar{T}
-    x::T
-    function BVar{T}(x::T) where T
-        new{T}(g, x)
-    end
-    # currently variable types can not be infered
-    @i function BVar(xx::T) where T
-        xx ← new{T}(xx)
-    end
-end
-
-@i struct CVar{T}
-    g::T
-    x::T
-    function CVar{T}(x::T, g::T) where T
-        new{T}(x, g)
-    end
-    function CVar(x::T, g::T) where T
-        new{T}(x, g)
-    end
-    # currently variable types can not be infered
-    # TODO: fix the type inference!
-    @i function CVar(xx::T) where T
-        gg ← zero(xx)
-        gg += 1
-        xx ← new{T}(gg, xx)
-    end
-end
-
-@i struct DVar{GT,CT,T}
-    x::T
-    k::CT
-    l
-    @i function DVar{Float64}(xx::T) where {T}
-        gg ← zero(xx)
-        gg += xx
-        ll ← zero(gg)
-        xx ← new{Float64, typeof(gg), T}(xx, gg, ll)
-    end
-end
-
-@testset "revtype" begin
-    @test type2tuple(CVar(1.0)) == (1.0, 1.0)
-    @test CVar(0.5) == CVar(1.0, 0.5)
-    @test (~BVar)(BVar(0.5)) == 0.5
-    @test (~CVar)(CVar(0.5)) == 0.5
-    @test_throws InvertibilityError (~CVar)(CVar(0.5, 0.4))
-    @test (~DVar{Float64})(DVar{Float64}(0.5)) == 0.5
-end
-
-struct PVar{T}
-    g::T
-    x::T
-end
-
-struct SVar{T}
-    x::T
-    g::T
-end
-
 @testset "mutable struct set field" begin
     mutable struct MS{T}
         x::T
