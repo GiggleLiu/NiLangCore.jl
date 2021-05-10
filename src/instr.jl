@@ -121,7 +121,7 @@ assign_ex(arg, res, invcheck) = @smatch arg begin
     ::Symbol || ::GlobalRef => _isconst(arg) ? _invcheck(invcheck, arg, res) : :($arg = $res)
     :(@skip! $line $x) => nothing
     :($x::∅) => assign_ex(x, res, invcheck)
-    :($x::$T) => assign_ex(x, :($convert($T, $res)), invcheck)
+    :($x::$T) => assign_ex(x, :($loaddata($T, $res)), invcheck)
     :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)), invcheck)
     # tuples must be index through (x |> 1)
     :($a |> tget($x)) => assign_ex(a, :($(TupleTools.insertat)($a, $x, ($res,))), invcheck)

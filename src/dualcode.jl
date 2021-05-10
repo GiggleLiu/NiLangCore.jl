@@ -108,6 +108,8 @@ _dual_swap_var(x) = @smatch x begin
     :($x::∅) => :($x)
     :($s[end]) => :($s[end+1])
     x::Symbol => :($x::∅)
+    :($x::$T) => :(($x::$T)::∅)
+    _ => error("variable expression not supported: $x")
 end
 
 export @code_reverse

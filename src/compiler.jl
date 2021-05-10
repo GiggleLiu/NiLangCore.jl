@@ -269,6 +269,7 @@ end
 
 _pop_value(x) = @smatch x begin
     ::Symbol => x
+    :($x::$T) => :($(_pop_value(x))::$T)
     :($s[end]) => :($pop!($s))
     :($s[$ind]) => :($pop!($s, $ind))  # dict (notice pop over vector elements is not allowed.)
     _ => error("can not pop variable $x")

@@ -51,6 +51,7 @@ end
 """
     loaddata(t, x)
 
-load data `x`, matching type of `t`.
+load data `x`, matching type `t`.
 """
-loaddata(::T, x::T) where T = x
+loaddata(::Type{T}, x::T) where T = x
+loaddata(::T1, x::T) where {T1,T} = loaddata(T1, x)

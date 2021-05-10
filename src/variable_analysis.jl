@@ -211,12 +211,12 @@ function swapvars!(st::SymbolTable, x, y)
 end
 isemptyvar(ex) = @smatch ex begin
     :($x[end+1]) => true
-    :($(x::Symbol)::∅) => true
+    :($x::∅) => true
     _ => false
 end
 dosymbol(f, ex) = @smatch ex begin
     x::Symbol => f(x)
-    :($(x::Symbol)::$T) => f(x)
+    :($x::$T) => dosymbol(f, x)
     _ => nothing
 end
 
