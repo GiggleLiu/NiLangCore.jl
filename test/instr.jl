@@ -1,5 +1,5 @@
 using NiLangCore
-using NiLangCore: compile_ex, dual_ex, precom_ex, analyse_arg!, check_args!
+using NiLangCore: compile_ex, dual_ex, precom_ex, memkernel, render_arg, check_args
 
 using Test
 import Base: +, -
@@ -151,15 +151,18 @@ end
         (:((x |> g)...) , :x)
         (:((x |> g, y.:1)) , [:x, :(y.:1)])
         (:((x |> g, y |> tget(1))) , [:x, :(y[1])])]
-        @test analyse_arg!(deepcopy(x)) == (x, y)
+        @test memkernel(deepcopy(x)) == y
+        @test render_arg(deepcopy(x)) == x
     end
-    @test analyse_arg!(:(x.y.[2:3])) == (:(x.y |> subarray(2:3)), :(x.y[2:3]))
-    @test analyse_arg!(:(x.y.[2:3] |> value)) == (:(x.y |> subarray(2:3) |> value), :(x.y[2:3]))
+    @test render_arg(:(x.y.[2:3])) == :(x.y |> subarray(2:3))
+    @test memkernel(:(x.y |> subarray(2:3))) == (:(x.y[2:3]))
+    @test render_arg(:(x.y.[2:3] |> value)) == :(x.y |> subarray(2:3) |> value)
+    @test memkernel(:(x.y |> subarray(2:3) |> value)) == :(x.y[2:3])
 
-    @test_throws InvertibilityError check_args!([:a, :(a |> grad)])
-    @test check_args!([:(a.x), :(a.g |> grad)]) isa Nothing
-    @test_throws InvertibilityError check_args!([:(a.x), :(b[3]), :(b[3])])
-    @test_throws InvertibilityError check_args!([:(a.x), :((b, a.x))]) isa Nothing
+    @test_throws InvertibilityError check_args([:a, :(a |> grad)])
+    @test check_args([:(a.x), :(a.g |> grad)]) isa Nothing
+    @test_throws InvertibilityError check_args([:(a.x), :(b[3]), :(b[3])])
+    @test_throws InvertibilityError check_args([:(a.x), :((b, a.x))]) isa Nothing
     # TODO: check variable on the same tree, like `a.b` and `a`
 end
 

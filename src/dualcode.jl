@@ -23,15 +23,13 @@ Get the dual expression of `ex`.
 """
 function dual_ex(m::Module, ex)
     @smatch ex begin
-        :($x → $val) => :($x ← $val)
-        :($x ← $val) => :($x → $val)
         :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
         :(($t1=>$t2).($x)) => :(($t2=>$t1).($x))
-        :($x ↔ $y) => ex
-        :(PUSH!($(args...))) => :(POP!($(args...)))
-        :(POP!($(args...))) => :(PUSH!($(args...)))
-        :(COPYPUSH!($(args...))) => :(COPYPOP!($(args...)))
-        :(COPYPOP!($(args...))) => :(COPYPUSH!($(args...)))
+        :($x ↔ $y) => dual_swap(x, y)
+        :($s[end+1] ← $x) => :($s[end] → $x)
+        :($s[end] → $x) => :($s[end+1] ← $x)
+        :($x → $val) => :($x ← $val)
+        :($x ← $val) => :($x → $val)
         :($f($(args...))) => startwithdot(f) ? :($(getdual(removedot(sym))).($(args...))) : :($(getdual(f))($(args...)))
         :($f.($(args...))) => :($(getdual(f)).($(args...)))
         :($a += $b) => :($a -= $b)
@@ -93,6 +91,25 @@ function dual_if(m::Module, ex)
         end
     end
     ex
+end
+
+function dual_swap(x, y)
+    e1 = isemptyvar(x)
+    e2 = isemptyvar(y)
+    if e1 && !e2 || !e1 && e2
+        :($(_dual_swap_var(x)) ↔ $(_dual_swap_var(y)))
+    else
+        :($y ↔ $x)
+    end
+end
+
+_dual_swap_var(x) = @smatch x begin
+    :($s[end+1]) => :($s[end])
+    :($x::∅) => :($x)
+    :($s[end]) => :($s[end+1])
+    x::Symbol => :($x::∅)
+    :($x::$T) => :(($x::$T)::∅)
+    _ => error("variable expression not supported: $x")
 end
 
 export @code_reverse

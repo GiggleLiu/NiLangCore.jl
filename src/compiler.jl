@@ -78,20 +78,37 @@ function compile_ex(m::Module, ex, info)
         :($a *= $b) || :($a .*= $b) ||
         :($a /= $b) || :($a ./= $b) ||
         :($a ⊻= $b) || :($a .⊻= $b) => compile_ex(m, to_standard_format(ex), info)
-        :(($(args...),) ← @unsafe_destruct $line $x) => begin
-            Expr(:block, line, :(($(args...),) = $type2tuple($x)))
+        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)), info.invcheckon[])
+        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)), info.invcheckon[])
+
+        # multi args expanded in preprocessing
+        # general
+        :($x ↔ $y) => begin
+            e1 = isemptyvar(x)
+            e2 = isemptyvar(y)
+            if e1 && e2
+                nothing
+            elseif e1 && !e2
+                _push_value(x, _pop_value(y), info.invcheckon[])
+            elseif !e1 && e2
+                _push_value(y, _pop_value(x), info.invcheckon[])
+            else
+                tmp = gensym("temp")
+                Expr(:block, :($tmp = $y), assign_ex(y, x, info.invcheckon[]), assign_ex(x, tmp, info.invcheckon[]))
+            end
         end
-        :(($(args...),) → @unsafe_destruct $line $x) => begin
-            Expr(:block, line, Expr(:(=), x, Expr(:new, :(typeof($x)), args...)))
+
+        # stack
+        :($s[end] → $x) => begin
+            if info.invcheckon[]
+                y = gensym("result")
+                Expr(:block, :($y=$loaddata($x, $pop!($s))), _invcheck(y, x), assign_ex(x, y, info.invcheckon[]))
+            else
+                assign_ex(x, :($loaddata($x, $pop!($s))), false)  # assign back can help remove roundoff error
+            end
         end
-        :($x ← new{$(_...)}($(args...))) ||
-        :($x ← new($(args...))) => begin
-            :($x = $(ex.args[3]))
-        end
-        :($x → new{$(_...)}($(args...))) ||
-        :($x → new($(args...))) => begin
-            :($(Expr(:tuple, args...)) = $type2tuple($x))
-        end
+        :($s[end+1] ← $x) => :($push!($s, $_copy($x)))
+        # dict
         :($x[$index] ← $tp) => begin
             assign_expr = :($x[$index] = $tp)
             if info.invcheckon[]
@@ -100,7 +117,6 @@ function compile_ex(m::Module, ex, info)
                 assign_expr
             end
         end
-        :($x ← $tp) => :($x = $tp)
         :($x[$index] → $tp) => begin
             delete_expr = :($(deleteindex!)($x, $index))
             if info.invcheckon[]
@@ -109,48 +125,29 @@ function compile_ex(m::Module, ex, info)
                 delete_expr
             end
         end
+        # multi arg
+        :(($(args...),) ← @unsafe_destruct $line $x) => begin
+            Expr(:block, line, :(($(args...),) = $type2tuple($x)))
+        end
+        :(($(args...),) → @unsafe_destruct $line $x) => begin
+            Expr(:block, line, Expr(:(=), x, Expr(:new, :(typeof($x)), args...)))
+        end
+        # general
+        :($x ← $tp) => :($x = $tp)
         :($x → $tp) => begin
             if info.invcheckon[]
                 _invcheck(x, tp)
             end
         end
-        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
-        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
-        # NOTE: this is a patch for POP!
-        :($x ↔ $y) => begin
-            tmp = gensym("temp")
-            Expr(:block, :($tmp = $y), assign_ex(y, x; invcheck=info.invcheckon[]), assign_ex(x, tmp; invcheck=info.invcheckon[]))
-        end
-        :(PUSH!($x)) => compile_ex(m, :(PUSH!($GLOBAL_STACK, $x)), info)
-        :(COPYPUSH!($x)) => compile_ex(m, :(COPYPUSH!($GLOBAL_STACK, $x)), info)
-        :(POP!($x)) => compile_ex(m, :(POP!($GLOBAL_STACK, $x)), info)
-        :(COPYPOP!($x)) => compile_ex(m, :(COPYPOP!($GLOBAL_STACK, $x)), info)
-        :(POP!($s, $x)) => begin
-            ex = assign_ex(x, :($loaddata($x, $pop!($s))); invcheck=info.invcheckon[])
-            info.invcheckon[] ? Expr(:block, _invcheck(x, :($_zero($typeof($x)))), ex) : ex
-        end
-        :(PUSH!($s, $x)) => begin
-            Expr(:block, :($push!($s, $x)), assign_ex(x, :($_zero($typeof($x))); invcheck=info.invcheckon[]))
-        end
-        :(COPYPOP!($s, $x)) => begin
-            if info.invcheckon[]
-                y = gensym("result")
-                Expr(:block, :($y=$loaddata($x, $pop!($s))), _invcheck(x, y), assign_ex(x, y; invcheck=info.invcheckon[]))
-            else
-                assign_ex(x, :($loaddata($x, $pop!($s))), invcheck=false)  # assign back can help remove roundoff error
-            end
-        end
-        :(COPYPUSH!($s, $x)) => :($push!($s, $copy($x)))
+
         :($f($(args...))) => begin
-            check_args!(args)
             assignback_ex(ex, info.invcheckon[])
         end
         :($f.($(allargs...))) => begin
             args, kwargs = seperate_kwargs(allargs)
-            check_args!(args)
             symres = gensym("results")
             ex = :($symres = $unzipped_broadcast($kwargs, $f, $(args...)))
-            Expr(:block, ex, assign_vars(args, symres; invcheck=info.invcheckon[]).args...)
+            Expr(:block, ex, assign_vars(args, symres, info.invcheckon[]).args...)
         end
         Expr(:if, _...) => compile_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
@@ -270,29 +267,21 @@ function forstatement(i, range, body, info, mcr)
     end
 end
 
-function check_args!(args)
-    args_kernel = []
-    for i=1:length(args)
-        args[i], out = analyse_arg!(args[i])
-        if out isa Vector
-            for o in out
-                if o !== nothing
-                    push!(args_kernel, o)
-                end
-            end
-        elseif out !== nothing
-            push!(args_kernel, out)
-        end
-    end
-    # error on shared read or shared write.
-    for i=1:length(args_kernel)
-        for j in i+1:length(args_kernel)
-            if args_kernel[i] == args_kernel[j]
-                throw(InvertibilityError("$i-th argument and $j-th argument shares the same memory $(args_kernel[i]), shared read and shared write are not allowed!"))
-            end
-        end
-    end
+_pop_value(x) = @smatch x begin
+    ::Symbol => x
+    :($x::$T) => :($(_pop_value(x))::$T)
+    :($s[end]) => :($pop!($s))
+    :($s[$ind]) => :($pop!($s, $ind))  # dict (notice pop over vector elements is not allowed.)
+    _ => error("can not pop variable $x")
 end
+
+_push_value(x, val, invcheck) = @smatch x begin
+    :($s[end+1]) => :($push!($s, $val))
+    _ => assign_ex(x, val, invcheck)
+end
+
+_copy(x) = copy(x)
+_copy(x::Tuple) = copy.(x)
 
 export @code_julia
 
@@ -342,29 +331,6 @@ julia> @i function test(out!, x)
 
 julia> test(0.2, 0.8)
 (1.0, 0.8)
-
-julia> @i struct CVar{T}
-           g::T
-           x::T
-           function CVar{T}(x::T, g::T) where T
-               new{T}(x, g)
-           end
-           function CVar(x::T, g::T) where T
-               new{T}(x, g)
-           end
-           # warning: infered type `T` should be used in `← new` statement only.
-           @i function CVar(xx::T) where T
-               gg ← zero(xx)
-               gg += identity(1)
-               xx ← new{T}(gg, xx)
-           end
-       end
-
-julia> CVar(0.2)
-CVar{Float64}(1.0, 0.2)
-
-julia> (~CVar)(CVar(0.2))
-0.2
 ```
 See `test/compiler.jl` for more examples.
 """
@@ -430,28 +396,38 @@ This IR is not directly executable on Julia, please use
 
 ```jldoctest; setup=:(using NiLangCore)
 julia> ex = :(@inline function f(x!::T, y) where T
-               anc ← zero(T)
-               @routine anc += identity(x!)
-               x! += y * anc
-               ~@routine
+                @routine begin
+                    anc ← zero(T)
+                    anc += identity(x!)
+                end
+                x! += y * anc
+                ~@routine
            end);
 
 julia> NiLangCore.nilang_ir(Main, ex) |> NiLangCore.rmlines
 :(@inline function f(x!::T, y) where T
-          anc ← zero(T)
-          anc += identity(x!)
+          begin
+              anc ← zero(T)
+              anc += identity(x!)
+          end
           x! += y * anc
-          anc -= identity(x!)
-          anc → zero(T)
+          begin
+              anc -= identity(x!)
+              anc → zero(T)
+          end
       end)
 
 julia> NiLangCore.nilang_ir(Main, ex; reversed=true) |> NiLangCore.rmlines
 :(@inline function (~f)(x!::T, y) where T
-          anc ← zero(T)
-          anc += identity(x!)
+          begin
+              anc ← zero(T)
+              anc += identity(x!)
+          end
           x! -= y * anc
-          anc -= identity(x!)
-          anc → zero(T)
+          begin
+              anc -= identity(x!)
+              anc → zero(T)
+          end
       end)
 ```
 """
@@ -515,7 +491,9 @@ export @instr
 Execute a reversible instruction.
 """
 macro instr(ex)
-    esc(Expr(:block, NiLangCore.compile_ex(__module__, precom_ex(__module__, ex, NiLangCore.PreInfo(Symbol[])), CompileInfo()), nothing))
+    ex = precom_ex(__module__, ex, NiLangCore.PreInfo())
+    #variable_analysis_ex(ex, SymbolTable())
+    esc(Expr(:block, NiLangCore.compile_ex(__module__, ex, CompileInfo()), nothing))
 end
 
 # the range of for statement

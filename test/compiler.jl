@@ -27,6 +27,7 @@ end
         test1(a, b, out)
         (~test1)(a, b, out)
         a += b
+        out → 0.0
     end
 
     # compute (a+b)*b -> out
@@ -167,14 +168,13 @@ end
     end
     @test_throws InvertibilityError looper2(x, y)
 
-    @i function looper3(x, y)
+   @test_throws LoadError macroexpand(@__MODULE__, :(@i function looper3(x, y)
         while (x<100, x>0)
             z ← 0
             x += y
             z += 1
         end
-    end
-    @test_throws InvertibilityError looper3(x, y)
+    end))
 end
 
 @testset "ancilla" begin
@@ -184,6 +184,7 @@ end
         x += y
         z += one
         z -= one
+        z → 0
     end
     x = 0.0
     y = 9
@@ -197,6 +198,7 @@ end
         x += y
         z += one
         z -= ten
+        z → 0
     end
     x = 0.0
     y = 9
@@ -248,6 +250,7 @@ end
         l += x
         x -= 2 * l
         l += x
+        l → zero(x)
     end
     a = randn(10)
     b = randn(10)
@@ -317,6 +320,7 @@ end
         l += x
         x -= 2 * l
         l += x
+        l → zero(x)
     end
     a = (1,2)
     b = (3,1)
@@ -468,6 +472,7 @@ end
             @routine anc += x!
             x! += y * anc
             ~@routine
+            anc → zero(T)
         end
     )
     ex2 = :(
@@ -594,6 +599,7 @@ end
     @i function f(x)
         @zeros Float64 a b
         x += a * b
+        ~@zeros Float64 a b
     end
     @test f(3.0) == 3.0
 end
@@ -619,6 +625,7 @@ end
 
     ex3 = :(@i function f(x)
         y ← 0
+        y → 0
     end)
     @test macroexpand(Main, ex3) isa Expr
 
@@ -634,27 +641,33 @@ end
 
     ex6 = :(@i function f(x::Int)
         y ← 0
+        y → 0
     end)
     @test macroexpand(Main, ex6) isa Expr
 
     ex7 = :(@i function f(x::Int)
         if x>3
             y ← 0
+            y → 0
         elseif x<-3
             y ← 0
+            y → 0
         else
             y ← 0
+            y → 0
         end
     end)
     @test macroexpand(Main, ex7) isa Expr
 
     ex8 = :(@i function f(x; y=5)
         z ← 0
+        z → 0
     end)
     @test macroexpand(Main, ex8) isa Expr
 
     ex9 = :(@i function f(x; y)
         z ← 0
+        z → 0
     end)
     @test macroexpand(Main, ex9) isa Expr
 
@@ -721,18 +734,17 @@ end
 end
 
 @testset "allocation multiple vars" begin
-    info = NiLangCore.PreInfo(Symbol[])
+    info = NiLangCore.PreInfo()
     @test NiLangCore.precom_ex(NiLangCore, :(x,y ← var), info) == :((x, y) ← var)
-    @test info.vars == [:x, :y]
     @test NiLangCore.precom_ex(NiLangCore, :(x,y → var), info) == :((x, y) → var)
-    @test isempty(info.vars)
+    @test NiLangCore.precom_ex(NiLangCore, :((x,y) ↔ (a, b)), info) == :(begin; x↔a; y↔b; end)
     @test (@code_reverse (x,y) ← var) == :((x, y) → var)
     @test (@code_reverse (x,y) → var) == :((x, y) ← var)
     @test (@code_julia (x,y) ← var) == :((x, y) = var)
     @test (@code_julia (x,y) → var) == :(try
         $(NiLangCore.deanc)((x, y), var)
     catch e
-        $(:(@warn "deallocate fail: `(x, y) → var`") |> NiLangCore.rmlines)
+        $(:(println("deallocate fail `$($(QuoteNode(:((x, y))))) → $(:var)`")) |> NiLangCore.rmlines)
         throw(e)
     end)
 
@@ -743,6 +755,7 @@ end
         y += m*n
         y += l*k
         (l, k) → size(x)
+        m, n → size(x)
     end
     twosize = f(0, x)[1]
     @test  twosize == 16
@@ -764,11 +777,6 @@ end
 end
 
 @testset "unsafe_destruct" begin
-    @i function f(re, x)
-        r, i ← @unsafe_destruct x
-        re += r
-    end
-    @test f(0.0, 3.0+2im) == (3.0, 3.0 + 2.0im)
     @i function f2(re, x)
         r, i ← @unsafe_destruct x
         re += r
@@ -823,4 +831,87 @@ end
         g(Inv{}(x), Inv{}(y))
     end
     @test g(2, 3) == (5, 3)
+end
+
+@testset "variable_analysis" begin
+    # kwargs should not be assigned
+    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
+        y ← 5
+        y → 5
+    end))
+    # deallocated variables should not be used
+    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
+        z ← 5
+        z → 5
+        x += 2 * z
+    end))
+    # deallocated variables should not be used in local scope
+    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
+        z ← 5
+        z → 5
+        for i=1:10
+            x += 2 * z
+        end
+    end))
+end
+
+@testset "boolean" begin
+    @i function f1(x, y, z)
+        x ⊻= true
+        y .⊻= z
+    end
+    @test f1(false, [true, false], [true, false]) == (true, [false, false], [true, false])
+
+    @i function f2(x, y, z)
+        z[2] ⊻= true && y[1]
+        z[1] ⊻= z[2] || x
+    end
+    @test f2(false, [true, false], [true, false]) == (false, [true, false], [false, true])
+end
+
+@testset "swap ↔" begin
+    @i function f1(x, y)
+        j::∅ ↔ k::∅   # dummy swap
+        a::∅ ↔ x
+        a ↔ y
+        a ↔ x::∅   # ↔ is symmetric
+    end
+    @test f1(2, 3) == (3, 2)
+    @test check_inv(f1, (2, 3))
+
+    # stack
+    @i function f2(x, y)
+        x[end+1] ↔ y
+        y ← 2
+    end
+    @test f2([1,2,3], 4) == ([1,2,3,4], 2)
+    @test check_inv(f2, ([1,2,3], 3))
+
+    @i function f4(x, y)
+        y ↔ x[end+1]
+        y ← 2
+    end
+    @test f4([1,2,3], 4) == ([1,2,3,4], 2)
+    @test check_inv(f4, ([1,2,3], 3))
+
+    @i function f3(x, y::TY, s) where TY
+        y → _zero(TY)
+        x[end] ↔ (y::TY)::∅
+        @safe @show x[2], s
+        x[2] ↔ s
+    end
+    @test f3(Float32[1,2,3], 0.0, 4f0) == (Float32[1,4], 3.0, 2f0)
+    @test check_inv(f3, (Float32[1,2,3], 0.0, 4f0))
+end
+
+@testset "feed tuple and types" begin
+    @i function f3(a, d::Complex)
+        a.:1 += d.re
+        d.re ↔ d.im
+    end
+    @i function f4(a, b, c, d, e)
+        f3((a, b, c), Complex{}(d, e))
+    end
+    @test f4(1,2,3,4,5) == (5,2,3,5,4)
+    @test check_inv(f4, (1,2,3,4,5))
 end

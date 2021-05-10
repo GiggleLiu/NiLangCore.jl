@@ -66,7 +66,7 @@ export @assignback
 Assign input variables with output values: `args... = f(args...)`, turn off invertibility error check if the second argument is false.
 """
 macro assignback(ex, invcheck=true)
-    ex = precom_ex(__module__, ex, PreInfo(Symbol[]))
+    ex = precom_ex(__module__, ex, PreInfo())
     esc(assignback_ex(ex, invcheck))
 end
 
@@ -75,7 +75,7 @@ function assignback_ex(ex::Expr, invcheck::Bool)
         :($f($(args...))) => begin
             symres = gensym("results")
             ex = :($symres = $f($(args...)))
-            res = assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)
+            res = assign_vars(seperate_kwargs(args)[1], symres, invcheck)
             pushfirst!(res.args, ex)
             return res
         end
@@ -84,22 +84,22 @@ function assignback_ex(ex::Expr, invcheck::Bool)
 end
 
 """
-    assign_vars(args, symres; invcheck)
+    assign_vars(args, symres, invcheck)
 
 Get the expression of assigning `symres` to `args`.
 """
-function assign_vars(args, symres; invcheck)
+function assign_vars(args, symres, invcheck)
     exprs = []
     for (i,arg) in enumerate(args)
         exi = @smatch arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                assign_ex(ag, :($tailn($symres, Val($i-1), $ag)); invcheck=invcheck)
+                assign_ex(ag, :($tailn($symres, Val($i-1), $ag)), invcheck)
             end
             _ => if length(args) == 1
-                assign_ex(arg, symres; invcheck=invcheck)
+                assign_ex(arg, symres, invcheck)
             else
-                assign_ex(arg, :($symres[$i]); invcheck=invcheck)
+                assign_ex(arg, :($symres[$i]), invcheck)
             end
         end
         exi !== nothing && push!(exprs, exi)
@@ -107,41 +107,34 @@ function assign_vars(args, symres; invcheck)
     Expr(:block, exprs...)
 end
 
-function assign_ex(arg::Union{Symbol,GlobalRef}, res; invcheck)
-    if _isconst(arg)
-        _invcheck(invcheck, arg, res)
-    else
-        :($arg = $res)
-    end
-end
-
 error_message_fcall(arg) = """
 function arguments should not contain function calls on variables, got `$arg`, try to decompose it into elementary statements, e.g. statement `z += f(g(x))` should be written as
-
     y += g(x)
     z += y
 
 If `g` is a dataview (a function map an object to its field or a bijective function), one can also use the pipline like
-
     z += f(x |> g)
 """
 
-assign_ex(arg::Union{Number,String}, res; invcheck) = _invcheck(invcheck, arg, res)
-assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
+assign_ex(arg, res, invcheck) = @smatch arg begin
+    ::Number || ::String => _invcheck(invcheck, arg, res)
+    ::Symbol || ::GlobalRef => _isconst(arg) ? _invcheck(invcheck, arg, res) : :($arg = $res)
     :(@skip! $line $x) => nothing
-    :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
+    :($x::∅) => assign_ex(x, res, invcheck)
+    :($x::$T) => assign_ex(x, :($loaddata($T, $res)), invcheck)
+    :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)), invcheck)
     # tuples must be index through (x |> 1)
-    :($a |> tget($x)) => assign_ex(a, :($(TupleTools.insertat)($a, $x, ($res,))); invcheck=invcheck)
+    :($a |> tget($x)) => assign_ex(a, :($(TupleTools.insertat)($a, $x, ($res,))), invcheck)
     :($a |> subarray($(ranges...))) => :(($res===view($a, $(ranges...))) || (view($a, $(ranges...)) .= $res))
-    :($x |> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
-    :($x .|> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
-    :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)); invcheck=invcheck)
-    :(-$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, -, $res)); invcheck=invcheck)
+    :($x |> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)), invcheck)
+    :($x .|> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)), invcheck)
+    :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)), invcheck)
+    :(-$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, -, $res)), invcheck)
     :($t{$(p...)}($(args...))) => begin
         if length(args) == 1
-            assign_ex(args[1], :($getfield($res, 1)); invcheck=invcheck)
+            assign_ex(args[1], :($getfield($res, 1)), invcheck)
         else
-            assign_vars(args, :($type2tuple($res)); invcheck=invcheck)
+            assign_vars(args, :($type2tuple($res)), invcheck)
         end
     end
     :($f($(args...))) => all(_isconst, args) || error(error_message_fcall(arg))
@@ -152,22 +145,11 @@ assign_ex(arg::Expr, res; invcheck) = @smatch arg begin
     :(($(args...),)) => begin
         ex = :()
         for i=1:length(args)
-            ex = :($ex; $(assign_ex(args[i], :($res[$i]); invcheck=invcheck)))
+            ex = :($ex; $(assign_ex(args[i], :($res[$i]), invcheck)))
         end
         ex
     end
     _ => _invcheck(invcheck, arg, res)
-end
-
-_isconst(x) = false
-# NOTE: declare constants here
-_isconst(x::Symbol) = x ∈ Symbol[:im, :π, :Float64, :Float32, :Int, :Int64, :Int32, :Bool, :UInt8, :String, :Char, :ComplexF64, :ComplexF32]
-_isconst(::QuoteNode) = true
-_isconst(x::Union{Bool,Char,Number,String}) = true
-_isconst(x::Expr) = @smatch x begin
-    :($f($(args...))) => all(_isconst, args)
-    :(@const $line $ex) => true
-    _ => false
 end
 
 # general
@@ -190,79 +172,5 @@ Perform the assign `a = b` in a reversible program.
 Turn off invertibility check if the `invcheck` is false.
 """
 macro assign(a, b, invcheck=true)
-    esc(assign_ex(a, b; invcheck=invcheck))
-end
-
-# Returns (the modified argument, the memory `identifier` of this argument)
-analyse_arg!(ex) = @smatch ex begin
-    ::Symbol => (ex, ex)
-    :(@skip! $line $x) => (ex, nothing)  # Julia scope
-    :(@const $line $x) => begin
-        ex.args[3], k = analyse_arg!(x)
-        ex, k
-    end
-    :($x.[$(inds...)]) => begin
-        analyse_arg!(:($x |> subarray($(inds...))))
-    end
-    :($x.$y) => begin
-        ex.args[1], k = analyse_arg!(x)
-        ex, :($k.$y)
-    end
-    :($a |> tget($x)) => begin
-        ex.args[2], k = analyse_arg!(a)
-        ex, :($k[$x])
-    end
-    :($a |> subarray($(ranges...))) => begin
-        ex.args[2], k = analyse_arg!(a)
-        ex, :($k[$(ranges...)])
-    end
-    :($x |> $f) => begin
-        ex.args[2], k = analyse_arg!(x)
-        ex, k
-    end
-    :($x .|> $f) => begin
-        ex.args[2], k = analyse_arg!(x)
-        ex, k
-    end
-    :($x') => begin
-        ex.args[1], k = analyse_arg!(x)
-        ex, k
-    end
-    :(-$x) => begin
-        ex.args[2], k = analyse_arg!(x)
-        ex, k
-    end
-    :($t{$(p...)}($(args...))) => begin
-        l2 = []
-        for i=1:length(args)
-            a, k = analyse_arg!(args[i])
-            ex.args[i+1] = a
-            push!(l2, k)
-        end
-        ex, l2
-    end
-    :($f($(args...))) => begin  # Julia scope
-        ex, nothing
-    end
-    :($f.($(args...))) => begin  # Julia scope
-        ex, nothing
-    end
-    :($a[$(x...)]) => begin
-        ex.args[1], k = analyse_arg!(a)
-        ex, :($k[$(x...)])
-    end
-    :(($(args...),)) => begin
-        l2 = []
-        for i=1:length(args)
-            a, k = analyse_arg!(args[i])
-            ex.args[i] = a
-            push!(l2, k)
-        end
-        ex, l2
-    end
-    :($ag...) => begin
-        ex.args[1], k = analyse_arg!(ag)
-        ex, k
-    end
-    _ => (ex, nothing)   # Julia scope
+    esc(assign_ex(a, b, invcheck))
 end

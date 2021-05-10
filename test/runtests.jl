@@ -17,6 +17,10 @@ end
     include("utils.jl")
 end
 
+@testset "symboltable.jl" begin
+    include("symboltable.jl")
+end
+
 @testset "instr.jl" begin
     include("instr.jl")
 end

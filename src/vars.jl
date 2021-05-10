@@ -28,7 +28,7 @@ macro fieldview(ex)
             xval = gensym("value")
             esc(Expr(:block,
                 :(Base.@__doc__ $f($obj::$tp) = begin $line; $ex end),
-                :($NiLangCore.chfield($obj::$tp, ::typeof($f), $xval) = $(Expr(:block, assign_ex(ex, xval;invcheck=false), obj)))
+                :($NiLangCore.chfield($obj::$tp, ::typeof($f), $xval) = $(Expr(:block, assign_ex(ex, xval, false), obj)))
             ))
         end
         _ => error("expect expression `f(obj::type) = obj.prop`, got $ex")

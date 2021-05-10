@@ -85,3 +85,18 @@ julia> @code_reverse for i=start:step:stop y += f(x) end
 julia> @code_reverse @safe println(x)
 :(#= /home/leo/.julia/dev/NiLangCore/src/dualcode.jl:81 =# @safe println(x))
 ```
+
+
+## A note on symbols
+The `←` (\leftarrow + TAB) operation copies B to A, its inverse is `→` (\rightarrow + TAB)
+* push into a stack, `A[end+1] ← B` => `[A..., B], B`
+* add a key-value pair into a dict, `A[i] ← B` => `{A..., i=>B}, B`
+* allocate a new ancilla, `(A = ∅) ← B` => `(A = B), B`
+
+The `↔` (\leftrightarrow + TAB) operation swaps B and A, it is self reversible
+* swap two variables, `A ↔ B` => `B, A`
+* transfer into a stack, `A[end+1] ↔ B` => `[A..., B], ∅`
+* transfer a key-value pair into a dict, `A[i] ↔ B` => `haskey ? {(A\A[i])..., i=>B}, A[i] : {A..., i=>B}, ∅`
+* transfer the value of two variables, `(A = ∅) ↔ B` => `(A = B), ∅`
+
+One can use `var::∅` to annotate `var` as a fresh new variable (only new variables can be allocated), use `var[end+1]` to represent stack top for push and `var[end]` for stack top for pop.
