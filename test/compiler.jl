@@ -844,3 +844,17 @@ end
         end
     end))
 end
+
+@testset "boolean" begin
+    @i function f1(x, y, z)
+        x ⊻= true
+        y .⊻= z
+    end
+    @test f1(false, [true, false], [true, false]) == (true, [false, false], [true, false])
+
+    @i function f2(x, y, z)
+        z[2] ⊻= true && y[1]
+        z[1] ⊻= z[2] || x
+    end
+    @test f2(false, [true, false], [true, false]) == (false, [true, false], [false, true])
+end

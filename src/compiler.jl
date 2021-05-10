@@ -134,12 +134,10 @@ function compile_ex(m::Module, ex, info)
         end
         :(COPYPUSH!($s, $x)) => :($push!($s, $_copy($x)))
         :($f($(args...))) => begin
-            check_args!(args)
             assignback_ex(ex, info.invcheckon[])
         end
         :($f.($(allargs...))) => begin
             args, kwargs = seperate_kwargs(allargs)
-            check_args!(args)
             symres = gensym("results")
             ex = :($symres = $unzipped_broadcast($kwargs, $f, $(args...)))
             Expr(:block, ex, assign_vars(args, symres; invcheck=info.invcheckon[]).args...)
@@ -259,30 +257,6 @@ function forstatement(i, range, body, info, mcr)
         Expr(:block, assigns..., exf, checkers...)
     else
         exf
-    end
-end
-
-function check_args!(args)
-    args_kernel = []
-    for i=1:length(args)
-        args[i], out = analyse_arg!(args[i])
-        if out isa Vector
-            for o in out
-                if o !== nothing
-                    push!(args_kernel, o)
-                end
-            end
-        elseif out !== nothing
-            push!(args_kernel, out)
-        end
-    end
-    # error on shared read or shared write.
-    for i=1:length(args_kernel)
-        for j in i+1:length(args_kernel)
-            if args_kernel[i] == args_kernel[j]
-                throw(InvertibilityError("$i-th argument and $j-th argument shares the same memory $(args_kernel[i]), shared read and shared write are not allowed!"))
-            end
-        end
     end
 end
 

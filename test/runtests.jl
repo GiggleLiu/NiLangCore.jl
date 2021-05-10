@@ -17,6 +17,10 @@ end
     include("utils.jl")
 end
 
+@testset "variable_analysis.jl" begin
+    include("variable_analysis.jl")
+end
+
 @testset "instr.jl" begin
     include("instr.jl")
 end

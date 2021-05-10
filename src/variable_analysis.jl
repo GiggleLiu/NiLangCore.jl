@@ -231,11 +231,27 @@ function variable_analysis_ex(ex, syms::SymbolTable)
         :($x ← $val) => allocate!(x)
         :($x → $val) => deallocate!(x)
         :($x ↔ $y) => swapvars!(syms, x, y)
-        :($a += $b) || :($a -= $b) ||
-        :($a *= $b) || :($a /= $b) || 
-        :($a .+= $b) ||  :($a .-= $b) || 
-        :($a .*= $b) ||  :($a ./= $b) || 
-        :($a ⊻= $b) || :($a .⊻= $b) => begin
+        :($a += $f($(b...))) || :($a -= $f($(b...))) ||
+        :($a *= $f($(b...))) || :($a /= $f($(b...))) ||
+        :($a .+= $f($(b...))) || :($a .-= $f($(b...))) ||
+        :($a .*= $f($(b...))) || :($a ./= $f($(b...))) ||
+        :($a .+= $f.($(b...))) || :($a .-= $f.($(b...))) ||
+        :($a .*= $f.($(b...))) || :($a ./= $f.($(b...))) => begin
+            ex.args[1] = render_arg(a)
+            b .= render_arg.(b)
+            use!(a)
+            use!.(b)
+            check_args(Any[a, b...])
+        end
+        :($a ⊻= $f($(b...))) || :($a .⊻= $f($(b...)))  || :($a .⊻= $f.($(b...))) => begin
+            ex.args[1] = render_arg(a)
+            b .= render_arg.(b)
+            use!(a)
+            use!(b)
+        end
+        :($a ⊻= $b || $c) || :($a ⊻= $b && $c) => begin
+            ex.args[1] = render_arg(a)
+            ex.args[2].args .= render_arg.(ex.args[2].args)
             use!(a)
             use!(b)
         end
@@ -268,8 +284,16 @@ function variable_analysis_ex(ex, syms::SymbolTable)
         # 1. precompile to expand macros
         # 2. get dual expression
         # 3. precompile to analyze vaiables
-        :($f($(args...))) => use!.(args)
-        :($f.($(args...))) => use!.(args)
+        :($f($(args...))) => begin
+            args .= render_arg.(args)
+            check_args(args)
+            use!.(args)
+        end
+        :($f.($(args...))) => begin
+            args .= render_arg.(args)
+            check_args(args)
+            use!.(args)
+        end
         :(nothing) => nothing
         ::LineNumberNode => nothing
         ::Nothing => nothing
@@ -307,5 +331,60 @@ function checksyms(a::SymbolTable, b::SymbolTable=SymbolTable())
     diff = setdiff(a.existing, b.existing)
     if !isempty(diff)
         error("Some variables not deallocated correctly: $diff")
+    end
+end
+
+# Returns (the modified argument, the memory `identifier` of this argument)
+memkernel(ex) = @smatch ex begin
+    ::Symbol => ex
+    :(@const $line $x) => memkernel(x)
+    :($a |> subarray($(inds...))) || :($a[$(inds...)]) => :($(memkernel(a))[$(inds...)])
+    :($x.$y) => :($(memkernel(x)).$y)
+    :($a |> tget($x)) => :($(memkernel(a))[$x])
+    :($x |> $f) || :($x .|> $f) || :($x') || :(-$x) || :($x...) => memkernel(x)
+    :($t{$(p...)}($(args...))) || :(($(args...),)) => memkernel.(args)
+    _ => nothing   # Julia scope, including `@skip!`, `f(x)` et. al.
+end
+
+render_arg(ex) = @smatch ex begin
+    ::Symbol => ex
+    :(@skip! $line $x) => ex
+    :(@const $line $x) => Expr(:macrocall, Symbol("@const"), line, render_arg(x))
+    :($a.[$(inds...)]) => :($(render_arg(a)) |> subarray($(inds...)))
+    :($a |> subarray($(inds...))) => :($(render_arg(a)) |> subarray($(inds...)))
+    :($a[$(inds...)]) => :($(render_arg(a))[$(inds...)])
+    :($x.$y) => :($(render_arg(x)).$y)
+    :($a |> tget($x)) => :($(render_arg(a)) |> tget($x))
+    :($x |> $f) => :($(render_arg(x)) |> $f)
+    :($x .|> $f) => :($(render_arg(x)) .|> $f)
+    :($x') => :($(render_arg(x))')
+    :(-$x) => :(-$(render_arg(x)))
+    :($ag...) => :($(render_arg(ag))...)
+    :($t{$(p...)}($(args...))) => :($t{($p...)}($(render_arg.(args)...)))
+    :(($(args...),)) => :(($(render_arg.(args)...),))
+    _ => ex   # Julia scope, including `@skip!`, `f(x)` et. al.
+end
+
+function check_args(args)
+    args_kernel = []
+    for i=1:length(args)
+        out = memkernel(args[i])
+        if out isa Vector
+            for o in out
+                if o !== nothing
+                    push!(args_kernel, o)
+                end
+            end
+        elseif out !== nothing
+            push!(args_kernel, out)
+        end
+    end
+    # error on shared read or shared write.
+    for i=1:length(args_kernel)
+        for j in i+1:length(args_kernel)
+            if args_kernel[i] == args_kernel[j]
+                throw(InvertibilityError("$i-th argument and $j-th argument shares the same memory $(args_kernel[i]), shared read and shared write are not allowed!"))
+            end
+        end
     end
 end
