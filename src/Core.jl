@@ -91,7 +91,7 @@ end
 # the expression for reversibility checking
 function _invcheck(x, val)
     Expr(:try, Expr(:block, :($deanc($x, $val))), :e, Expr(:block, 
-            Expr(:macrocall, Symbol("@warn"), nothing, "deallocate fail: `$x → $val`"),
+            :(println("deallocate fail `$($x) → $($val)`")),
             :(throw(e)))
         )
 end

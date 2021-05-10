@@ -78,12 +78,37 @@ function compile_ex(m::Module, ex, info)
         :($a *= $b) || :($a .*= $b) ||
         :($a /= $b) || :($a ./= $b) ||
         :($a ⊻= $b) || :($a .⊻= $b) => compile_ex(m, to_standard_format(ex), info)
-        :(($(args...),) ← @unsafe_destruct $line $x) => begin
-            Expr(:block, line, :(($(args...),) = $type2tuple($x)))
+        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)), info.invcheckon[])
+        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)), info.invcheckon[])
+
+        # multi args expanded in preprocessing
+        # general
+        :($x ↔ $y) => begin
+            e1 = isemptyvar(x)
+            e2 = isemptyvar(y)
+            if e1 && e2
+                nothing
+            elseif e1 && !e2
+                _push_value(x, _pop_value(y), info.invcheckon[])
+            elseif !e1 && e2
+                _push_value(y, _pop_value(x), info.invcheckon[])
+            else
+                tmp = gensym("temp")
+                Expr(:block, :($tmp = $y), assign_ex(y, x, info.invcheckon[]), assign_ex(x, tmp, info.invcheckon[]))
+            end
         end
-        :(($(args...),) → @unsafe_destruct $line $x) => begin
-            Expr(:block, line, Expr(:(=), x, Expr(:new, :(typeof($x)), args...)))
+
+        # stack
+        :($s[end] → $x) => begin
+            if info.invcheckon[]
+                y = gensym("result")
+                Expr(:block, :($y=$loaddata($x, $pop!($s))), _invcheck(x, y), assign_ex(x, y, info.invcheckon[]))
+            else
+                assign_ex(x, :($loaddata($x, $pop!($s))), false)  # assign back can help remove roundoff error
+            end
         end
+        :($s[end+1] ← $x) => :($push!($s, $_copy($x)))
+        # dict
         :($x[$index] ← $tp) => begin
             assign_expr = :($x[$index] = $tp)
             if info.invcheckon[]
@@ -92,7 +117,6 @@ function compile_ex(m::Module, ex, info)
                 assign_expr
             end
         end
-        :($x ← $tp) => :($x = $tp)
         :($x[$index] → $tp) => begin
             delete_expr = :($(deleteindex!)($x, $index))
             if info.invcheckon[]
@@ -101,38 +125,21 @@ function compile_ex(m::Module, ex, info)
                 delete_expr
             end
         end
+        # multi arg
+        :(($(args...),) ← @unsafe_destruct $line $x) => begin
+            Expr(:block, line, :(($(args...),) = $type2tuple($x)))
+        end
+        :(($(args...),) → @unsafe_destruct $line $x) => begin
+            Expr(:block, line, Expr(:(=), x, Expr(:new, :(typeof($x)), args...)))
+        end
+        # general
+        :($x ← $tp) => :($x = $tp)
         :($x → $tp) => begin
             if info.invcheckon[]
                 _invcheck(x, tp)  # TODO: avoid using `x` in the following context.
             end
         end
-        :(($t1=>$t2)($x)) => assign_ex(x, :(convert($t2, $x)); invcheck=info.invcheckon[])
-        :(($t1=>$t2).($x)) => assign_ex(x, :(convert.($t2, $x)); invcheck=info.invcheckon[])
-        # NOTE: this is a patch for POP!
-        :($x ↔ $y) => begin
-            tmp = gensym("temp")
-            Expr(:block, :($tmp = $y), assign_ex(y, x; invcheck=info.invcheckon[]), assign_ex(x, tmp; invcheck=info.invcheckon[]))
-        end
-        :(PUSH!($x)) => compile_ex(m, :(PUSH!($GLOBAL_STACK, $x)), info)
-        :(COPYPUSH!($x)) => compile_ex(m, :(COPYPUSH!($GLOBAL_STACK, $x)), info)
-        :(POP!($x)) => compile_ex(m, :(POP!($GLOBAL_STACK, $x)), info)
-        :(COPYPOP!($x)) => compile_ex(m, :(COPYPOP!($GLOBAL_STACK, $x)), info)
-        :(POP!($s, $x)) => begin
-            ex = assign_ex(x, :($loaddata($x, $pop!($s))); invcheck=info.invcheckon[])
-            info.invcheckon[] ? Expr(:block, _invcheck(x, :($_zero($typeof($x)))), ex) : ex
-        end
-        :(PUSH!($s, $x)) => begin
-            Expr(:block, :($push!($s, $x)), assign_ex(x, :($_zero($typeof($x))); invcheck=info.invcheckon[]))
-        end
-        :(COPYPOP!($s, $x)) => begin
-            if info.invcheckon[]
-                y = gensym("result")
-                Expr(:block, :($y=$loaddata($x, $pop!($s))), _invcheck(x, y), assign_ex(x, y; invcheck=info.invcheckon[]))
-            else
-                assign_ex(x, :($loaddata($x, $pop!($s))), invcheck=false)  # assign back can help remove roundoff error
-            end
-        end
-        :(COPYPUSH!($s, $x)) => :($push!($s, $_copy($x)))
+
         :($f($(args...))) => begin
             assignback_ex(ex, info.invcheckon[])
         end
@@ -258,6 +265,18 @@ function forstatement(i, range, body, info, mcr)
     else
         exf
     end
+end
+
+_pop_value(x) = @smatch x begin
+    ::Symbol => x
+    :($s[end]) => :($pop!($s))
+    :($s[$ind]) => :($pop!($s, $ind))  # dict (notice pop over vector elements is not allowed.)
+    _ => error("can not pop variable $x")
+end
+
+_push_value(x, val, invcheck) = @smatch x begin
+    :($s[end+1]) => :($push!($s, $val))
+    _ => assign_ex(x, val, invcheck)
 end
 
 _copy(x) = copy(x)
@@ -461,7 +480,9 @@ export @instr
 Execute a reversible instruction.
 """
 macro instr(ex)
-    esc(Expr(:block, NiLangCore.compile_ex(__module__, precom_ex(__module__, ex, NiLangCore.PreInfo()), CompileInfo()), nothing))
+    ex = precom_ex(__module__, ex, NiLangCore.PreInfo())
+    variable_analysis_ex(ex, SymbolTable())
+    esc(Expr(:block, NiLangCore.compile_ex(__module__, ex, CompileInfo()), nothing))
 end
 
 # the range of for statement

@@ -179,23 +179,45 @@ deallocatevar!(st::SymbolTable, target) = @smatch target begin
     _ => error("unknow variable expression $(target)")
 end
 
-swapvars!(st::SymbolTable, x, y) = @smatch x begin
-    ::Symbol => swapsyms!(st, x, y)
-    :(($(xs...),)) => begin
-        @smatch y begin
-            :(($(ys...),)) => begin
-                if length(xs) !== length(ys)
-                    error("tuple size does not match! got $x and $y")
-                else
-                    for (a, b) in zip(xs, ys)
-                        _swapvars!(st, a, b)
-                    end
-                end
+function swapvars!(st::SymbolTable, x, y)
+    e1 = isemptyvar(x)
+    e2 = isemptyvar(y)
+    # check assersion
+    for (e, v) in ((e1, x), (e2, y))
+        e && dosymbol(v) do sv
+            if sv ∈ st.existing || sv ∈ st.unclassified
+                throw(InvertibilityError("can not assert variable to empty: $v"))
             end
-            _ => error("unsupported swap between $x and $y")
         end
     end
-    _ => error("unknow variable expressions `$x` and `$y`")
+    if e1 && e2
+    elseif e1 && !e2
+        dosymbol(sx -> allocate!(st, sx), x)
+        dosymbol(sy -> deallocate!(st, sy), y)
+        usevar!(st, x)
+    elseif !e1 && e2
+        dosymbol(sx -> deallocate!(st, sx), x)
+        dosymbol(sy -> allocate!(st, sy), y)
+        usevar!(st, y)
+    else
+        sx = dosymbol(identity, x)
+        sy = dosymbol(identity, y)
+        if sx !== nothing && sy !== nothing
+            swapsyms!(st, sx, sy)
+        end
+        usevar!(st, x)
+        usevar!(st, y)
+    end
+end
+isemptyvar(ex) = @smatch ex begin
+    :($x[end+1]) => true
+    :($(x::Symbol)::∅) => true
+    _ => false
+end
+dosymbol(f, ex) = @smatch ex begin
+    x::Symbol => f(x)
+    :($(x::Symbol)::$T) => f(x)
+    _ => nothing
 end
 
 _isconst(x) = @smatch x begin

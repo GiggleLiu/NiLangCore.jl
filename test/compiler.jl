@@ -724,6 +724,7 @@ end
     info = NiLangCore.PreInfo()
     @test NiLangCore.precom_ex(NiLangCore, :(x,y ← var), info) == :((x, y) ← var)
     @test NiLangCore.precom_ex(NiLangCore, :(x,y → var), info) == :((x, y) → var)
+    @test NiLangCore.precom_ex(NiLangCore, :((x,y) ↔ (a, b)), info) == :(begin; x↔a; y↔b; end)
     @test (@code_reverse (x,y) ← var) == :((x, y) → var)
     @test (@code_reverse (x,y) → var) == :((x, y) ← var)
     @test (@code_julia (x,y) ← var) == :((x, y) = var)
@@ -857,4 +858,30 @@ end
         z[1] ⊻= z[2] || x
     end
     @test f2(false, [true, false], [true, false]) == (false, [true, false], [false, true])
+end
+
+@testset "swap ↔" begin
+    @i function f1(x, y)
+        j::∅ ↔ k::∅   # dummy swap
+        a::∅ ↔ x
+        a ↔ y
+        a ↔ x::∅   # ↔ is symmetric
+    end
+    @test f1(2, 3) == (3, 2)
+    @test check_inv(f1, (2, 3))
+
+    # stack
+    @i function f2(x, y)
+        x[end+1] ↔ y
+        y ← 2
+    end
+    @test f2([1,2,3], 4) == ([1,2,3,4], 2)
+    @test check_inv(f2, ([1,2,3], 3))
+
+    @i function f2(x, y)
+        y ↔ x[end+1]
+        y ← 2
+    end
+    @test f2([1,2,3], 4) == ([1,2,3,4], 2)
+    @test check_inv(f2, ([1,2,3], 3))
 end

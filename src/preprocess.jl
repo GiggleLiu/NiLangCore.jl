@@ -31,7 +31,7 @@ function precom(m::Module, ex)
     end
     st = SymbolTable(vars, Symbol[], Symbol[])
     st_after = copy(st)
-    variable_analysis_ex.(body_out, Ref(st))
+    variable_analysis_ex.(body_out, Ref(st_after))
     checksyms(st_after, st)
     mc, fname, newargs, ts, body_out
 end
@@ -121,6 +121,20 @@ function precom_ex(m::Module, ex, info)
         end
         :($x → $val) => begin
             delete!(info.ancs, x)
+            ex
+        end
+        :(($(xs...),) ↔ ($(ys...),)) => Expr(:block, [precom_ex(m ,:($x ↔ $y), info) for (x, y) in zip(xs, ys)]...)
+        :($x ↔ $y) => begin
+            e1 = isemptyvar(x)
+            e2 = isemptyvar(y)
+            if e1 && !e2
+                @show x, y
+                dosymbol(sx->delete!(info.ancs, sx), y)
+                dosymbol(sx->(info.ancs[sx] = :(_zero($sx))), x)
+            elseif !e1 && e2
+                dosymbol(sx->delete!(info.ancs, sx), x)
+                dosymbol(sx->(info.ancs[sx] = :(_zero($sx))), y)
+            end
             ex
         end
         :($(xs...), $y ← $val) => precom_ex(m, :(($(xs...), $y) ← $val), info)

@@ -75,7 +75,7 @@ function assignback_ex(ex::Expr, invcheck::Bool)
         :($f($(args...))) => begin
             symres = gensym("results")
             ex = :($symres = $f($(args...)))
-            res = assign_vars(seperate_kwargs(args)[1], symres; invcheck=invcheck)
+            res = assign_vars(seperate_kwargs(args)[1], symres, invcheck)
             pushfirst!(res.args, ex)
             return res
         end
@@ -84,22 +84,22 @@ function assignback_ex(ex::Expr, invcheck::Bool)
 end
 
 """
-    assign_vars(args, symres; invcheck)
+    assign_vars(args, symres, invcheck)
 
 Get the expression of assigning `symres` to `args`.
 """
-function assign_vars(args, symres; invcheck)
+function assign_vars(args, symres, invcheck)
     exprs = []
     for (i,arg) in enumerate(args)
         exi = @smatch arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                assign_ex(ag, :($tailn($symres, Val($i-1), $ag)); invcheck=invcheck)
+                assign_ex(ag, :($tailn($symres, Val($i-1), $ag)), invcheck)
             end
             _ => if length(args) == 1
-                assign_ex(arg, symres; invcheck=invcheck)
+                assign_ex(arg, symres, invcheck)
             else
-                assign_ex(arg, :($symres[$i]); invcheck=invcheck)
+                assign_ex(arg, :($symres[$i]), invcheck)
             end
         end
         exi !== nothing && push!(exprs, exi)
@@ -116,23 +116,25 @@ If `g` is a dataview (a function map an object to its field or a bijective funct
     z += f(x |> g)
 """
 
-assign_ex(arg, res; invcheck) = @smatch arg begin
+assign_ex(arg, res, invcheck) = @smatch arg begin
     ::Number || ::String => _invcheck(invcheck, arg, res)
     ::Symbol || ::GlobalRef => _isconst(arg) ? _invcheck(invcheck, arg, res) : :($arg = $res)
     :(@skip! $line $x) => nothing
-    :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)); invcheck=invcheck)
+    :($x::∅) => assign_ex(x, res, invcheck)
+    :($x::$T) => assign_ex(x, :($convert($T, $res)), invcheck)
+    :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)), invcheck)
     # tuples must be index through (x |> 1)
-    :($a |> tget($x)) => assign_ex(a, :($(TupleTools.insertat)($a, $x, ($res,))); invcheck=invcheck)
+    :($a |> tget($x)) => assign_ex(a, :($(TupleTools.insertat)($a, $x, ($res,))), invcheck)
     :($a |> subarray($(ranges...))) => :(($res===view($a, $(ranges...))) || (view($a, $(ranges...)) .= $res))
-    :($x |> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)); invcheck=invcheck)
-    :($x .|> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)); invcheck=invcheck)
-    :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)); invcheck=invcheck)
-    :(-$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, -, $res)); invcheck=invcheck)
+    :($x |> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, $f, $res)), invcheck)
+    :($x .|> $f) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield.($x, Ref($f), $res)), invcheck)
+    :($x') => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, adjoint, $res)), invcheck)
+    :(-$x) => _isconst(x) ? _invcheck(invcheck, arg,res) : assign_ex(x, :(chfield($x, -, $res)), invcheck)
     :($t{$(p...)}($(args...))) => begin
         if length(args) == 1
-            assign_ex(args[1], :($getfield($res, 1)); invcheck=invcheck)
+            assign_ex(args[1], :($getfield($res, 1)), invcheck)
         else
-            assign_vars(args, :($type2tuple($res)); invcheck=invcheck)
+            assign_vars(args, :($type2tuple($res)), invcheck)
         end
     end
     :($f($(args...))) => all(_isconst, args) || error(error_message_fcall(arg))
@@ -143,7 +145,7 @@ assign_ex(arg, res; invcheck) = @smatch arg begin
     :(($(args...),)) => begin
         ex = :()
         for i=1:length(args)
-            ex = :($ex; $(assign_ex(args[i], :($res[$i]); invcheck=invcheck)))
+            ex = :($ex; $(assign_ex(args[i], :($res[$i]), invcheck)))
         end
         ex
     end
@@ -170,5 +172,5 @@ Perform the assign `a = b` in a reversible program.
 Turn off invertibility check if the `invcheck` is false.
 """
 macro assign(a, b, invcheck=true)
-    esc(assign_ex(a, b; invcheck=invcheck))
+    esc(assign_ex(a, b, invcheck))
 end

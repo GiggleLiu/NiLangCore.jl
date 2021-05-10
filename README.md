@@ -89,12 +89,14 @@ julia> @code_reverse @safe println(x)
 
 ## A note on symbols
 The following operations linkes B to A
-* push into a stack, `A[end+1] ← B` => `[A..., B], B`
-* add a key-value pair into a dict, `A[i] ← B` => `{A..., i=>B}, B`
-* allocate a new ancilla, `(A = ∅) ← B` => `(A = B), B`
+* [ ] push into a stack, `A[end+1] ← B` => `[A..., B], B`
+* [x] add a key-value pair into a dict, `A[i] ← B` => `{A..., i=>B}, B`
+* [x] allocate a new ancilla, `(A = ∅) ← B` => `(A = B), B`
 
 The following operations transfers B to A
-* swap two variables, `A ↔ B` => `B, A`
+* [x] swap two variables, `A ↔ B` => `B, A`
 * transfer into a stack, `A[end+1] ↔ B` => `[A..., B], ∅`
-* transfer a key-value pair into a dict, `A[i] ↔ B` => `{A..., i=>B}, ∅`
-* transfer the value of two variables, `(A = ∅) ↔ B` => `(A = B), ∅`
+* transfer a key-value pair into a dict, `A[i] ↔ B` => `haskey ? {(A\A[i])..., i=>B}, A[i] : {A..., i=>B}, ∅`
+* [x] transfer the value of two variables, `(A = ∅) ↔ B` => `(A = B), ∅`
+
+* [ ] when deanc, also update the gradient field of source variables.
