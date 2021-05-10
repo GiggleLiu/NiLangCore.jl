@@ -1,215 +1,3 @@
-struct SymbolTable
-    existing::Vector{Symbol}
-    deallocated::Vector{Symbol}
-    unclassified::Vector{Symbol}
-end
-
-function SymbolTable()
-    SymbolTable(Symbol[], Symbol[], Symbol[])
-end
-
-Base.copy(st::SymbolTable) = SymbolTable(copy(st.existing), copy(st.deallocated), copy(st.unclassified))
-
-function removevar!(lst, var)
-    index = findfirst(==(var), lst)
-    deleteat!(lst, index)
-end
-
-function replacevar!(lst, var, var2)
-    index = findfirst(==(var), lst)
-    lst[index] = var2
-end
-
-function allocate!(st::SymbolTable, var::Symbol)
-    if var ∈ st.existing
-        throw(InvertibilityError("Repeated allocation of variable `$(var)`"))
-    elseif var ∈ st.deallocated
-        removevar!(st.deallocated, var)
-        push!(st.existing, var)
-    elseif var ∈ st.unclassified
-        throw(InvertibilityError("Variable `$(var)` used before allocation."))
-    else
-        push!(st.existing, var)
-    end
-    nothing
-end
-
-function findlist(st::SymbolTable, var)
-    if var ∈ st.existing
-        return st.existing
-    elseif var ∈ st.unclassified
-        return st.unclassified
-    elseif var in st.deallocated
-        return st.deallocated
-    else
-        return nothing
-    end
-end
-function exchangevars!(l1, v1, l2, v2)
-    i1 = findfirst(==(v1), l1)
-    i2 = findfirst(==(v2), l2)
-    l2[i2], l1[i1] = l1[i1], l2[i2]
-end
-
-function operate!(st::SymbolTable, var::Symbol)
-    if var ∈ st.existing || var ∈ st.unclassified
-    elseif var ∈ st.deallocated
-        throw(InvertibilityError("Operating on deallocate variable `$(var)`"))
-    else
-        push!(st.unclassified, var::Symbol)
-    end
-    nothing
-end
-
-function deallocate!(st::SymbolTable, var::Symbol)
-    if var ∈ st.deallocated
-        throw(InvertibilityError("Repeated deallocation of variable `$(var)`"))
-    elseif var ∈ st.existing
-        removevar!(st.existing, var)
-        push!(st.deallocated, var)
-    elseif var ∈ st.unclassified
-        throw(InvertibilityError("Deallocating an external variable `$(var)`"))
-    else
-        throw(InvertibilityError("Deallocating an external variable `$(var)`"))
-    end
-    nothing
-end
-
-"""
-collect variable symbols in parameters.
-"""
-collect_params!(target, out) = @smatch target begin
-    ::Symbol => _isconst(target) || push!(out, target)
-    :(($(tar...),)) => begin
-        for t in tar
-            allocatevar!(st, t)
-        end
-    end
-    :($tar = $y) => allocatevar!(st, y)
-    :($tar...) => allocatevar!(st, tar)
-    :($tar::$tp) => allocatevar!(st, tar)
-    Expr(:parameters, targets...) => begin
-        for tar in targets
-            allocatevar!(st, tar)
-        end
-    end
-    Expr(:kw, tar, val) => begin
-        allocatevar!(st, tar)
-    end
-    _ => _isconst(target) || error("unknown variable expression $(target)")
-end
-
-usevar!(syms::SymbolTable, arg) = @smatch arg begin
-    ::Number || ::String => nothing
-    ::Symbol => _isconst(arg) || operate!(syms, arg)
-    :(@skip! $line $x) => julia_usevar!(syms, x)
-    :($x.$k) => usevar!(syms, x)
-    :($a |> subarray($(ranges...))) => (usevar!(syms, a); julia_usevar!.(Ref(syms), ranges))
-    :($x |> tget($f)) || :($x |> $f) || :($x .|> $f) || :($x::$f) => (usevar!(syms, x); julia_usevar!(syms, f))
-    :($x') || :(-$x) => usevar!(syms, x)
-    :($t{$(p...)}($(args...))) => begin
-        usevar!(syms, t)
-        usevar!.(Ref(syms), p)
-        usevar!.(Ref(syms), args)
-    end
-    :($a[$(x...)]) => begin
-        usevar!(syms, a)
-        usevar!.(Ref(syms), x)
-    end
-    :(($(args...),)) => usevar!.(Ref(syms), args)
-    _ => julia_usevar!(syms, arg)
-end
-
-julia_usevar!(syms::SymbolTable, ex) = @smatch ex begin
-    ::Symbol => _isconst(ex) || operate!(syms, ex)
-    :($a:$b:$c) => julia_usevar!.(Ref(syms), [a, b, c])
-    :($a:$c) => julia_usevar!.(Ref(syms), [a, c])
-    :($a && $b) || :($a || $b) || :($a[$b]) => julia_usevar!.(Ref(syms), [a, b])
-    :($a.$b) => julia_usevar!(syms, a)
-    :(($(v...),)) || :(begin $(v...) end) => julia_usevar!.(Ref(syms), v)
-    :($f($(v...))) || :($f[$(v...)]) => begin
-        julia_usevar!(syms, f)
-        julia_usevar!.(Ref(syms), v)
-    end
-    :($args...) => julia_usevar!(syms, args)
-    Expr(:parameters, targets...) => julia_usevar!.(Ref(syms), targets)
-    Expr(:kw, tar, val) => julia_usevar!(syms, val)
-    ::LineNumberNode => nothing
-    _ => nothing
-end
-
-# push a new variable to variable set `x`, for allocating `target`
-allocatevar!(st::SymbolTable, target) = @smatch target begin
-    ::Symbol => allocate!(st, target)
-    :(($(tar...),)) => begin
-        for t in tar
-            allocatevar!(st, t)
-        end
-    end
-    :($tar = $y) => allocatevar!(st, y)
-    :($tar...) => allocatevar!(st, tar)
-    :($tar::$tp) => allocatevar!(st, tar)
-    Expr(:parameters, targets...) => begin
-        for tar in targets
-            allocatevar!(st, tar)
-        end
-    end
-    Expr(:kw, tar, val) => begin
-        allocatevar!(st, tar)
-    end
-    _ => _isconst(target) || error("unknown variable expression $(target)")
-end
-
-# pop a variable from variable set `x`, for deallocating `target`
-deallocatevar!(st::SymbolTable, target) = @smatch target begin
-    ::Symbol => deallocate!(st, target)
-    :(($(tar...),)) => begin
-        for t in tar
-            deallocatevar!(st, t)
-        end
-    end
-    _ => error("unknow variable expression $(target)")
-end
-
-function _swapvars!(st::SymbolTable, var1::Symbol, var2::Symbol)
-    lst1 = findlist(st, var1)
-    lst2 = findlist(st, var2)
-    if lst1 !== nothing && lst2 !== nothing
-        exchangevars!(lst1, var1, lst2, var2)
-    elseif lst1 !== nothing
-        replacevar!(lst1, var1, var2)
-        operate!(st, var1)
-    elseif lst2 !== nothing
-        replacevar!(lst2, var2, var1)
-        operate!(st, var2)
-    else
-        operate!(st, var1)
-        operate!(st, var2)
-    end
-end
-
-function swapvars!(st::SymbolTable, x, y)
-    @smatch x begin
-        ::Symbol => _swapvars!(st, x, y)
-        :(($(xs...),)) => begin
-            @smatch y begin
-                :(($(ys...),)) => begin
-                    if length(xs) !== length(ys)
-                        error("tuple size does not match! got $x and $y")
-                    else
-                        for (a, b) in zip(xs, ys)
-                            _swapvars!(st, a, b)
-                        end
-                    end
-                end
-                _ => error("unsupported swap between $x and $y")
-            end
-        end
-        _ => error("unknow variable expressions `$x` and `$y`")
-    end
-    nothing
-end
-
 function variable_analysis_ex(ex, syms::SymbolTable)
     use!(x) = usevar!(syms, x)
     allocate!(x) = allocatevar!(syms, x)
@@ -319,6 +107,97 @@ function variable_analysis_if(ex, exsyms)
     end
 end
 
+usevar!(syms::SymbolTable, arg) = @smatch arg begin
+    ::Number || ::String => nothing
+    ::Symbol => _isconst(arg) || operate!(syms, arg)
+    :(@skip! $line $x) => julia_usevar!(syms, x)
+    :($x.$k) => usevar!(syms, x)
+    :($a |> subarray($(ranges...))) => (usevar!(syms, a); julia_usevar!.(Ref(syms), ranges))
+    :($x |> tget($f)) || :($x |> $f) || :($x .|> $f) || :($x::$f) => (usevar!(syms, x); julia_usevar!(syms, f))
+    :($x') || :(-$x) => usevar!(syms, x)
+    :($t{$(p...)}($(args...))) => begin
+        usevar!(syms, t)
+        usevar!.(Ref(syms), p)
+        usevar!.(Ref(syms), args)
+    end
+    :($a[$(x...)]) => begin
+        usevar!(syms, a)
+        usevar!.(Ref(syms), x)
+    end
+    :(($(args...),)) => usevar!.(Ref(syms), args)
+    _ => julia_usevar!(syms, arg)
+end
+
+julia_usevar!(syms::SymbolTable, ex) = @smatch ex begin
+    ::Symbol => _isconst(ex) || operate!(syms, ex)
+    :($a:$b:$c) => julia_usevar!.(Ref(syms), [a, b, c])
+    :($a:$c) => julia_usevar!.(Ref(syms), [a, c])
+    :($a && $b) || :($a || $b) || :($a[$b]) => julia_usevar!.(Ref(syms), [a, b])
+    :($a.$b) => julia_usevar!(syms, a)
+    :(($(v...),)) || :(begin $(v...) end) => julia_usevar!.(Ref(syms), v)
+    :($f($(v...))) || :($f[$(v...)]) => begin
+        julia_usevar!(syms, f)
+        julia_usevar!.(Ref(syms), v)
+    end
+    :($args...) => julia_usevar!(syms, args)
+    Expr(:parameters, targets...) => julia_usevar!.(Ref(syms), targets)
+    Expr(:kw, tar, val) => julia_usevar!(syms, val)
+    ::LineNumberNode => nothing
+    _ => nothing
+end
+
+# push a new variable to variable set `x`, for allocating `target`
+allocatevar!(st::SymbolTable, target) = @smatch target begin
+    ::Symbol => allocate!(st, target)
+    :(($(tar...),)) => begin
+        for t in tar
+            allocatevar!(st, t)
+        end
+    end
+    :($tar = $y) => allocatevar!(st, y)
+    :($tar...) => allocatevar!(st, tar)
+    :($tar::$tp) => allocatevar!(st, tar)
+    Expr(:parameters, targets...) => begin
+        for tar in targets
+            allocatevar!(st, tar)
+        end
+    end
+    Expr(:kw, tar, val) => begin
+        allocatevar!(st, tar)
+    end
+    _ => _isconst(target) || error("unknown variable expression $(target)")
+end
+
+# pop a variable from variable set `x`, for deallocating `target`
+deallocatevar!(st::SymbolTable, target) = @smatch target begin
+    ::Symbol => deallocate!(st, target)
+    :(($(tar...),)) => begin
+        for t in tar
+            deallocatevar!(st, t)
+        end
+    end
+    _ => error("unknow variable expression $(target)")
+end
+
+swapvars!(st::SymbolTable, x, y) = @smatch x begin
+    ::Symbol => swapsyms!(st, x, y)
+    :(($(xs...),)) => begin
+        @smatch y begin
+            :(($(ys...),)) => begin
+                if length(xs) !== length(ys)
+                    error("tuple size does not match! got $x and $y")
+                else
+                    for (a, b) in zip(xs, ys)
+                        _swapvars!(st, a, b)
+                    end
+                end
+            end
+            _ => error("unsupported swap between $x and $y")
+        end
+    end
+    _ => error("unknow variable expressions `$x` and `$y`")
+end
+
 _isconst(x) = @smatch x begin
     ::Symbol => x ∈ Symbol[:im, :π, :Float64, :Float32, :Int, :Int64, :Int32, :Bool, :UInt8, :String, :Char, :ComplexF64, :ComplexF32, :(:), :end, :nothing]
     ::QuoteNode || ::Bool || ::Char || ::Number || ::String => true
@@ -327,44 +206,7 @@ _isconst(x) = @smatch x begin
     _ => false
 end
 
-function checksyms(a::SymbolTable, b::SymbolTable=SymbolTable())
-    diff = setdiff(a.existing, b.existing)
-    if !isempty(diff)
-        error("Some variables not deallocated correctly: $diff")
-    end
-end
-
-# Returns (the modified argument, the memory `identifier` of this argument)
-memkernel(ex) = @smatch ex begin
-    ::Symbol => ex
-    :(@const $line $x) => memkernel(x)
-    :($a |> subarray($(inds...))) || :($a[$(inds...)]) => :($(memkernel(a))[$(inds...)])
-    :($x.$y) => :($(memkernel(x)).$y)
-    :($a |> tget($x)) => :($(memkernel(a))[$x])
-    :($x |> $f) || :($x .|> $f) || :($x') || :(-$x) || :($x...) => memkernel(x)
-    :($t{$(p...)}($(args...))) || :(($(args...),)) => memkernel.(args)
-    _ => nothing   # Julia scope, including `@skip!`, `f(x)` et. al.
-end
-
-render_arg(ex) = @smatch ex begin
-    ::Symbol => ex
-    :(@skip! $line $x) => ex
-    :(@const $line $x) => Expr(:macrocall, Symbol("@const"), line, render_arg(x))
-    :($a.[$(inds...)]) => :($(render_arg(a)) |> subarray($(inds...)))
-    :($a |> subarray($(inds...))) => :($(render_arg(a)) |> subarray($(inds...)))
-    :($a[$(inds...)]) => :($(render_arg(a))[$(inds...)])
-    :($x.$y) => :($(render_arg(x)).$y)
-    :($a |> tget($x)) => :($(render_arg(a)) |> tget($x))
-    :($x |> $f) => :($(render_arg(x)) |> $f)
-    :($x .|> $f) => :($(render_arg(x)) .|> $f)
-    :($x') => :($(render_arg(x))')
-    :(-$x) => :(-$(render_arg(x)))
-    :($ag...) => :($(render_arg(ag))...)
-    :($t{$(p...)}($(args...))) => :($t{($p...)}($(render_arg.(args)...)))
-    :(($(args...),)) => :(($(render_arg.(args)...),))
-    _ => ex   # Julia scope, including `@skip!`, `f(x)` et. al.
-end
-
+# avoid share read/write
 function check_args(args)
     args_kernel = []
     for i=1:length(args)
@@ -387,4 +229,36 @@ function check_args(args)
             end
         end
     end
+end
+
+# Returns the memory `identifier`, it is used to avoid shared read/write.
+memkernel(ex) = @smatch ex begin
+    ::Symbol => ex
+    :(@const $line $x) => memkernel(x)
+    :($a |> subarray($(inds...))) || :($a[$(inds...)]) => :($(memkernel(a))[$(inds...)])
+    :($x.$y) => :($(memkernel(x)).$y)
+    :($a |> tget($x)) => :($(memkernel(a))[$x])
+    :($x |> $f) || :($x .|> $f) || :($x') || :(-$x) || :($x...) => memkernel(x)
+    :($t{$(p...)}($(args...))) || :(($(args...),)) => memkernel.(args)
+    _ => nothing   # Julia scope, including `@skip!`, `f(x)` et. al.
+end
+
+# Modify the argument, e.g. `x.[1,3:5]` is rendered as `x |> subarray(1,3:5)`.
+render_arg(ex) = @smatch ex begin
+    ::Symbol => ex
+    :(@skip! $line $x) => ex
+    :(@const $line $x) => Expr(:macrocall, Symbol("@const"), line, render_arg(x))
+    :($a.[$(inds...)]) => :($(render_arg(a)) |> subarray($(inds...)))
+    :($a |> subarray($(inds...))) => :($(render_arg(a)) |> subarray($(inds...)))
+    :($a[$(inds...)]) => :($(render_arg(a))[$(inds...)])
+    :($x.$y) => :($(render_arg(x)).$y)
+    :($a |> tget($x)) => :($(render_arg(a)) |> tget($x))
+    :($x |> $f) => :($(render_arg(x)) |> $f)
+    :($x .|> $f) => :($(render_arg(x)) .|> $f)
+    :($x') => :($(render_arg(x))')
+    :(-$x) => :(-$(render_arg(x)))
+    :($ag...) => :($(render_arg(ag))...)
+    :($t{$(p...)}($(args...))) => :($t{($p...)}($(render_arg.(args)...)))
+    :(($(args...),)) => :(($(render_arg.(args)...),))
+    _ => ex   # Julia scope, including `@skip!`, `f(x)` et. al.
 end

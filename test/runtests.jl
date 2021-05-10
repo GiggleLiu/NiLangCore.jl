@@ -17,8 +17,8 @@ end
     include("utils.jl")
 end
 
-@testset "variable_analysis.jl" begin
-    include("variable_analysis.jl")
+@testset "symboltable.jl" begin
+    include("symboltable.jl")
 end
 
 @testset "instr.jl" begin
