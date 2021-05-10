@@ -123,14 +123,6 @@ function precom_ex(m::Module, ex, info)
         :(@threads $line $subex) => Expr(:macrocall, Symbol("@threads"), line, precom_ex(m, subex, info))
         :(@avx $line $subex) => Expr(:macrocall, Symbol("@avx"), line, precom_ex(m, subex, info))
         :(@invcheckoff $line $subex) => Expr(:macrocall, Symbol("@invcheckoff"), line, precom_ex(m, subex, info))
-        :(@routine $line $name $expr) => begin
-            @warn "`@routine name begin ... end` is deprecated, please use `@routine begin ... end`"
-            precom_ex(m, :(@routine $expr), info)
-        end
-        :(~(@routine $line $name)) => begin
-            @warn "`~@routine name` is deprecated, please use `~@routine`"
-            precom_ex(m, :(~(@routine)), info)
-        end
         :(@routine $line $expr) => begin
             precode = precom_ex(m, expr, info)
             push!(info.routines, precode)
@@ -233,26 +225,6 @@ function pushvar!(x::Vector{Symbol}, target)
             pushvar!(x, tar)
         end
         _ => error("unknown variable expression $(target)")
-    end
-    nothing
-end
-
-# pop a variable from variable set `x`, for deallocating `target`
-function popvar!(x::Vector{Symbol}, target)
-    @smatch target begin
-        ::Symbol => begin
-            if target in x
-                filter!(x->x!=target, x)
-            else
-                throw(InvertibilityError("Variable `$target` has not been defined in current scope."))
-            end
-        end
-        :(($(tar...),)) => begin
-            for t in tar
-                popvar!(x, t)
-            end
-        end
-        _ => error("unknow variable expression $(target)")
     end
     nothing
 end

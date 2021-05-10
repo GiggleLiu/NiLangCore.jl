@@ -54,4 +54,5 @@ end
 load data `x`, matching type `t`.
 """
 loaddata(::Type{T}, x::T) where T = x
+loaddata(::Type{T1}, x::T) where {T1,T} = convert(T1,x)
 loaddata(::T1, x::T) where {T1,T} = loaddata(T1, x)

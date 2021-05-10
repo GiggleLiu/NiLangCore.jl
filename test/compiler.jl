@@ -893,4 +893,22 @@ end
     end
     @test f2([1,2,3], 4) == ([1,2,3,4], 2)
     @test check_inv(f2, ([1,2,3], 3))
+
+    @i function f3(x, y::TY) where TY
+        y → _zero(TY)
+        x[end] ↔ (y::TY)::∅
+    end
+    @test f3(Float32[1,2,3], 0.0) == (Float32[1,2], 3.0)
+    @test check_inv(f3, (Float32[1,2,3], 0.0))
+end
+
+@testset "feed tuple and types" begin
+    @i function f3(a, d::Complex)
+        a.:1 += d.re
+    end
+    @i function f4(a, b, c, d, e)
+        f3((a, b, c), Complex{}(d, e))
+    end
+    @test f4(1,2,3,4,5) == (5,2,3,4,5)
+    @test check_inv(f4, (1,2,3,4,5))
 end

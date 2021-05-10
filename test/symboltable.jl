@@ -1,5 +1,5 @@
 using Test, NiLangCore
-using NiLangCore: SymbolTable, allocate!, deallocate!, operate!, swapvars!, popvar!, pushvar!
+using NiLangCore: SymbolTable, allocate!, deallocate!, operate!, swapvars!
 
 @testset "variable analysis" begin
     st = SymbolTable()
