@@ -2,10 +2,9 @@ export precom
 
 # precompiling information
 struct PreInfo
-    ancs::MyOrderedDict{Any, Any}
     routines::Vector{Any}
 end
-PreInfo() = PreInfo(MyOrderedDict{Any,Any}(), [])
+PreInfo() = PreInfo([])
 
 """
     precom(module, ex)
@@ -25,7 +24,7 @@ function precom(m::Module, ex)
         pushvar!(vars, arg)
     end
     info = PreInfo()
-    body_out = flushancs(precom_body(m, body, info), info)
+    body_out = precom_body(m, body, info)
     if !isempty(info.routines)
         error("`@routine` and `~@routine` must appear in pairs, mising `~@routine`!")
     end
@@ -38,19 +37,6 @@ end
 
 function precom_body(m::Module, body::AbstractVector, info)
     Any[precom_ex(m, ex, info) for ex in body]
-end
-
-"""
-    flushancs(out, info)
-
-Deallocate all remaining ancillas.
-"""
-function flushancs(out, info)
-    for i in 1:length(info.ancs)
-        (x, tp) = pop!(info.ancs)
-        push!(out, :($x → $tp))
-    end
-    return out
 end
 
 # precompile `+=`, `-=`, `*=` and `/=`
@@ -90,21 +76,6 @@ function precom_ox(f, out, arg2)
     end
 end
 
-# deconstruct `args`, create `x`
-function symbol_transfer(xs, xvals, args, info, delete, add)
-    delete && for arg in args
-        # no need to deallocate `arg`.
-        if arg ∉ xs
-            delete!(info.ancs, arg)
-        end
-    end
-    add && for (x, xval) in zip(xs, xvals)
-        if x ∉ args
-            info.ancs[x] = xval
-        end
-    end
-end
-
 """
     precom_ex(module, ex, info)
 
@@ -113,30 +84,9 @@ Precompile a single statement `ex`, where `info` is a `PreInfo` instance.
 function precom_ex(m::Module, ex, info)
     @smatch ex begin
         # TODO: add variable analysis for `@unsafe_destruct`
-        :($x[$key] ← $val) => ex
-        :($x[$key] → $val) => ex
-        :($x ← $val) => begin
-            info.ancs[x] = val
-            ex
-        end
-        :($x → $val) => begin
-            delete!(info.ancs, x)
-            ex
-        end
+        :($x ← $val) || :($x → $val) => ex
         :(($(xs...),) ↔ ($(ys...),)) => Expr(:block, [precom_ex(m ,:($x ↔ $y), info) for (x, y) in zip(xs, ys)]...)
-        :($x ↔ $y) => begin
-            e1 = isemptyvar(x)
-            e2 = isemptyvar(y)
-            if e1 && !e2
-                @show x, y
-                dosymbol(sx->delete!(info.ancs, sx), y)
-                dosymbol(sx->(info.ancs[sx] = :(_zero($sx))), x)
-            elseif !e1 && e2
-                dosymbol(sx->delete!(info.ancs, sx), x)
-                dosymbol(sx->(info.ancs[sx] = :(_zero($sx))), y)
-            end
-            ex
-        end
+        :($x ↔ $y) => ex
         :($(xs...), $y ← $val) => precom_ex(m, :(($(xs...), $y) ← $val), info)
         :($(xs...), $y → $val) => precom_ex(m, :(($(xs...), $y) → $val), info)
         :($a += $b) => precom_opm(:+=, a, b)
@@ -153,7 +103,7 @@ function precom_ex(m::Module, ex, info)
         :(while ($pre, $post); $(body...); end) => begin
             post = post == :~ ? pre : post
             info = PreInfo()
-            Expr(:while, :(($pre, $post)), Expr(:block, flushancs(precom_body(m, body, info), info)...))
+            Expr(:while, :(($pre, $post)), Expr(:block, precom_body(m, body, info)...))
         end
         :(@from $line $post while $pre; $(body...); end) => precom_ex(m, Expr(:while, :(($pre, !$post)), ex.args[4].args[2]), info)
         :(begin $(body...) end) => begin
@@ -163,7 +113,7 @@ function precom_ex(m::Module, ex, info)
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
             info = PreInfo()
-            Expr(:for, :($i=$(precom_range(range))), Expr(:block, flushancs(precom_body(m, body, info), info)...))
+            Expr(:for, :($i=$(precom_range(range))), Expr(:block, precom_body(m, body, info)...))
         end
         :(@safe $line $subex) => ex
         :(@cuda $line $(args...)) => ex
@@ -222,13 +172,13 @@ function precom_if(m, ex, exinfo)
         ex.args[1].args[2] = _expand_cond(ex.args[1].args[2])
     end
     info = PreInfo()
-    ex.args[2] = Expr(:block, flushancs(precom_body(m, ex.args[2].args, info), info)...)
+    ex.args[2] = Expr(:block, precom_body(m, ex.args[2].args, info)...)
     if length(ex.args) == 3
         if ex.args[3].head == :elseif
             ex.args[3] = precom_if(m, ex.args[3], exinfo)
         elseif ex.args[3].head == :block
             info = PreInfo()
-            ex.args[3] = Expr(:block, flushancs(precom_body(m, ex.args[3].args, info), info)...)
+            ex.args[3] = Expr(:block, precom_body(m, ex.args[3].args, info)...)
         else
             error("unknown statement following `if` $ex.")
         end

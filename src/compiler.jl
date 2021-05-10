@@ -102,7 +102,7 @@ function compile_ex(m::Module, ex, info)
         :($s[end] → $x) => begin
             if info.invcheckon[]
                 y = gensym("result")
-                Expr(:block, :($y=$loaddata($x, $pop!($s))), _invcheck(x, y), assign_ex(x, y, info.invcheckon[]))
+                Expr(:block, :($y=$loaddata($x, $pop!($s))), _invcheck(y, x), assign_ex(x, y, info.invcheckon[]))
             else
                 assign_ex(x, :($loaddata($x, $pop!($s))), false)  # assign back can help remove roundoff error
             end
@@ -136,7 +136,7 @@ function compile_ex(m::Module, ex, info)
         :($x ← $tp) => :($x = $tp)
         :($x → $tp) => begin
             if info.invcheckon[]
-                _invcheck(x, tp)  # TODO: avoid using `x` in the following context.
+                _invcheck(x, tp)
             end
         end
 
@@ -147,7 +147,7 @@ function compile_ex(m::Module, ex, info)
             args, kwargs = seperate_kwargs(allargs)
             symres = gensym("results")
             ex = :($symres = $unzipped_broadcast($kwargs, $f, $(args...)))
-            Expr(:block, ex, assign_vars(args, symres; invcheck=info.invcheckon[]).args...)
+            Expr(:block, ex, assign_vars(args, symres, info.invcheckon[]).args...)
         end
         Expr(:if, _...) => compile_if(m, copy(ex), info)
         :(while ($pre, $post); $(body...); end) => begin
@@ -481,7 +481,7 @@ Execute a reversible instruction.
 """
 macro instr(ex)
     ex = precom_ex(__module__, ex, NiLangCore.PreInfo())
-    variable_analysis_ex(ex, SymbolTable())
+    #variable_analysis_ex(ex, SymbolTable())
     esc(Expr(:block, NiLangCore.compile_ex(__module__, ex, CompileInfo()), nothing))
 end
 

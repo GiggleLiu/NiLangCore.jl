@@ -27,6 +27,7 @@ end
         test1(a, b, out)
         (~test1)(a, b, out)
         a += b
+        out → 0.0
     end
 
     # compute (a+b)*b -> out
@@ -167,14 +168,13 @@ end
     end
     @test_throws InvertibilityError looper2(x, y)
 
-    @i function looper3(x, y)
+   @test_throws LoadError macroexpand(@__MODULE__, :(@i function looper3(x, y)
         while (x<100, x>0)
             z ← 0
             x += y
             z += 1
         end
-    end
-    @test_throws InvertibilityError looper3(x, y)
+    end))
 end
 
 @testset "ancilla" begin
@@ -184,6 +184,7 @@ end
         x += y
         z += one
         z -= one
+        z → 0
     end
     x = 0.0
     y = 9
@@ -197,6 +198,7 @@ end
         x += y
         z += one
         z -= ten
+        z → 0
     end
     x = 0.0
     y = 9
@@ -248,6 +250,7 @@ end
         l += x
         x -= 2 * l
         l += x
+        l → zero(x)
     end
     a = randn(10)
     b = randn(10)
@@ -317,6 +320,7 @@ end
         l += x
         x -= 2 * l
         l += x
+        l → zero(x)
     end
     a = (1,2)
     b = (3,1)
@@ -468,6 +472,7 @@ end
             @routine anc += x!
             x! += y * anc
             ~@routine
+            anc → zero(T)
         end
     )
     ex2 = :(
@@ -594,6 +599,7 @@ end
     @i function f(x)
         @zeros Float64 a b
         x += a * b
+        ~@zeros Float64 a b
     end
     @test f(3.0) == 3.0
 end
@@ -619,6 +625,7 @@ end
 
     ex3 = :(@i function f(x)
         y ← 0
+        y → 0
     end)
     @test macroexpand(Main, ex3) isa Expr
 
@@ -634,27 +641,33 @@ end
 
     ex6 = :(@i function f(x::Int)
         y ← 0
+        y → 0
     end)
     @test macroexpand(Main, ex6) isa Expr
 
     ex7 = :(@i function f(x::Int)
         if x>3
             y ← 0
+            y → 0
         elseif x<-3
             y ← 0
+            y → 0
         else
             y ← 0
+            y → 0
         end
     end)
     @test macroexpand(Main, ex7) isa Expr
 
     ex8 = :(@i function f(x; y=5)
         z ← 0
+        z → 0
     end)
     @test macroexpand(Main, ex8) isa Expr
 
     ex9 = :(@i function f(x; y)
         z ← 0
+        z → 0
     end)
     @test macroexpand(Main, ex9) isa Expr
 
@@ -731,7 +744,7 @@ end
     @test (@code_julia (x,y) → var) == :(try
         $(NiLangCore.deanc)((x, y), var)
     catch e
-        $(:(@warn "deallocate fail: `(x, y) → var`") |> NiLangCore.rmlines)
+        $(:(println("deallocate fail `$($(QuoteNode(:((x, y))))) → $(:var)`")) |> NiLangCore.rmlines)
         throw(e)
     end)
 
@@ -742,6 +755,7 @@ end
         y += m*n
         y += l*k
         (l, k) → size(x)
+        m, n → size(x)
     end
     twosize = f(0, x)[1]
     @test  twosize == 16
@@ -763,11 +777,6 @@ end
 end
 
 @testset "unsafe_destruct" begin
-    @i function f(re, x)
-        r, i ← @unsafe_destruct x
-        re += r
-    end
-    @test f(0.0, 3.0+2im) == (3.0, 3.0 + 2.0im)
     @i function f2(re, x)
         r, i ← @unsafe_destruct x
         re += r

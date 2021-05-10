@@ -91,7 +91,7 @@ end
 # the expression for reversibility checking
 function _invcheck(x, val)
     Expr(:try, Expr(:block, :($deanc($x, $val))), :e, Expr(:block, 
-            :(println("deallocate fail `$($x) → $($val)`")),
+            :(println("deallocate fail `$($(QuoteNode(x))) → $($(QuoteNode(val)))`")),
             :(throw(e)))
         )
 end
