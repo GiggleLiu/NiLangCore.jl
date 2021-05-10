@@ -887,28 +887,31 @@ end
     @test f2([1,2,3], 4) == ([1,2,3,4], 2)
     @test check_inv(f2, ([1,2,3], 3))
 
-    @i function f2(x, y)
+    @i function f4(x, y)
         y ↔ x[end+1]
         y ← 2
     end
-    @test f2([1,2,3], 4) == ([1,2,3,4], 2)
-    @test check_inv(f2, ([1,2,3], 3))
+    @test f4([1,2,3], 4) == ([1,2,3,4], 2)
+    @test check_inv(f4, ([1,2,3], 3))
 
-    @i function f3(x, y::TY) where TY
+    @i function f3(x, y::TY, s) where TY
         y → _zero(TY)
         x[end] ↔ (y::TY)::∅
+        @safe @show x[2], s
+        x[2] ↔ s
     end
-    @test f3(Float32[1,2,3], 0.0) == (Float32[1,2], 3.0)
-    @test check_inv(f3, (Float32[1,2,3], 0.0))
+    @test f3(Float32[1,2,3], 0.0, 4f0) == (Float32[1,4], 3.0, 2f0)
+    @test check_inv(f3, (Float32[1,2,3], 0.0, 4f0))
 end
 
 @testset "feed tuple and types" begin
     @i function f3(a, d::Complex)
         a.:1 += d.re
+        d.re ↔ d.im
     end
     @i function f4(a, b, c, d, e)
         f3((a, b, c), Complex{}(d, e))
     end
-    @test f4(1,2,3,4,5) == (5,2,3,4,5)
+    @test f4(1,2,3,4,5) == (5,2,3,5,4)
     @test check_inv(f4, (1,2,3,4,5))
 end

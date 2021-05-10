@@ -396,28 +396,38 @@ This IR is not directly executable on Julia, please use
 
 ```jldoctest; setup=:(using NiLangCore)
 julia> ex = :(@inline function f(x!::T, y) where T
-               anc ← zero(T)
-               @routine anc += identity(x!)
-               x! += y * anc
-               ~@routine
+                @routine begin
+                    anc ← zero(T)
+                    anc += identity(x!)
+                end
+                x! += y * anc
+                ~@routine
            end);
 
 julia> NiLangCore.nilang_ir(Main, ex) |> NiLangCore.rmlines
 :(@inline function f(x!::T, y) where T
-          anc ← zero(T)
-          anc += identity(x!)
+          begin
+              anc ← zero(T)
+              anc += identity(x!)
+          end
           x! += y * anc
-          anc -= identity(x!)
-          anc → zero(T)
+          begin
+              anc -= identity(x!)
+              anc → zero(T)
+          end
       end)
 
 julia> NiLangCore.nilang_ir(Main, ex; reversed=true) |> NiLangCore.rmlines
 :(@inline function (~f)(x!::T, y) where T
-          anc ← zero(T)
-          anc += identity(x!)
+          begin
+              anc ← zero(T)
+              anc += identity(x!)
+          end
           x! -= y * anc
-          anc -= identity(x!)
-          anc → zero(T)
+          begin
+              anc -= identity(x!)
+              anc → zero(T)
+          end
       end)
 ```
 """
