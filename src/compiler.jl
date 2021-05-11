@@ -335,29 +335,9 @@ julia> test(0.2, 0.8)
 See `test/compiler.jl` for more examples.
 """
 macro i(ex)
-    if ex isa Expr && ex.head == :struct
-        ex = gen_istruct(__module__, ex)
-    else
-        ex = gen_ifunc(__module__, ex)
-    end
+    ex = gen_ifunc(__module__, ex)
     ex.args[1] = :(Base.@__doc__ $(ex.args[1]))
     esc(ex)
-end
-
-# generate the reversed functions in a reversible `struct`
-function gen_istruct(m::Module, ex)
-    invlist = []
-    for (i, st) in enumerate(ex.args[3].args)
-        @smatch st begin
-            :(@i $line $funcdef) => begin
-                fdefs = gen_ifunc(m, funcdef).args
-                ex.args[3].args[i] = fdefs[1]
-                append!(invlist, fdefs[2:end])
-            end
-            _ => st
-        end
-    end
-    Expr(:block, ex, invlist...)
 end
 
 # generate the reversed function

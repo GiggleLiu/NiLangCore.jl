@@ -1,5 +1,6 @@
 export check_inv, world_similar, almost_same
 
+@nospecialize
 """
     check_inv(f, args; atol::Real=1e-8, verbose::Bool=false, kwargs...)
 
@@ -23,6 +24,7 @@ function world_similar(a, b; atol::Real=1e-8, verbose::Bool=false)
     end
     return true
 end
+@specialize
 
 """
     almost_same(a, b; atol=GLOBAL_ATOL[], kwargs...) -> Bool
