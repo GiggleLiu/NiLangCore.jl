@@ -125,13 +125,6 @@ function compile_ex(m::Module, ex, info)
                 delete_expr
             end
         end
-        ## multi arg
-        #:(($(args...),) ← @fields $line $x) => begin
-            ##Expr(:block, line, :(($(args...),) = $type2tuple($x)))
-        #end
-        #:(($(args...),) → @fields $line $x) => begin
-            #Expr(:block, line, Expr(:(=), x, Expr(:new, :(typeof($x)), args...)))
-        #end
         # general
         :($x ← $tp) => :($x = $tp)
         :($x → $tp) => begin
