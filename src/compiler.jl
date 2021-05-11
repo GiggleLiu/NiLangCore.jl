@@ -261,11 +261,11 @@ function forstatement(i, range, body, info, mcr)
 end
 
 _pop_value(x) = @smatch x begin
-    ::Symbol => x
     :($s[end]) => :($pop!($s))
     :($s[$ind]) => :($pop!($s, $ind))  # dict (notice pop over vector elements is not allowed.)
     :($x::$T) => :($(_pop_value(x))::$T)
-    _ => error("can not pop variable $x")
+    :(($(args...)),) => Expr(:tuple, _pop_value.(args)...)
+    _ => x
 end
 
 _push_value(x, val, invcheck) = @smatch x begin

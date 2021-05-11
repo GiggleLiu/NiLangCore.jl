@@ -932,5 +932,13 @@ end
         (x, y) ↔ (z, j)
     end
     @test f4(1,2, 3, 4) == (3,4,1,2)
+
+    @i function swap_fields(obj::Complex)
+        (x, y)::∅ ↔ @fields obj
+        x += y
+        (x, y) ↔ (@fields obj)::∅
+    end
+
+    @test swap_fields(1+2im) == (3+2im)
 end
 
