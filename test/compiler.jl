@@ -689,7 +689,7 @@ end
     @test d == Dict(4=>3)
     @test_throws InvertibilityError @instr d[4] → 5
     @test (@instr @invcheckoff d[8] → 5; true)
-    @test_throws AssertionError @instr d[4] ← 5
+    @test_throws InvertibilityError @instr d[4] ← 5
     @test (@instr @invcheckoff d[4] ← 5; true)
 end
 
@@ -737,7 +737,7 @@ end
     info = NiLangCore.PreInfo()
     @test NiLangCore.precom_ex(NiLangCore, :(x,y ← var), info) == :((x, y) ← var)
     @test NiLangCore.precom_ex(NiLangCore, :(x,y → var), info) == :((x, y) → var)
-    @test NiLangCore.precom_ex(NiLangCore, :((x,y) ↔ (a, b)), info) == :(begin; x↔a; y↔b; end)
+    @test NiLangCore.precom_ex(NiLangCore, :((x,y) ↔ (a, b)), info) == :((x,y) ↔ (a,b))
     @test (@code_reverse (x,y) ← var) == :((x, y) → var)
     @test (@code_reverse (x,y) → var) == :((x, y) ← var)
     @test (@code_julia (x,y) ← var) == :((x, y) = var)
@@ -774,15 +774,6 @@ end
     @i function f(::Complex)
     end
     @test f(1+2im) == 1+2im
-end
-
-@testset "unsafe_destruct" begin
-    @i function f2(re, x)
-        r, i ← @unsafe_destruct x
-        re += r
-        r, i → @unsafe_destruct x
-    end
-    @test f2(0.0, 3.0+2im) == (3.0, 3.0 + 2.0im)
 end
 
 @testset "tuple input" begin
@@ -915,3 +906,31 @@ end
     @test f4(1,2,3,4,5) == (5,2,3,5,4)
     @test check_inv(f4, (1,2,3,4,5))
 end
+
+@testset "exchange tuple and fields" begin
+    @i function f1(x, y, z)
+        (x, y) ↔ @fields z
+    end
+    @test f1(1,2, 3+4im) == (3,4,1+2im)
+
+    @i function f2(re, x)
+        r, i ← @fields x
+        re += r
+        r, i → @fields x
+    end
+    @test f2(0.0, 3.0+2im) == (3.0, 3.0 + 2.0im)
+
+    @i function f3(x, y, z)
+        (@fields z) ↔ (x, y)
+    end
+    @test f3(1,2, 3+4im) == (3,4,1+2im)
+
+    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f3(x, y, z)
+        (x, y) ↔ (z, j)
+    end))
+    @i function f4(x, y, z, j)
+        (x, y) ↔ (z, j)
+    end
+    @test f4(1,2, 3, 4) == (3,4,1,2)
+end
+

@@ -126,3 +126,57 @@ end
     @test check_inv(test, (3.0, 0.0))
     @test length(NiLangCore.GLOBAL_STACK) == l
 end
+
+@testset "dictionary & vector" begin
+    # allocate and deallocate
+    @i function f1(d, y)
+        d["y"] ← y
+    end
+    d = Dict("x" => 34)
+    @test f1(d, 3) == (Dict("x"=>34, "y"=>3), 3)
+    @test_throws InvertibilityError f1(d, 3)
+    d = Dict("x" => 34)
+    @test check_inv(f1, (d, 3))
+    # not available on vectors
+    @i function f2(d, y)
+        d[2] ← y
+    end
+    @test_throws MethodError f2([1,2,3], 3)
+
+    # swap
+    @i function f3(d, y)
+        d["y"] ↔ y
+    end
+    d = Dict("y" => 34)
+    @test f3(d, 3) == (Dict("y"=>3), 34)
+    d = Dict("z" => 34)
+    @test_throws KeyError f3(d, 3)
+    d = Dict("y" => 34)
+    @test check_inv(f3, (d, 3))
+    # swap on vector
+    @i function f4(d, y, x)
+        d[2] ↔ y
+        d[end] ↔ x
+    end
+    d = [11,12,13]
+    @test f4(d, 1,2) == ([11,1,2],12,13)
+    d = [11,12,13]
+    @test check_inv(f4, (d, 1,2))
+
+    # swap to empty
+    @i function f5(d, x::T) where T
+        d["x"]::∅ ↔ x   # swap in
+        d["y"] ↔ x::∅  # swap out
+    end
+    d = Dict("y" => 34)
+    @test f5(d, 3) == (Dict("x"=>3), 34)
+    d = Dict("y" => 34)
+    @test check_inv(f5, (d, 3))
+    d = Dict("x" => 34)
+    @test_throws InvertibilityError f5(d, 3)
+    # not available on vectors
+    @i function f6(d, y)
+        d[2]::∅ ↔ y
+    end
+    @test_throws MethodError f6([1,2,3], 3)
+end

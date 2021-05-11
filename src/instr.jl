@@ -120,6 +120,7 @@ assign_ex(arg, res, invcheck) = @smatch arg begin
     ::Number || ::String => _invcheck(invcheck, arg, res)
     ::Symbol || ::GlobalRef => _isconst(arg) ? _invcheck(invcheck, arg, res) : :($arg = $res)
     :(@skip! $line $x) => nothing
+    :(@fields $line $x) => assign_ex(x, Expr(:call, default_constructor, :(typeof($x)), Expr(:..., res)), invcheck)
     :($x::∅) => assign_ex(x, res, invcheck)
     :($x::$T) => assign_ex(x, :($loaddata($T, $res)), invcheck)
     :($x.$k) => _isconst(x) ? _invcheck(invcheck, arg, res) : assign_ex(x, :(chfield($x, $(Val(k)), $res)), invcheck)
@@ -143,11 +144,8 @@ assign_ex(arg, res, invcheck) = @smatch arg begin
         :($a[$(x...)] = $res)
     end
     :(($(args...),)) => begin
-        ex = :()
-        for i=1:length(args)
-            ex = :($ex; $(assign_ex(args[i], :($res[$i]), invcheck)))
-        end
-        ex
+        # TODO: avoid possible repeated evaluation (not here, in swap)
+        Expr(:block, [assign_ex(args[i], :($res[$i]), invcheck) for i=1:length(args)]...)
     end
     _ => _invcheck(invcheck, arg, res)
 end

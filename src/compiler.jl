@@ -112,7 +112,7 @@ function compile_ex(m::Module, ex, info)
         :($x[$index] ← $tp) => begin
             assign_expr = :($x[$index] = $tp)
             if info.invcheckon[]
-                Expr(:block, :(@assert !haskey($x, $index)), assign_expr)
+                Expr(:block, _assert_nokey(x, index), assign_expr)
             else
                 assign_expr
             end
@@ -125,13 +125,13 @@ function compile_ex(m::Module, ex, info)
                 delete_expr
             end
         end
-        # multi arg
-        :(($(args...),) ← @unsafe_destruct $line $x) => begin
-            Expr(:block, line, :(($(args...),) = $type2tuple($x)))
-        end
-        :(($(args...),) → @unsafe_destruct $line $x) => begin
-            Expr(:block, line, Expr(:(=), x, Expr(:new, :(typeof($x)), args...)))
-        end
+        ## multi arg
+        #:(($(args...),) ← @fields $line $x) => begin
+            ##Expr(:block, line, :(($(args...),) = $type2tuple($x)))
+        #end
+        #:(($(args...),) → @fields $line $x) => begin
+            #Expr(:block, line, Expr(:(=), x, Expr(:new, :(typeof($x)), args...)))
+        #end
         # general
         :($x ← $tp) => :($x = $tp)
         :($x → $tp) => begin
@@ -269,15 +269,28 @@ end
 
 _pop_value(x) = @smatch x begin
     ::Symbol => x
-    :($x::$T) => :($(_pop_value(x))::$T)
     :($s[end]) => :($pop!($s))
     :($s[$ind]) => :($pop!($s, $ind))  # dict (notice pop over vector elements is not allowed.)
+    :($x::$T) => :($(_pop_value(x))::$T)
     _ => error("can not pop variable $x")
 end
 
 _push_value(x, val, invcheck) = @smatch x begin
     :($s[end+1]) => :($push!($s, $val))
+    :($s[$arg]::∅) => begin
+        ex = :($s[$arg] = $val)
+        if invcheck
+            Expr(:block, _assert_nokey(s, arg), ex)
+        else
+            ex
+        end
+    end
     _ => assign_ex(x, val, invcheck)
+end
+
+function _assert_nokey(x, index)
+    str = "dictionary `$x` already has key `$index`"
+    Expr(:if, :(haskey($x, $index)), :(throw(InvertibilityError($str))))
 end
 
 _copy(x) = copy(x)

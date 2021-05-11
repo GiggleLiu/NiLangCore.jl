@@ -39,6 +39,14 @@ function almost_same(a::TA, b::TB; kwargs...) where {TA, TB}
     false
 end
 
+function almost_same(a::T, b::T; kwargs...) where {T<:Dict}
+    length(a) != length(b) && return false
+    for (k, v) in a
+        haskey(b, k) && almost_same(v, b[k]; kwargs...) || return false
+    end
+    return true
+end
+
 @generated function almost_same(a::T, b::T; kwargs...) where T
     nf = fieldcount(a)
     if isprimitivetype(T)

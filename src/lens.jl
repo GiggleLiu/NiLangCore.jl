@@ -1,4 +1,4 @@
-export _zero
+export _zero, @fields
 
 # update a field of a struct.
 @inline @generated function field_update(main :: T, field::Val{Field}, value) where {T, Field}
@@ -90,4 +90,8 @@ end
 # convert field of an object to a tuple
 @generated function type2tuple(x::T) where T
     Expr(:tuple, [:(x.$v) for v in fieldnames(T)]...)
+end
+
+macro fields(ex)
+    esc(:($type2tuple($ex)))
 end

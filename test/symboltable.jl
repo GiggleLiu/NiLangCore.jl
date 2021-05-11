@@ -1,5 +1,5 @@
 using Test, NiLangCore
-using NiLangCore: SymbolTable, allocate!, deallocate!, operate!, swapvars!
+using NiLangCore: SymbolTable, allocate!, deallocate!, operate!, swapvars!, variable_analysis_ex
 
 @testset "variable analysis" begin
     st = SymbolTable()
@@ -60,3 +60,32 @@ using NiLangCore: SymbolTable, allocate!, deallocate!, operate!, swapvars!
     # push and pop variables
 end
 
+
+@testset "variable analysis" begin
+    st = SymbolTable([:x, :y], [], [])
+    ex = :((x,y) ↔ (a, b))
+    variable_analysis_ex(ex, st)
+    @test st.existing == [:a, :b]
+    @test st.unclassified == [:x, :y]
+    st = SymbolTable([:x, :y], [], [])
+    ex = :((x,y) ↔ b)
+    variable_analysis_ex(ex, st)
+    @test st.existing == [:b]
+    @test st.unclassified == [:x, :y]
+    ex = :(b ↔ (x,y))
+    variable_analysis_ex(ex, st)
+    @test st.existing == [:x, :y]
+    @test st.unclassified == [:b]
+
+    st = SymbolTable([:x, :y], [], [])
+    ex = :(b ↔ x)
+    variable_analysis_ex(ex, st)
+    @test st.existing == [:b, :y]
+    @test st.unclassified == [:x]
+
+    st = SymbolTable([], [], [])
+    ex = :(b ↔ (x, y))
+    variable_analysis_ex(ex, st)
+    @test st.existing == []
+    @test st.unclassified == [:b, :x, :y]
+end

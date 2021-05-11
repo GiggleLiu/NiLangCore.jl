@@ -83,9 +83,7 @@ Precompile a single statement `ex`, where `info` is a `PreInfo` instance.
 """
 function precom_ex(m::Module, ex, info)
     @smatch ex begin
-        # TODO: add variable analysis for `@unsafe_destruct`
         :($x ← $val) || :($x → $val) => ex
-        :(($(xs...),) ↔ ($(ys...),)) => Expr(:block, [precom_ex(m ,:($x ↔ $y), info) for (x, y) in zip(xs, ys)]...)
         :($x ↔ $y) => ex
         :($(xs...), $y ← $val) => precom_ex(m, :(($(xs...), $y) ← $val), info)
         :($(xs...), $y → $val) => precom_ex(m, :(($(xs...), $y) → $val), info)

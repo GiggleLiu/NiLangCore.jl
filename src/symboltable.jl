@@ -44,7 +44,7 @@ function allocate!(st::SymbolTable, var::Symbol)
 end
 
 # find the list containing var
-function findlist(st::SymbolTable, var)
+function findlist(st::SymbolTable, var::Symbol)
     if var ∈ st.existing
         return st.existing
     elseif var ∈ st.unclassified
@@ -108,5 +108,28 @@ function swapsyms!(st::SymbolTable, var1::Symbol, var2::Symbol)
     else
         operate!(st, var1)
         operate!(st, var2)
+    end
+end
+
+function swapsyms_asymetric!(st::SymbolTable, var1s::Vector, var2::Symbol)
+    length(var1s) == 0 && return
+    lst1 = findlist(st, var1s[1])
+    for k=2:length(var1s)
+        if findlist(st, var1s[k]) !== lst1
+            error("variable status not aligned: $var1s")
+        end
+    end
+    lst2 = findlist(st, var2)
+    if lst1 !== nothing
+        removevar!.(Ref(lst1), var1s)
+        push!(lst1, var2)
+    else
+        operate!(st, var2)
+    end
+    if lst2 !== nothing
+        removevar!(lst2, var2)
+        push!.(Ref(lst2),var1s)
+    else
+        operate!.(Ref(st), var1s)
     end
 end

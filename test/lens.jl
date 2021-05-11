@@ -27,3 +27,7 @@ end
     @test _zero(Symbol) == Symbol("")
     @test _zero(:x) == Symbol("")
 end
+
+@testset "fields" begin
+    @test (@fields 1+3im) == (1,3)
+end

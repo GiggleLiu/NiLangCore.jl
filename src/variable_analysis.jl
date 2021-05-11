@@ -3,18 +3,6 @@ function variable_analysis_ex(ex, syms::SymbolTable)
     allocate!(x) = allocatevar!(syms, x)
     deallocate!(x) = deallocatevar!(syms, x)
     @smatch ex begin
-        # TODO: add variable analysis for `@destruct`
-        #=
-        :(($(args...),) ↔ @destruct $line $x) => begin
-            if x ∈ syms.existing
-                deallocate!(x)
-                allocate!.(args)
-            else
-                deallocate!.(args)
-                allocate!(x)
-            end
-        end
-        =#
         :($x[$key] ← $val) || :($x[$key] → $val) => (use!(x); use!(key); use!(val))
         :($x ← $val) => allocate!(x)
         :($x → $val) => deallocate!(x)
@@ -199,14 +187,22 @@ function swapvars!(st::SymbolTable, x, y)
         dosymbol(sx -> deallocate!(st, sx), x)
         dosymbol(sy -> allocate!(st, sy), y)
         usevar!(st, y)
-    else
+    else  # both are nonempty
         sx = dosymbol(identity, x)
         sy = dosymbol(identity, y)
-        if sx !== nothing && sy !== nothing
+        if sx === nothing || sy === nothing  # e.g. x.y ↔ k.c
+            usevar!(st, x)
+            usevar!(st, y)
+        elseif sx isa Symbol && sy isa Symbol  # e.g. x ↔ y
             swapsyms!(st, sx, sy)
+        elseif sx isa Vector && sy isa Vector  # e.g. (x, y) ↔ (a, b)
+            @assert length(sx) == length(sy)
+            swapsyms!.(Ref(st), sx, sy)
+        elseif sx isa Vector && sy isa Symbol  # e.g. (x, y) ↔ args
+            swapsyms_asymetric!(st, sx, sy)
+        elseif sx isa Symbol && sy isa Vector  # e.g. args ↔ (x, y)
+            swapsyms_asymetric!(st, sy, sx)
         end
-        usevar!(st, x)
-        usevar!(st, y)
     end
 end
 isemptyvar(ex) = @smatch ex begin
@@ -216,7 +212,9 @@ isemptyvar(ex) = @smatch ex begin
 end
 dosymbol(f, ex) = @smatch ex begin
     x::Symbol => f(x)
+    :(@fields $line $sym) => dosymbol(f, sym)
     :($x::$T) => dosymbol(f, x)
+    :(($(args...),)) => dosymbol.(Ref(f), args)
     _ => nothing
 end
 
