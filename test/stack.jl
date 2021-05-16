@@ -180,3 +180,12 @@ end
     end
     @test_throws MethodError f6([1,2,3], 3)
 end
+
+@testset "inverse stack" begin
+    @i function f(x)
+        x[end+1] ← 1
+    end
+
+    x = FastStack{Int}(3)
+    @test check_inv(f, (x,))
+end

@@ -61,3 +61,4 @@ end
 end
 
 almost_same(x::T, y::T; kwargs...) where T<:AbstractArray = all(almost_same.(x, y; kwargs...))
+almost_same(x::FastStack, y::FastStack; kwargs...) where T<:AbstractArray = all(almost_same.(x.data[1:x.top[]], y.data[1:y.top[]]; kwargs...))

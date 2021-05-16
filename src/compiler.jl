@@ -104,7 +104,8 @@ function compile_ex(m::Module, ex, info)
                 y = gensym("result")
                 Expr(:block, :($y=$loaddata($x, $pop!($s))), _invcheck(y, x), assign_ex(x, y, info.invcheckon[]))
             else
-                assign_ex(x, :($loaddata($x, $pop!($s))), false)  # assign back can help remove roundoff error
+                y = gensym("result")
+                Expr(:block, :($y=$loaddata($x, $pop!($s))), assign_ex(x, y, info.invcheckon[]))
             end
         end
         :($s[end+1] ← $x) => :($push!($s, $_copy($x)))
