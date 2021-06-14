@@ -10,3 +10,20 @@ using Test, NiLangCore
     println(MulEq(*))
     println(DivEq(/))
 end
+
+@testset "composite function" begin
+    @i function f1(x)
+        x.:1 += x.:2
+    end
+    @i function f2(x)
+        x.:2 += cos(x.:1)
+    end
+    @i function f3(x)
+        x.:1 ↔ x.:2
+    end
+    x = (2.0, 3.0)
+    y = (f3∘f2∘f1)(x)
+    z = (~(f3∘f2∘f1))(y)
+    @show x, z
+    @test all(x .≈ z)
+end
