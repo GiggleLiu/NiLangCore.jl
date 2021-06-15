@@ -48,3 +48,10 @@ end
     @test pop!(od) == (:c, 7)
     @test length(od) == 1
 end
+
+@testset "unzipped broadcast" begin
+    x = [1, 2, 3.0]
+    res = NiLangCore.unzipped_broadcast(exp, x)
+    @test res === x
+    @test res ≈ exp.([1, 2, 3.0])
+end
