@@ -139,7 +139,7 @@ struct Inv{FT} <: Function
     f::FT
 end
 Inv(f::Inv) = f.f
-Base.:~(f::ComposedFunction) = (~(f.inner)) ∘ (~(f.outer))
+Base.:~(f::Base.ComposedFunction) = (~(f.inner)) ∘ (~(f.outer))
 Base.:~(f::Function) = Inv(f)
 Base.:~(::Type{Inv{T}}) where T = T  # for type, it is a destructor
 Base.:~(::Type{T}) where T = Inv{T}  # for type, it is a destructor
