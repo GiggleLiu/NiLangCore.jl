@@ -117,7 +117,7 @@ unzipped broadcast for arrays and tuples, e.g. `SWAP.([1,2,3], [4,5,6])` will do
 """
 unzipped_broadcast(f) = error("must provide at least one argument in broadcasting!")
 function unzipped_broadcast(f, arg::AbstractArray; kwargs...)
-    f.(arg)
+    arg .= f.(arg)
 end
 function unzipped_broadcast(f, arg::Tuple; kwargs...)
     f.(arg)
