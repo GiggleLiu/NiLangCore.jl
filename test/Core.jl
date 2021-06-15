@@ -11,6 +11,7 @@ using Test, NiLangCore
     println(DivEq(/))
 end
 
+@static if VERSION > v"1.5.100"
 @testset "composite function" begin
     @i function f1(x)
         x.:1 += x.:2
@@ -26,4 +27,5 @@ end
     z = (~(f3∘f2∘f1))(y)
     @show x, z
     @test all(x .≈ z)
+end
 end

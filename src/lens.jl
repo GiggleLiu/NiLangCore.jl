@@ -76,11 +76,21 @@ function _zero(d::T) where {A,B,T<:Dict{A,B}}
     Dict{A,B}([x=>zero(y) for (x,y) in d])
 end
 
-@generated function chfield(x, ::Val{FIELD}, xval) where FIELD
-    if x.mutable
-        Expr(:block, :(x.$FIELD = xval), :x)
-    else
-        :(@with x.$FIELD = xval)
+@static if VERSION > v"1.6.100"
+    @generated function chfield(x, ::Val{FIELD}, xval) where FIELD
+        if ismutabletype(x)
+            Expr(:block, :(x.$FIELD = xval), :x)
+        else
+            :(@with x.$FIELD = xval)
+        end
+    end
+else
+    @generated function chfield(x, ::Val{FIELD}, xval) where FIELD
+        if x.mutable
+            Expr(:block, :(x.$FIELD = xval), :x)
+        else
+            :(@with x.$FIELD = xval)
+        end
     end
 end
 @generated function chfield(x, f::Function, xval)
