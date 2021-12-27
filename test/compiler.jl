@@ -790,7 +790,7 @@ end
     @test g((1,2,3)) == (6,2,3)
 end
 
-@testset "single argument" begin
+@testset "single/zero argument" begin
     @i function f(x)
         neg(x)
     end
@@ -805,6 +805,12 @@ end
     x = ([3, 4],)
     @instr f.(x...)
     @test x == ([-3, -4],)
+
+    @i function f()
+    end
+    x = ()
+    @instr f(x...)
+    @test x == ()
 end
 
 @testset "type constructor" begin

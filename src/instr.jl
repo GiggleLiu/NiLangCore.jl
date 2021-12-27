@@ -94,7 +94,8 @@ function assign_vars(args, symres, invcheck)
         exi = @smatch arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
-                assign_ex(ag, :($tailn($symres, Val($i-1), $ag)), invcheck)
+                ex = :(ntuple(j->$symres[j+$(i-1)], length($ag)))
+                assign_ex(ag, i==1 ? :(length($ag) == 1 ? ($symres,) : $ex) : ex, invcheck)
             end
             _ => if length(args) == 1
                 assign_ex(arg, symres, invcheck)
@@ -149,17 +150,6 @@ assign_ex(arg, res, invcheck) = @smatch arg begin
     end
     _ => _invcheck(invcheck, arg, res)
 end
-
-# general
-@inline tailn(t::Tuple, ::Val{n}) where n = tailn(TupleTools.tail(t), Val{n-1}())
-@inline tailn(t::Tuple, ::Val{n}, input::Tuple) where n = tailn(t, Val{n}())
-tailn(t::Tuple, ::Val{0}) = t
-# single argument, the second field can be 0, 1
-tailn(t, ::Val{0}, input::NTuple{1}) = (t,)
-tailn(t, ::Val{1}, input::NTuple{0}) = ()
-# avoid ambiguity errors
-tailn(t::Tuple, ::Val{0}, input::NTuple{1}) = (t,)
-tailn(t::Tuple, ::Val{1}, input::NTuple{0}) = ()
 
 export @assign
 
