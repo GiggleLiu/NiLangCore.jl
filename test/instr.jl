@@ -166,14 +166,6 @@ end
     # TODO: check variable on the same tree, like `a.b` and `a`
 end
 
-@testset "tailn" begin
-    @test NiLangCore.tailn((1,2,3), Val(1), (1,2,3)) == (2,3)
-    @test NiLangCore.tailn((1,2,3), Val(0), (1,2,3)) == (1,2,3)
-    @test NiLangCore.tailn(1, Val(1), ()) == ()
-    @test NiLangCore.tailn(1, Val(0), (1,)) == (1,)
-    @test NiLangCore.tailn((1,), Val(0), ((1,),)) == ((1,),)
-end
-
 @testset "dual type" begin
     struct AddX{T}
         x::T
