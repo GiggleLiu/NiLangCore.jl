@@ -63,7 +63,7 @@ _zero(::Type{T}) where T<:Real = zero(T)
 _zero(::Type{String}) = ""
 _zero(::Type{Symbol}) = Symbol("")
 _zero(::Type{Char}) = '\0'
-_zero(::Type{T}) where {ET,N,T<:Array{ET,N}} = reshape(ET[], ntuple(x->0, N))
+_zero(::Type{T}) where {ET,N,T<:AbstractArray{ET,N}} = reshape(ET[], ntuple(x->0, N))
 _zero(::Type{T}) where {A,B,T<:Dict{A,B}} = Dict{A,B}()
 
 #_zero(x::T) where T = _zero(T) # not adding this line!
@@ -71,9 +71,9 @@ _zero(x::T) where T<:Real = zero(x)
 _zero(::String) = ""
 _zero(::Symbol) = Symbol("")
 _zero(::Char) = '\0'
-_zero(x::T) where T<:Array = zero(x)
+_zero(x::T) where T<:AbstractArray = zero(x)
 function _zero(d::T) where {A,B,T<:Dict{A,B}}
-    Dict{A,B}([x=>zero(y) for (x,y) in d])
+    Dict{A,B}([x=>_zero(y) for (x,y) in d])
 end
 
 @static if VERSION > v"1.6.100"
