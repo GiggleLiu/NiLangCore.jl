@@ -71,7 +71,7 @@ macro assignback(ex, invcheck=true)
 end
 
 function assignback_ex(ex::Expr, invcheck::Bool)
-    @smatch ex begin
+    @match ex begin
         :($f($(args...))) => begin
             symres = gensym("results")
             ex = :($symres = $f($(args...)))
@@ -91,7 +91,7 @@ Get the expression of assigning `symres` to `args`.
 function assign_vars(args, symres, invcheck)
     exprs = []
     for (i,arg) in enumerate(args)
-        exi = @smatch arg begin
+        exi = @match arg begin
             :($ag...) => begin
                 i!=length(args) && error("`args...` like arguments should only appear as the last argument!")
                 ex = :(ntuple(j->$symres[j+$(i-1)], length($ag)))
@@ -117,7 +117,7 @@ If `g` is a dataview (a function map an object to its field or a bijective funct
     z += f(x |> g)
 """
 
-assign_ex(arg, res, invcheck) = @smatch arg begin
+assign_ex(arg, res, invcheck) = @match arg begin
     ::Number || ::String => _invcheck(invcheck, arg, res)
     ::Symbol || ::GlobalRef => _isconst(arg) ? _invcheck(invcheck, arg, res) : :($arg = $res)
     :(@skip! $line $x) => nothing

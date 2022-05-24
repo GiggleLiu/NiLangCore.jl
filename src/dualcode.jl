@@ -7,7 +7,7 @@ end
 
 # get the function name of the inverse function
 function dual_fname(op)
-    @smatch op begin
+    @match op begin
         :($x::$tp) => :($x::$invtype($tp))
         :(~$x) => x
         _ => :($(gensym("~$op"))::$_typeof(~$op))
@@ -22,7 +22,7 @@ _typeof(x::Type{T}) where T = Type{T}
 Get the dual expression of `ex`.
 """
 function dual_ex(m::Module, ex)
-    @smatch ex begin
+    @match ex begin
         :(($t1=>$t2)($x)) => :(($t2=>$t1)($x))
         :(($t1=>$t2).($x)) => :(($t2=>$t1).($x))
         :($x ↔ $y) => dual_swap(x, y)
@@ -74,7 +74,7 @@ function dual_ex(m::Module, ex)
 end
 
 function dual_if(m::Module, ex)
-    _dual_cond(cond) = @smatch cond begin
+    _dual_cond(cond) = @match cond begin
         :(($pre, $post)) => :(($post, $pre))
     end
     if ex.head == :if
@@ -103,7 +103,7 @@ function dual_swap(x, y)
     end
 end
 
-_dual_swap_var(x) = @smatch x begin
+_dual_swap_var(x) = @match x begin
     :($s[end+1]) => :($s[end])
     :($x::∅) => :($x)
     :($s[end]) => :($s[end+1])
@@ -126,7 +126,7 @@ macro code_reverse(ex)
     QuoteNode(dual_ex(__module__, ex))
 end
 
-getdual(f) = @smatch f begin
+getdual(f) = @match f begin
     :(~$f) => f
     _ => :(~$f)
 end

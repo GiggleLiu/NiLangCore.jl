@@ -15,7 +15,7 @@ end
 Return the argument name of a function argument expression, e.g. `x::Float64 = 4` gives `x`.
 """
 function get_argname(fname)
-    @smatch fname begin
+    @match fname begin
         ::Symbol => fname
         :($x::$t) => x
         :($x::$t=$y) => x
@@ -33,7 +33,7 @@ end
 Analyze a function expression, returns a tuple of `(macros, function name, arguments, type parameters (in where {...}), statements in the body)`
 """
 function match_function(ex)
-    @smatch ex begin
+    @match ex begin
         :(function $(fname)($(args...)) $(body...) end) ||
         :($fname($(args...)) = $(body...)) => (nothing, fname, args, [], body)
         Expr(:function, :($fname($(args...)) where {$(ts...)}), xbody) => (nothing, fname, args, ts, xbody.args)

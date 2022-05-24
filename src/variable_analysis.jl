@@ -2,7 +2,7 @@ function variable_analysis_ex(ex, syms::SymbolTable)
     use!(x) = usevar!(syms, x)
     allocate!(x) = allocatevar!(syms, x)
     deallocate!(x) = deallocatevar!(syms, x)
-    @smatch ex begin
+    @match ex begin
         :($x[$key] ← $val) || :($x[$key] → $val) => (use!(x); use!(key); use!(val))
         :($x ← $val) => allocate!(x)
         :($x → $val) => deallocate!(x)
@@ -95,7 +95,7 @@ function variable_analysis_if(ex, exsyms)
     end
 end
 
-usevar!(syms::SymbolTable, arg) = @smatch arg begin
+usevar!(syms::SymbolTable, arg) = @match arg begin
     ::Number || ::String => nothing
     ::Symbol => _isconst(arg) || operate!(syms, arg)
     :(@skip! $line $x) => julia_usevar!(syms, x)
@@ -116,7 +116,7 @@ usevar!(syms::SymbolTable, arg) = @smatch arg begin
     _ => julia_usevar!(syms, arg)
 end
 
-julia_usevar!(syms::SymbolTable, ex) = @smatch ex begin
+julia_usevar!(syms::SymbolTable, ex) = @match ex begin
     ::Symbol => _isconst(ex) || operate!(syms, ex)
     :($a:$b:$c) => julia_usevar!.(Ref(syms), [a, b, c])
     :($a:$c) => julia_usevar!.(Ref(syms), [a, c])
@@ -135,7 +135,7 @@ julia_usevar!(syms::SymbolTable, ex) = @smatch ex begin
 end
 
 # push a new variable to variable set `x`, for allocating `target`
-allocatevar!(st::SymbolTable, target) = @smatch target begin
+allocatevar!(st::SymbolTable, target) = @match target begin
     ::Symbol => allocate!(st, target)
     :(($(tar...),)) => begin
         for t in tar
@@ -157,7 +157,7 @@ allocatevar!(st::SymbolTable, target) = @smatch target begin
 end
 
 # pop a variable from variable set `x`, for deallocating `target`
-deallocatevar!(st::SymbolTable, target) = @smatch target begin
+deallocatevar!(st::SymbolTable, target) = @match target begin
     ::Symbol => deallocate!(st, target)
     :(($(tar...),)) => begin
         for t in tar
@@ -205,12 +205,12 @@ function swapvars!(st::SymbolTable, x, y)
         end
     end
 end
-isemptyvar(ex) = @smatch ex begin
+isemptyvar(ex) = @match ex begin
     :($x[end+1]) => true
     :($x::∅) => true
     _ => false
 end
-dosymbol(f, ex) = @smatch ex begin
+dosymbol(f, ex) = @match ex begin
     x::Symbol => f(x)
     :(@fields $line $sym) => dosymbol(f, sym)
     :($x::$T) => dosymbol(f, x)
@@ -218,7 +218,7 @@ dosymbol(f, ex) = @smatch ex begin
     _ => nothing
 end
 
-_isconst(x) = @smatch x begin
+_isconst(x) = @match x begin
     ::Symbol => x ∈ Symbol[:im, :π, :Float64, :Float32, :Int, :Int64, :Int32, :Bool, :UInt8, :String, :Char, :ComplexF64, :ComplexF32, :(:), :end, :nothing]
     ::QuoteNode || ::Bool || ::Char || ::Number || ::String => true
     :($f($(args...))) => all(_isconst, args)
@@ -252,7 +252,7 @@ function check_args(args)
 end
 
 # Returns the memory `identifier`, it is used to avoid shared read/write.
-memkernel(ex) = @smatch ex begin
+memkernel(ex) = @match ex begin
     ::Symbol => ex
     :(@const $line $x) => memkernel(x)
     :($a |> subarray($(inds...))) || :($a[$(inds...)]) => :($(memkernel(a))[$(inds...)])
@@ -264,7 +264,7 @@ memkernel(ex) = @smatch ex begin
 end
 
 # Modify the argument, e.g. `x.[1,3:5]` is rendered as `x |> subarray(1,3:5)`.
-render_arg(ex) = @smatch ex begin
+render_arg(ex) = @match ex begin
     ::Symbol => ex
     :(@skip! $line $x) => ex
     :(@const $line $x) => Expr(:macrocall, Symbol("@const"), line, render_arg(x))
