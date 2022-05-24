@@ -46,7 +46,7 @@ function to_standard_format(ex::Expr)
     F, isbcast = map_func(ex.head)
     a, b = ex.args
     if !isbcast
-        @smatch b begin
+        @match b begin
             :($f($(args...); $(kwargs...))) => :($F($f)($a, $(args...); $(kwargs...)))
             :($f($(args...))) => :($F($f)($a, $(args...)))
             :($x || $y) => :($F($logical_or)($a, $x, $y))
@@ -54,7 +54,7 @@ function to_standard_format(ex::Expr)
             _ => :($F(identity)($a, $b))
         end
     else
-        @smatch b begin
+        @match b begin
             :($f.($(args...); $(kwargs...))) => :($F($f).($a, $(args...); $(kwargs...)))
             :($f.($(args...))) => :($F($f).($a, $(args...)))
             :($f($(args...); $(kwargs...))) => :($F($(removedot(f))).($a, $(args...); $(kwargs...)))
@@ -72,7 +72,7 @@ logical_and(a, b) = a && b
 Compile a NiLang statement to a regular julia statement.
 """
 function compile_ex(m::Module, ex, info)
-    @smatch ex begin
+    @match ex begin
         :($a += $b) || :($a .+= $b) ||
         :($a -= $b) || :($a .-= $b) ||
         :($a *= $b) || :($a .*= $b) ||
@@ -172,7 +172,7 @@ function compile_ex(m::Module, ex, info)
             ex
         end
         :(@cuda $line $(args...)) => begin
-            fcall = @smatch args[end] begin
+            fcall = @match args[end] begin
                 :($f($(args...))) => Expr(:call,
                     Expr(:->,
                         :(args...),
@@ -261,7 +261,7 @@ function forstatement(i, range, body, info, mcr)
     end
 end
 
-_pop_value(x) = @smatch x begin
+_pop_value(x) = @match x begin
     :($s[end]) => :($pop!($s))
     :($s[$ind]) => :($pop!($s, $ind))  # dict (notice pop over vector elements is not allowed.)
     :($x::$T) => :($(_pop_value(x))::$T)
@@ -269,7 +269,7 @@ _pop_value(x) = @smatch x begin
     _ => x
 end
 
-_push_value(x, val, invcheck) = @smatch x begin
+_push_value(x, val, invcheck) = @match x begin
     :($s[end+1]) => :($push!($s, $val))
     :($s[$arg]::∅) => begin
         ex = :($s[$arg] = $val)
@@ -461,7 +461,7 @@ function functionfoot(args)
 end
 
 # to provide the eye candy for defining `x += f(args...)` like functions
-_replace_opmx(ex) = @smatch ex begin
+_replace_opmx(ex) = @match ex begin
     :(:+=($f)) => :($(gensym())::PlusEq{typeof($f)})
     :(:-=($f)) => :($(gensym())::MinusEq{typeof($f)})
     :(:*=($f)) => :($(gensym())::MulEq{typeof($f)})
@@ -484,7 +484,7 @@ macro instr(ex)
 end
 
 # the range of for statement
-compile_range(range) = @smatch range begin
+compile_range(range) = @match range begin
     :($start:$step:$stop) => begin
         start_, step_, stop_ = gensym("start"), gensym("step"), gensym("stop")
         Any[:($start_ = $start),
@@ -517,7 +517,7 @@ Return the function type, e.g.
 * `f` => `typeof(f)`
 """
 function get_ftype(fname)
-    @smatch fname begin
+    @match fname begin
         :($x::$tp) => tp
         _ => :($NiLangCore._typeof($fname))
     end

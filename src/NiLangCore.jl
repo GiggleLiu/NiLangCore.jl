@@ -1,5 +1,5 @@
 module NiLangCore
-using MatchCore
+using MLStyle
 using TupleTools
 
 include("lens.jl")

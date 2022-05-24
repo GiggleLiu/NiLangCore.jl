@@ -15,7 +15,7 @@ function precom(m::Module, ex)
     mc, fname, args, ts, body = match_function(ex)
     vars = Symbol[]
     newargs = map(args) do arg
-        @smatch arg begin
+        @match arg begin
             :(::$tp)=>Expr(:(::), gensym(), tp)
             _ => arg
         end
@@ -42,13 +42,13 @@ end
 # precompile `+=`, `-=`, `*=` and `/=`
 function precom_opm(f, out, arg2)
     if f in [:(+=), :(-=), :(*=), :(/=)]
-        @smatch arg2 begin
+        @match arg2 begin
             :($x |> $view) => Expr(f, out, :(identity($arg2)))
             :($subf($(subargs...))) => Expr(f, out, arg2)
             _ => Expr(f, out, :(identity($arg2)))
         end
     elseif f in [:(.+=), :(.-=), :(.*=), :(./=)]
-        @smatch arg2 begin
+        @match arg2 begin
             :($x |> $view) || :($x .|> $view) => Expr(f, out, :(identity.($arg2)))
             :($subf.($(subargs...))) => Expr(f, out, arg2)
             :($subf($(subargs...))) => Expr(f, out, arg2)
@@ -60,14 +60,14 @@ end
 # precompile `⊻=`
 function precom_ox(f, out, arg2)
     if f == :(⊻=)
-        @smatch arg2 begin
+        @match arg2 begin
             :($x |> $view) => Expr(f, out, :(identity($arg2)))
             :($subf($(subargs...))) ||
             :($a || $b) || :($a && $b) => Expr(f, out, arg2)
             _ => Expr(f, out, :(identity($arg2)))
         end
     elseif f == :(.⊻=)
-        @smatch arg2 begin
+        @match arg2 begin
             :($x |> $view) || :($x .|> $view) => Expr(f, out, :(identity.($arg2)))
             :($subf.($(subargs...))) => Expr(f, out, arg2)
             :($subf($(subargs...))) => Expr(f, out, arg2)
@@ -82,7 +82,7 @@ end
 Precompile a single statement `ex`, where `info` is a `PreInfo` instance.
 """
 function precom_ex(m::Module, ex, info)
-    @smatch ex begin
+    @match ex begin
         :($x ← $val) || :($x → $val) => ex
         :($x ↔ $y) => ex
         :($(xs...), $y ← $val) => precom_ex(m, :(($(xs...), $y) ← $val), info)
@@ -146,12 +146,12 @@ function precom_ex(m::Module, ex, info)
     end
 end
 
-precom_range(range) = @smatch range begin
+precom_range(range) = @match range begin
     _ => range
 end
 
 function precom_if(m, ex, exinfo)
-    _expand_cond(cond) = @smatch cond begin
+    _expand_cond(cond) = @match cond begin
         :(($pre, ~)) => :(($pre, $pre))
         :(($pre, $post)) => :(($pre, $post))
         :($pre) => :(($pre, $pre))
@@ -198,7 +198,7 @@ precom_ex(m::Module, ex) = precom_ex(m, ex, PreInfo())
 
 # push a new variable to variable set `x`, for allocating `target`
 function pushvar!(x::Vector{Symbol}, target)
-    @smatch target begin
+    @match target begin
         ::Symbol => begin
             if target in x
                 throw(InvertibilityError("Symbol `$target` should not be used as the allocation target, it is an existing variable in the current scope."))

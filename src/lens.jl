@@ -26,7 +26,7 @@ end
 end
 
 function lens_compile(ex, cache, value)
-    @smatch ex begin
+    @match ex begin
         :($a.$b.$c = $d) => begin
             updated =
                 Expr(:let,

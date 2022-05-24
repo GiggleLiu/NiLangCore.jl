@@ -23,7 +23,7 @@ GVar{Float64, Float64}(2.0, 0.0)
 ```
 """
 macro fieldview(ex)
-    @smatch ex begin
+    @match ex begin
         :($f($obj::$tp) = begin $line; $ex end) => begin
             xval = gensym("value")
             esc(Expr(:block,
