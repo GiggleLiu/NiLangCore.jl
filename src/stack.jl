@@ -11,7 +11,7 @@ function FastStack{T}(n::Int) where T
     FastStack{T}(Vector{T}(undef, n), Ref(0))
 end
 
-function FastStack(n::Int) where T
+function FastStack(n::Int)
     FastStack{Any}(Vector{Any}(undef, n), Ref(0))
 end
 

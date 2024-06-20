@@ -17,9 +17,4 @@ include("variable_analysis.jl")
 include("compiler.jl")
 include("checks.jl")
 
-if Base.VERSION >= v"1.4.2"
-    include("precompile.jl")
-    _precompile_()
-end
-
 end # module

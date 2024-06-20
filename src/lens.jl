@@ -1,7 +1,7 @@
 export _zero, @fields
 
 # update a field of a struct.
-@inline @generated function field_update(main :: T, field::Val{Field}, value) where {T, Field}
+@inline @generated function field_update(main :: T, ::Val{Field}, value) where {T, Field}
     fields = fieldnames(T)
     Expr(:new, T, Any[field !== Field ? :(main.$field) : :value for field in fields]...)
 end

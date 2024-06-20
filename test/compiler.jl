@@ -116,7 +116,7 @@ end
     end
     @test_throws InvertibilityError test2(1.0, 8.0)
 
-    @test_throws LoadError macroexpand(Main, :(@i function test3(a, b)
+    @test_throws InvertibilityError macroexpand(Main, :(@i function test3(a, b)
         add(a, b)
         if a > 8.0
             a -= b*b
@@ -168,7 +168,7 @@ end
     end
     @test_throws InvertibilityError looper2(x, y)
 
-   @test_throws LoadError macroexpand(@__MODULE__, :(@i function looper3(x, y)
+   @test_throws ErrorException macroexpand(@__MODULE__, :(@i function looper3(x, y)
         while (x<100, x>0)
             z ← 0
             x += y
@@ -436,11 +436,13 @@ end
 
 @testset "inverse a prog" begin
     @i function test(out, x)
-        ~(out += x;
-        out += x)
-        ~for i=1:3
+        ~(begin
             out += x
-        end
+            out += x
+        end)
+        ~(for i=1:3
+            out += x
+        end)
     end
     out, x = 0.0, 1.0
     @test check_inv(test, (out, x))
@@ -615,13 +617,13 @@ end
     ex1 = :(@i function f(x)
         x ← 0
     end)
-    @test_throws LoadError macroexpand(Main, ex1)
+    @test_throws InvertibilityError macroexpand(Main, ex1)
 
     ex2 = :(@i function f(x)
         y ← 0
         y ← 0
     end)
-    @test_throws LoadError macroexpand(Main, ex2)
+    @test_throws InvertibilityError macroexpand(Main, ex2)
 
     ex3 = :(@i function f(x)
         y ← 0
@@ -632,12 +634,12 @@ end
     ex4 = :(@i function f(x; y=5)
         y ← 0
     end)
-    @test_throws LoadError macroexpand(Main, ex4)
+    @test_throws InvertibilityError macroexpand(Main, ex4)
 
     ex5 = :(@i function f(x)
         y → 0
     end)
-    @test_throws LoadError macroexpand(Main, ex5)
+    @test_throws InvertibilityError macroexpand(Main, ex5)
 
     ex6 = :(@i function f(x::Int)
         y ← 0
@@ -694,11 +696,11 @@ end
 end
 
 @testset "@routine,~@routine" begin
-    @test_throws LoadError macroexpand(Main, :(@i function f(x)
+    @test_throws ErrorException macroexpand(Main, :(@i function f(x)
         @routine begin
         end
     end))
-    @test_throws LoadError macroexpand(Main, :(@i function f(x)
+    @test_throws ErrorException macroexpand(Main, :(@i function f(x)
         ~@routine
     end))
     @test macroexpand(Main, :(@i function f(x)
@@ -725,7 +727,7 @@ end
 
 
 @testset "argument with function call" begin
-    @test_throws LoadError @macroexpand @i function f(x, y)
+    @test_throws ErrorException @macroexpand @i function f(x, y)
         x += sin(exp(y))
     end
     @i function f(x, y)
@@ -744,9 +746,9 @@ end
     @test (@code_julia (x,y) → var) == :(try
         $(NiLangCore.deanc)((x, y), var)
     catch e
-        $(:(println("deallocate fail `$($(QuoteNode(:((x, y))))) → $(:var)`")) |> NiLangCore.rmlines)
+        $(:(println("deallocate fail `$($(QuoteNode(:((x, y))))) → $(:var)`")))
         throw(e)
-    end)
+    end) |> NiLangCore.rmlines
 
     x = randn(2,4)
     @i function f(y, x)
@@ -818,7 +820,7 @@ end
         add(Complex{}(x, y), Complex{}(a, b))
     end
     @test f(1,2, 3, 4) == (4, 6, 3, 4)
-    @test_throws LoadError macroexpand(NiLangCore, :(@i function f(x, y, a, b)
+    @test_throws ErrorException macroexpand(NiLangCore, :(@i function f(x, y, a, b)
         add(Complex(x, y), Complex{}(a, b))
     end))
     @i function g(x::Inv, y::Inv)
@@ -832,18 +834,18 @@ end
 
 @testset "variable_analysis" begin
     # kwargs should not be assigned
-    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
+    @test_throws InvertibilityError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
         y ← 5
         y → 5
     end))
     # deallocated variables should not be used
-    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
+    @test_throws InvertibilityError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
         z ← 5
         z → 5
         x += 2 * z
     end))
     # deallocated variables should not be used in local scope
-    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
+    @test_throws InvertibilityError macroexpand(@__MODULE__, :(@i function f1(x; y=4)
         z ← 5
         z → 5
         for i=1:10
@@ -931,7 +933,7 @@ end
     end
     @test f3(1,2, 3+4im) == (3,4,1+2im)
 
-    @test_throws LoadError macroexpand(@__MODULE__, :(@i function f3(x, y, z)
+    @test_throws ErrorException macroexpand(@__MODULE__, :(@i function f3(x, y, z)
         (x, y) ↔ (z, j)
     end))
     @i function f4(x, y, z, j)

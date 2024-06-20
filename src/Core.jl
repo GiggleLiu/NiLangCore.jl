@@ -146,7 +146,7 @@ Base.:~(f::Function) = Inv(f)
 Base.:~(::Type{Inv{T}}) where T = T  # for type, it is a destructor
 Base.:~(::Type{T}) where T = Inv{T}  # for type, it is a destructor
 Base.show(io::IO, b::Inv) = print(io, "~$(b.f)")
-Base.display(bf::Inv) where f = print(bf)
+Base.display(bf::Inv) = print(bf)
 """
     protectf(f)
 

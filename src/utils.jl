@@ -122,7 +122,7 @@ end
 function unzipped_broadcast(f, arg::Tuple; kwargs...)
     f.(arg)
 end
-@generated function unzipped_broadcast(f, args::Vararg{<:AbstractArray,N}; kwargs...) where N
+@generated function unzipped_broadcast(f, args::Vararg{AbstractArray,N}; kwargs...) where N
     argi = [:(args[$k][i]) for k=1:N]
     quote
         for i = 1:same_length(args)
@@ -131,7 +131,7 @@ end
         return args
     end
 end
-@generated function unzipped_broadcast(f, args::Vararg{<:Tuple,N}; kwargs...) where N
+@generated function unzipped_broadcast(f, args::Vararg{Tuple,N}; kwargs...) where N
     quote
         same_length(args)
         res = map(f, args...)
