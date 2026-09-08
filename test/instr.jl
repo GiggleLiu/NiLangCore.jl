@@ -154,9 +154,12 @@ end
         @test memkernel(deepcopy(x)) == y
         @test render_arg(deepcopy(x)) == x
     end
-    @test render_arg(:(x.y.[2:3])) == :(x.y |> subarray(2:3))
+    # Preserve the legacy dotted-index AST without asking newer Julia parsers
+    # to accept syntax that they no longer recognize.
+    dotted_indices = Expr(:., :(x.y), QuoteNode(Expr(:vect, :(2:3))))
+    @test render_arg(dotted_indices) == :(x.y |> subarray(2:3))
     @test memkernel(:(x.y |> subarray(2:3))) == (:(x.y[2:3]))
-    @test render_arg(:(x.y.[2:3] |> value)) == :(x.y |> subarray(2:3) |> value)
+    @test render_arg(Expr(:call, :|>, dotted_indices, :value)) == :(x.y |> subarray(2:3) |> value)
     @test memkernel(:(x.y |> subarray(2:3) |> value)) == :(x.y[2:3])
 
     @test_throws InvertibilityError check_args([:a, :(a |> grad)])
