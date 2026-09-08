@@ -82,6 +82,17 @@ end
 Precompile a single statement `ex`, where `info` is a `PreInfo` instance.
 """
 function precom_ex(m::Module, ex, info)
+    # An expression macro such as @nref may name the storage being updated.
+    # Expand it before the compiler decides whether to assign or deallocate it.
+    if ex isa Expr && ex.head in (:(+=), :(-=), :(*=), :(/=), :(⊻=), :(.+=), :(.-=), :(.*=), :(./=), :(.⊻=)) &&
+            ex.args[1] isa Expr && ex.args[1].head == :macrocall
+        target = ex.args[1]
+        while target isa Expr && target.head == :macrocall &&
+                !(target.args[1] in (Symbol("@skip!"), Symbol("@fields"), Symbol("@const")))
+            target = macroexpand(m, target; recursive=false)
+        end
+        ex = Expr(ex.head, target, ex.args[2])
+    end
     @match ex begin
         :($x ← $val) || :($x → $val) => ex
         :($x ↔ $y) => ex
@@ -108,6 +119,7 @@ function precom_ex(m::Module, ex, info)
             Expr(:block, precom_body(m, body, info)...)
         end
         # TODO: allow ommit step.
+        Expr(:for, Expr(:block, iterator), body) => precom_ex(m, Expr(:for, iterator, body), info)
         :(for $i=$range; $(body...); end) ||
         :(for $i in $range; $(body...); end) => begin
             info = PreInfo()
@@ -139,7 +151,9 @@ function precom_ex(m::Module, ex, info)
         :($f($(args...))) => :($f($(args...)))
         :($f.($(args...))) => :($f.($(args...)))
         :(nothing) => ex
-        Expr(:macrocall, _...) => precom_ex(m, macroexpand(m, ex), info)
+        # Let this preprocessor consume NiLang control syntax before Julia
+        # attempts to expand nested macros such as @routine.
+        Expr(:macrocall, _...) => precom_ex(m, macroexpand(m, ex; recursive=false), info)
         ::LineNumberNode => ex
         ::Nothing => ex
         _ => error("unsupported statement: $ex")

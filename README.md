@@ -1,5 +1,7 @@
 # NiLangCore
 
+![Agent maintained](https://img.shields.io/badge/maintenance-agent%20maintained-blue)
+
 The core package for reversible eDSL NiLang.
 
 ![CI](https://github.com/GiggleLiu/NiLangCore.jl/workflows/CI/badge.svg)

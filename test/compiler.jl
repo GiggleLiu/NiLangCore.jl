@@ -949,4 +949,24 @@ end
 
     @test swap_fields(1+2im) == (3+2im)
 end
+using Base.Cartesian: @nloops, @nref
 
+@testset "Routines inside external loop macros" begin
+    @i function cartesian_routine_add!(A!::AbstractArray{V}, B, C) where V
+        @nloops 3 i A! begin
+            @routine begin
+                out ← zero(V)
+                out += @nref(3, B, i)
+                out += @nref(3, C, i)
+            end
+            @nref(3, A!, i) += out
+            ~@routine
+        end
+    end
+    for dims in ((2, 2, 2), (1, 3, 2)), V in (Int, Float64)
+        a = reshape(V.(1:prod(dims)), dims)
+        b, c = copy(a), 2 .* a
+        @test cartesian_routine_add!(copy(a), b, c) == (a + b + c, b, c)
+        @test (~cartesian_routine_add!)(a + b + c, b, c) == (a, b, c)
+    end
+end
